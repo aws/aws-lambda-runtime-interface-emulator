@@ -1,0 +1,9 @@
+/pkg
+/build
+/bin
+*.swp
+*.iml
+tags
+.idea
+.DS_Store
+.venv
