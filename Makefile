@@ -13,13 +13,13 @@ compile-lambda-linux:
 tests:
 	go test ./...
 
-integ-tests-and-compile: compile-lambda-linux
+integ-tests-and-compile: tests compile-lambda-linux
 	python3 -m venv .venv
 	.venv/bin/pip install --upgrade pip
 	.venv/bin/pip install requests
 	.venv/bin/python3 test/integration/local_lambda/end-to-end-test.py
 
-integ-tests-with-docker: compile-with-docker
+integ-tests-with-docker: tests compile-with-docker
 	python3 -m venv .venv
 	.venv/bin/pip install --upgrade pip
 	.venv/bin/pip install requests
