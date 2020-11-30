@@ -50,13 +50,13 @@ func (l *FormattedPlatformLogger) Printf(fmt string, args ...interface{}) {
 
 func SupernovaInvalidTaskConfigRepr(err error) func(error) string {
 	return func(unused error) string {
-		return fmt.Sprintf("SUPERNOVA\tInvalid task config: %s", err)
+		return fmt.Sprintf("IMAGE\tInvalid task config: %s", err)
 	}
 }
 
 func SupernovaLaunchErrorRepr(entrypoint []string, cmd []string, workingDir string) func(error) string {
 	return func(err error) string {
-		return fmt.Sprintf("SUPERNOVA\tLaunch error: %s\tEntrypoint: [%s]\tCmd: [%s]\tWorkingDir: [%s]",
+		return fmt.Sprintf("IMAGE\tLaunch error: %s\tEntrypoint: [%s]\tCmd: [%s]\tWorkingDir: [%s]",
 			err,
 			strings.Join(entrypoint, ","),
 			strings.Join(cmd, ","),
