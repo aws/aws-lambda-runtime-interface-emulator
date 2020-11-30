@@ -19,11 +19,10 @@ reported the issue. Please try to include as much information as you can. Detail
 * Any modifications you've made relevant to the bug
 * Anything unusual about your environment or deployment
 
-IMPORTANT: Everything under `/lambda` is a mirrored version of AWS Lambda's Runtime API. Due to this, we are not accepting
-contributions to any code within this directory. 
-
 
 ## Contributing via Pull Requests
+This repository contains the source code and examples for the Runtime Interface Emulator. We will accept pull requests on documentation, examples, bug fixes and the Dockerfiles. We will also accept pull requests, issues and feedback on improvements to the Runtime Interface Emulator. However, our priority will be to maintain fidelity with AWS Lambda’s Runtime Interface on the cloud. 
+
 Contributions via pull requests are much appreciated. Before sending us a pull request, please ensure that:
 
 1. You are working against the latest source on the *main* branch.
