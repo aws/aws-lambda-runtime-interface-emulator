@@ -54,7 +54,7 @@ func printEndReports(invokeId string, initDuration string, memorySize string, in
 			"Billed Duration: %.f ms\t"+
 			"Memory Size: %s MB\t"+
 			"Max Memory Used: %s MB\t\n",
-		invokeId, invokeDuration, math.Ceil(invokeDuration/100)*100, memorySize, memorySize)
+		invokeId, invokeDuration, math.Ceil(invokeDuration), memorySize, memorySize)
 }
 
 func InvokeHandler(w http.ResponseWriter, r *http.Request, sandbox Sandbox) {
