@@ -27,8 +27,6 @@ import (
 )
 
 const (
-	RuntimeAPIHost        = "127.0.0.1"
-	RuntimeAPIPort        = 9001
 	defaultAgentLocation  = "/opt/extensions"
 	runtimeDeadlineShare  = 0.3
 	disableExtensionsFile = "/opt/disable-extensions-jwigqn8j"
@@ -451,10 +449,12 @@ func start(signalCtx context.Context, execCtx *rapidContext) {
 
 	interopServer := execCtx.interopServer
 
-	// Start Runtime API Server
-	err := execCtx.server.Listen()
-	if err != nil {
-		log.WithError(err).Panic("Runtime API Server failed to listen")
+	if !execCtx.server.IsListening() {
+		// Start Runtime API Server
+		err := execCtx.server.Listen()
+		if err != nil {
+			log.WithError(err).Panic("Runtime API Server failed to listen")
+		}
 	}
 
 	go func() { execCtx.server.Serve(signalCtx) }()
