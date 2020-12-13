@@ -85,6 +85,7 @@ func (s *Server) GetInvokeTimeout() time.Duration {
 // Reserve allocates invoke context, returnes new invokeID
 func (s *Server) Reserve(id string) (string, *statejson.InternalStateDescription, error) {
 	s.mutex.Lock()
+	defer s.mutex.Unlock()
 
 	if s.invokeCtx != nil {
 		return "", nil, ErrAlreadyReserved
@@ -99,8 +100,6 @@ func (s *Server) Reserve(id string) (string, *statejson.InternalStateDescription
 	}
 
 	s.reservationContext, s.reservationCancel = context.WithCancel(context.Background())
-
-	s.mutex.Unlock()
 
 	internalState, err := s.waitInit()
 	return invokeID, internalState, err
