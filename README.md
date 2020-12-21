@@ -110,8 +110,8 @@ You can configure timeout by setting AWS_LAMBDA_FUNCTION_TIMEOUT to the number o
 
 The rest of these Environment Variables can be set to match AWS Lambda's environment but are not required.
 * `AWS_LAMBDA_FUNCTION_VERSION`
-* `AWS_LAMBDA_FUNCION_NAME`
-* `AWS_LAMBDA_MEMORY_SIZE`
+* `AWS_LAMBDA_FUNCTION_NAME`
+* `AWS_LAMBDA_FUNCTION_MEMORY_SIZE`
 
 ## Level of support
 
