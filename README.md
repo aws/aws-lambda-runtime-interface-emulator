@@ -57,19 +57,32 @@ You can build RIE into a base image. Download the RIE from GitHub to your local 
 #### To build the emulator into your image
 
 1. Create a script and save it in your project directory. The following example shows a typical script for a Node.js function. The presence of the AWS_LAMBDA_RUNTIME_API environment variable indicates the presence of the runtime API. If the runtime API is present, the script runs the runtime interface client (https://docs.aws.amazon.com/lambda/latest/dg/runtimes-images.html#runtimes-api-client). Otherwise, the script runs the runtime interface emulator. 
+    ```
+    #!/bin/sh
+    if [ -z "${AWS_LAMBDA_RUNTIME_API}" ]; then
+      exec /usr/local/bin/aws-lambda-rie /usr/bin/npx aws-lambda-ric
+    else
+      exec /usr/bin/npx aws-lambda-ric
+    fi
+    ```
+   
+2. Download the runtime interface emulator (https://github.com/aws/aws-lambda-runtime-interface-emulator/releases/latest/download/aws-lambda-rie) from GitHub into your project directory. 
 
-    * `#!/bin/sh if [ -z "${AWS_LAMBDA_RUNTIME_API}" ]; then exec /usr/local/bin/aws-lambda-rie /usr/bin/npx aws-lambda-ricelseexec /usr/bin/npx aws-lambda-ricfi`  
-    * Download the runtime interface emulator (https://github.com/aws/aws-lambda-runtime-interface-emulator/releases/latest/download/aws-lambda-rie) from GitHub into your project directory. 
-    * Install the emulator package and change ENTRYPOINT to run the new script by adding the following lines to your Dockerfile:
-        ```
-        ADD aws-lambda-rie /usr/local/bin/aws-lambda-rie 
-        ENTRYPOINT [ “/entry_script.sh” ]
-        ```
+3. Install the emulator package and change ENTRYPOINT to run the new script by adding the following lines to your Dockerfile:
+    ```
+    ADD aws-lambda-rie /usr/local/bin/aws-lambda-rie 
+    ENTRYPOINT [ “/entry_script.sh” ]
+    ```
 
-2. Build your image locally using the docker build command. 
+4. Build your image locally using the docker build command. 
+    ```
+    docker build -t myfunction:latest .
+    ```
 
-    `docker build -t myfunction:latest .`
-    `docker run -p 9000:8080  myfunction:latest`
+5. Execute your image locally using the docker run command.     
+    ```
+    docker run -p 9000:8080 myfunction:latest
+    ```
 
 ### Test an image without adding RIE to the image
 
@@ -110,7 +123,7 @@ You can configure timeout by setting AWS_LAMBDA_FUNCTION_TIMEOUT to the number o
 
 The rest of these Environment Variables can be set to match AWS Lambda's environment but are not required.
 * `AWS_LAMBDA_FUNCTION_VERSION`
-* `AWS_LAMBDA_FUNCION_NAME`
+* `AWS_LAMBDA_FUNCTION_NAME`
 * `AWS_LAMBDA_MEMORY_SIZE`
 
 ## Level of support
