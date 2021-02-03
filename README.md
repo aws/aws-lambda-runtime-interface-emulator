@@ -71,7 +71,7 @@ You can build RIE into a base image. Download the RIE from GitHub to your local 
 3. Install the emulator package and change ENTRYPOINT to run the new script by adding the following lines to your Dockerfile:
     ```
     ADD aws-lambda-rie /usr/local/bin/aws-lambda-rie 
-    ENTRYPOINT [ “/entry_script.sh” ]
+    ENTRYPOINT [ "/entry_script.sh" ]
     ```
 
 4. Build your image locally using the docker build command. 
@@ -79,7 +79,7 @@ You can build RIE into a base image. Download the RIE from GitHub to your local 
     docker build -t myfunction:latest .
     ```
 
-5. Execute your image locally using the docker run command.     
+5. Run your image locally using the docker run command.     
     ```
     docker run -p 9000:8080 myfunction:latest
     ```
