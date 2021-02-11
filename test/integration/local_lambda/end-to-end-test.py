@@ -61,6 +61,28 @@ class TestEndToEnd(TestCase):
         r = requests.post("http://localhost:9000/2015-03-31/functions/function/invocations", json={})
         self.assertEqual(b'"My lambda ran succesfully"', r.content) 
 
+    def test_lambda_function_arn_exists(self):
+        cmd = f"docker run --name testing -d -v {self.path_to_binary}:/local-lambda-runtime-server -p 9000:8080 --entrypoint /local-lambda-runtime-server/aws-lambda-rie {self.image_name} {DEFUALT_1P_ENTRYPOINT} main.assert_lambda_arn_in_context"
+
+        Popen(cmd.split(' ')).communicate()
+
+        # sleep 1s to give enough time for the endpoint to be up to curl
+        time.sleep(SLEEP_TIME)
+
+        r = requests.post("http://localhost:9000/2015-03-31/functions/function/invocations", json={})
+        self.assertEqual(b'"My lambda ran succesfully"', r.content)
+
+    def test_lambda_function_arn_exists_with_defining_custom_name(self):
+        cmd = f"docker run --name testing --env AWS_LAMBDA_FUNCTION_NAME=MyCoolName -d -v {self.path_to_binary}:/local-lambda-runtime-server -p 9000:8080 --entrypoint /local-lambda-runtime-server/aws-lambda-rie {self.image_name} {DEFUALT_1P_ENTRYPOINT} main.assert_lambda_arn_in_context"
+
+        Popen(cmd.split(' ')).communicate()
+
+        # sleep 1s to give enough time for the endpoint to be up to curl
+        time.sleep(SLEEP_TIME)
+
+        r = requests.post("http://localhost:9000/2015-03-31/functions/function/invocations", json={})
+        self.assertEqual(b'"My lambda ran succesfully"', r.content)
+
 
     def test_timeout_invoke(self):
         cmd = f"docker run --name timeout -d --env AWS_LAMBDA_FUNCTION_TIMEOUT=1 -v {self.path_to_binary}:/local-lambda-runtime-server -p 9001:8080 --entrypoint /local-lambda-runtime-server/aws-lambda-rie {self.image_name} {DEFUALT_1P_ENTRYPOINT} main.sleep_handler"
