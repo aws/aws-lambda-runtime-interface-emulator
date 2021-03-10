@@ -20,7 +20,7 @@ Instructions for installing AWS Lambda Runtime Interface Emulator for your platf
 |---------|---------
 | macOS | `mkdir -p ~/.aws-lambda-rie && curl -Lo ~/.aws-lambda-rie/aws-lambda-rie https://github.com/aws/aws-lambda-runtime-interface-emulator/releases/latest/download/aws-lambda-rie && chmod +x ~/.aws-lambda-rie/aws-lambda-rie` |
 | Linux | `mkdir -p ~/.aws-lambda-rie && curl -Lo ~/.aws-lambda-rie/aws-lambda-rie https://github.com/aws/aws-lambda-runtime-interface-emulator/releases/latest/download/aws-lambda-rie && chmod +x ~/.aws-lambda-rie/aws-lambda-rie` |
-| Windows | `Invoke-WebRequest -OutFile 'C:\Program Files\aws lambda\aws-lambda-rie' https://github.com/aws/aws-lambda-runtime-interface-emulator/releases/latest/download/aws-lambda-rie` |
+| Windows | `New-Item -ItemType Directory -Force -Path 'C:\Program Files\aws lambda\aws-lambda-rie'`  `Invoke-WebRequest -OutFile 'C:\Program Files\aws lambda\aws-lambda-rie' https://github.com/aws/aws-lambda-runtime-interface-emulator/releases/latest/download/aws-lambda-rie` |
 
 
 ## Getting started
