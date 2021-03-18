@@ -139,7 +139,7 @@ configurations that will not be emulated by this component.
 * You can also use it to test extensions and agents built into the container image against the Lambda Extensions API.
 * This component does _not_ emulate Lambda’s orchestration, or security and authentication configurations. 
 * The component does _not_ support X-ray and other Lambda integrations locally. 
-* The component supports only Linux x84-64 architectures.
+* The component supports only Linux x86-64 architectures.
 
 ## Security
 
