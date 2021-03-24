@@ -94,11 +94,12 @@ func InvokeHandler(w http.ResponseWriter, r *http.Request, sandbox Sandbox) {
 
 	invokeStart := time.Now()
 	invokePayload := &interop.Invoke{
-		ID:              uuid.New().String(),
-		TraceID:         r.Header.Get("X-Amzn-Trace-Id"),
-		LambdaSegmentID: r.Header.Get("X-Amzn-Segment-Id"),
-		Payload:         bodyBytes,
-		CorrelationID:   "invokeCorrelationID",
+		ID:                 uuid.New().String(),
+		InvokedFunctionArn: fmt.Sprintf("arn:aws:lambda:us-east-1:012345678912:function:%s", GetenvWithDefault("AWS_LAMBDA_FUNCTION_NAME", "test_function")),
+		TraceID:            r.Header.Get("X-Amzn-Trace-Id"),
+		LambdaSegmentID:    r.Header.Get("X-Amzn-Segment-Id"),
+		Payload:            bodyBytes,
+		CorrelationID:      "invokeCorrelationID",
 	}
 	fmt.Println("START RequestId: " + invokePayload.ID + " Version: " + functionVersion)
 
@@ -176,7 +177,6 @@ func InitHandler(sandbox Sandbox, functionVersion string, timeout int64) (time.T
 	additionalFunctionEnvironmentVariables["AWS_LAMBDA_FUNCTION_MEMORY_SIZE"] = "3008"
 	additionalFunctionEnvironmentVariables["AWS_LAMBDA_FUNCTION_NAME"] = "test_function"
 
-
 	// Forward Env Vars from the running system (container) to what the function can view. Without this, Env Vars will
 	// not be viewable when the function runs.
 	for _, env := range os.Environ() {
@@ -184,8 +184,6 @@ func InitHandler(sandbox Sandbox, functionVersion string, timeout int64) (time.T
 		envVar := strings.SplitN(env, "=", 2)
 		additionalFunctionEnvironmentVariables[envVar[0]] = envVar[1]
 	}
-
-
 
 	initStart := time.Now()
 	// pass to rapid
