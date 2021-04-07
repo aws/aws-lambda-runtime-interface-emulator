@@ -82,26 +82,29 @@ func (s *Server) GetInvokeTimeout() time.Duration {
 	return s.invokeTimeout
 }
 
-// Reserve allocates invoke context, returnes new invokeID
-func (s *Server) Reserve(id string) (string, *statejson.InternalStateDescription, error) {
+func (s *Server) createInvokeContext(id string) (string, error) {
 	s.mutex.Lock()
-
+	defer s.mutex.Unlock()
 	if s.invokeCtx != nil {
-		return "", nil, ErrAlreadyReserved
+		return "", ErrAlreadyReserved
 	}
 	invokeID := uuid.New().String()
 	if len(id) > 0 {
 		invokeID = id
 	}
-
 	s.invokeCtx = &InvokeContext{
 		ID: invokeID,
 	}
-
 	s.reservationContext, s.reservationCancel = context.WithCancel(context.Background())
+	return invokeID, nil
+}
 
-	s.mutex.Unlock()
-
+// Reserve allocates invoke context, returnes new invokeID
+func (s *Server) Reserve(id string) (string, *statejson.InternalStateDescription, error) {
+	invokeID, err := s.createInvokeContext(id)
+	if err != nil {
+		return "", nil, err
+	}
 	internalState, err := s.waitInit()
 	return invokeID, internalState, err
 }
