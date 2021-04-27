@@ -7,6 +7,7 @@ import (
 	"context"
 	"io"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -28,17 +29,23 @@ const (
 
 type Sandbox interface {
 	Init(i *interop.Init, invokeTimeoutMs int64)
-	Invoke(responseWriter io.Writer, invoke *interop.Invoke) error
+	Invoke(responseWriter http.ResponseWriter, invoke *interop.Invoke) error
 	InteropServer() InteropServer
 }
 
+type ReserveResponse struct {
+	Token         interop.Token
+	InternalState *statejson.InternalStateDescription
+}
+
 type InteropServer interface {
-	FastInvoke(w io.Writer, i *interop.Invoke) error
-	Reserve(id string) (string, *statejson.InternalStateDescription, error)
-	Reset(reason string, timeoutMs int64) error
+	FastInvoke(w http.ResponseWriter, i *interop.Invoke, direct bool) error
+	Reserve(id string, traceID, lambdaSegmentID string) (*ReserveResponse, error)
+	Reset(reason string, timeoutMs int64) (*statejson.ResetDescription, error)
 	AwaitRelease() (*statejson.InternalStateDescription, error)
 	Shutdown(shutdown *interop.Shutdown) *statejson.InternalStateDescription
 	InternalState() (*statejson.InternalStateDescription, error)
+	CurrentToken() *interop.Token
 }
 
 type SandboxBuilder struct {
@@ -197,7 +204,7 @@ func (b *SandboxBuilder) Init(i *interop.Init, timeoutMs int64) {
 	}, timeoutMs)
 }
 
-func (b *SandboxBuilder) Invoke(w io.Writer, i *interop.Invoke) error {
+func (b *SandboxBuilder) Invoke(w http.ResponseWriter, i *interop.Invoke) error {
 	return b.sandbox.InteropServer.Invoke(w, i)
 }
 

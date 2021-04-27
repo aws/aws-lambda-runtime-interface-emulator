@@ -9,6 +9,7 @@ import (
 	"errors"
 	"io"
 	"os"
+	"time"
 
 	"go.amzn.com/lambda/agents"
 	"go.amzn.com/lambda/appctx"
@@ -67,7 +68,7 @@ type rapidContext struct {
 }
 
 func (c *rapidContext) HasActiveExtensions() bool {
-	return extensions.AreEnabled()
+	return extensions.AreEnabled() && c.registrationService.CountAgents() > 0
 }
 
 func logAgentsInitStatus(execCtx *rapidContext) {
@@ -163,7 +164,17 @@ func doInit(ctx context.Context, execCtx *rapidContext, watchdog *core.Watchdog)
 	}
 
 	bootstrapEnv := bootstrap.Env(execCtx.environment)
-	bootstrapCwd := bootstrap.Cwd()
+	bootstrapCwd, err := bootstrap.Cwd()
+	if err != nil {
+		if fatalError, formattedLog, hasError := bootstrap.CachedFatalError(err); hasError {
+			appctx.StoreFirstFatalError(execCtx.appCtx, fatalError)
+			execCtx.platformLogger.Printf("%s", formattedLog)
+		} else {
+			appctx.StoreFirstFatalError(execCtx.appCtx, fatalerror.InvalidWorkingDir)
+		}
+		return err
+	}
+
 	bootstrapExtraFiles := bootstrap.ExtraFiles()
 	runtimeCmd := runtimecmd.NewCustomRuntimeCmd(ctx, bootstrapCmd, bootstrapCwd, bootstrapEnv, execCtx.runtimeLogWriter, bootstrapExtraFiles)
 
@@ -207,7 +218,7 @@ func doInit(ctx context.Context, execCtx *rapidContext, watchdog *core.Watchdog)
 	return nil
 }
 
-func doInvoke(ctx context.Context, execCtx *rapidContext, watchdog *core.Watchdog, invokeRequest *interop.Invoke) error {
+func doInvoke(ctx context.Context, execCtx *rapidContext, watchdog *core.Watchdog, invokeRequest *interop.Invoke, mx *rendering.InvokeRendererMetrics) error {
 	appCtx := execCtx.appCtx
 	appctx.StoreErrorResponse(appCtx, nil)
 
@@ -255,7 +266,12 @@ func doInvoke(ctx context.Context, execCtx *rapidContext, watchdog *core.Watchdo
 		// Invoke
 		if err := xray.CaptureInvokeSubsegment(ctx, xray.WithError(ctx, appCtx, func(ctx context.Context) error {
 			log.Debug("Set renderer for invoke")
-			execCtx.renderingService.SetRenderer(rendering.NewInvokeRenderer(ctx, invokeRequest, xray.TracingHeaderParser()))
+			renderer := rendering.NewInvokeRenderer(ctx, invokeRequest, xray.TracingHeaderParser())
+			defer func() {
+				*mx = renderer.GetMetrics()
+			}()
+
+			execCtx.renderingService.SetRenderer(renderer)
 			if extensions.AreEnabled() {
 				log.Debug("Release agents conditions")
 				for _, agent := range extAgents {
@@ -265,6 +281,7 @@ func doInvoke(ctx context.Context, execCtx *rapidContext, watchdog *core.Watchdo
 					agent.Release()
 				}
 			}
+
 			log.Debug("Release runtime condition")
 			runtime.Release()
 			log.Debug("Await runtime response")
@@ -342,30 +359,63 @@ func handleStart(ctx context.Context, execCtx *rapidContext, watchdog *core.Watc
 	if !startRequest.SuppressInit {
 		if err := doInit(ctx, execCtx, watchdog); err != nil {
 			log.WithError(err).WithField("InvokeID", startRequest.InvokeID).Error("Init failed")
-			handleInitError(appCtx, execCtx, startRequest.InvokeID, interopServer, err, startRequest.CorrelationID)
+			doneFailMsg := generateDoneFail(execCtx, startRequest.CorrelationID, nil)
+			handleInitError(doneFailMsg, execCtx, startRequest.InvokeID, interopServer, err)
 			return
 		}
 	}
 
 	doneMsg := &interop.Done{
-		RuntimeRelease:      appctx.GetRuntimeRelease(appCtx),
-		CorrelationID:       startRequest.CorrelationID,
-		NumActiveExtensions: execCtx.registrationService.CountAgents(),
+		CorrelationID: startRequest.CorrelationID,
+		Meta: interop.DoneMetadata{
+			RuntimeRelease:      appctx.GetRuntimeRelease(appCtx),
+			NumActiveExtensions: execCtx.registrationService.CountAgents(),
+		},
 	}
 	if execCtx.telemetryAPIEnabled {
-		doneMsg.LogsAPIMetrics = execCtx.telemetryService.FlushMetrics()
+		doneMsg.Meta.LogsAPIMetrics = execCtx.telemetryService.FlushMetrics()
 	}
 	if err := interopServer.SendDone(doneMsg); err != nil {
 		log.Panic(err)
 	}
 }
 
+func generateDoneFail(execCtx *rapidContext, correlationID string, invokeMx *rendering.InvokeRendererMetrics) *interop.DoneFail {
+	errorType, found := appctx.LoadFirstFatalError(execCtx.appCtx)
+	if !found {
+		errorType = fatalerror.Unknown
+	}
+
+	doneFailMsg := &interop.DoneFail{
+		ErrorType:     errorType,
+		CorrelationID: correlationID, // required for standalone mode
+		Meta: interop.DoneMetadata{
+			RuntimeRelease:      appctx.GetRuntimeRelease(execCtx.appCtx),
+			NumActiveExtensions: execCtx.registrationService.CountAgents(),
+		},
+	}
+
+	if invokeMx != nil {
+		doneFailMsg.Meta.InvokeRequestReadTimeNs = invokeMx.ReadTime.Nanoseconds()
+		doneFailMsg.Meta.InvokeRequestSizeBytes = int64(invokeMx.SizeBytes)
+	}
+
+	if execCtx.telemetryAPIEnabled {
+		doneFailMsg.Meta.LogsAPIMetrics = execCtx.telemetryService.FlushMetrics()
+	}
+
+	return doneFailMsg
+}
+
 func handleInvoke(ctx context.Context, execCtx *rapidContext, watchdog *core.Watchdog, invokeRequest *interop.Invoke) {
 	interopServer, appCtx := execCtx.interopServer, execCtx.appCtx
 
-	if err := doInvoke(ctx, execCtx, watchdog, invokeRequest); err != nil {
+	invokeMx := rendering.InvokeRendererMetrics{}
+
+	if err := doInvoke(ctx, execCtx, watchdog, invokeRequest, &invokeMx); err != nil {
 		log.WithError(err).WithField("InvokeID", invokeRequest.ID).Error("Invoke failed")
-		handleInvokeError(appCtx, execCtx, invokeRequest.ID, interopServer, err, invokeRequest.CorrelationID)
+		doneFailMsg := generateDoneFail(execCtx, invokeRequest.CorrelationID, &invokeMx)
+		handleInvokeError(doneFailMsg, execCtx, invokeRequest.ID, interopServer, err)
 		return
 	}
 
@@ -373,13 +423,23 @@ func handleInvoke(ctx context.Context, execCtx *rapidContext, watchdog *core.Wat
 		log.Panic(err)
 	}
 
+	var invokeCompletionTimeNs int64
+	if responseTimeNs := execCtx.registrationService.GetRuntime().GetRuntimeDescription().State.ResponseTimeNs; responseTimeNs != 0 {
+		invokeCompletionTimeNs = time.Now().UnixNano() - responseTimeNs
+	}
+
 	doneMsg := &interop.Done{
-		RuntimeRelease:      appctx.GetRuntimeRelease(appCtx),
-		CorrelationID:       invokeRequest.CorrelationID,
-		NumActiveExtensions: execCtx.registrationService.CountAgents(),
+		CorrelationID: invokeRequest.CorrelationID,
+		Meta: interop.DoneMetadata{
+			RuntimeRelease:          appctx.GetRuntimeRelease(appCtx),
+			NumActiveExtensions:     execCtx.registrationService.CountAgents(),
+			InvokeRequestReadTimeNs: invokeMx.ReadTime.Nanoseconds(),
+			InvokeRequestSizeBytes:  int64(invokeMx.SizeBytes),
+			InvokeCompletionTimeNs:  invokeCompletionTimeNs,
+		},
 	}
 	if execCtx.telemetryAPIEnabled {
-		doneMsg.LogsAPIMetrics = execCtx.telemetryService.FlushMetrics()
+		doneMsg.Meta.LogsAPIMetrics = execCtx.telemetryService.FlushMetrics()
 	}
 
 	if err := interopServer.SendDone(doneMsg); err != nil {
@@ -411,13 +471,30 @@ func blockForever() {
 func handleReset(execCtx *rapidContext, watchdog *core.Watchdog, reset *interop.Reset) {
 	log.Warnf("Reset initiated: %s", reset.Reason)
 
-	gracefulShutdown(execCtx, watchdog, reset.DeadlineNs, execCtx.standaloneMode, reset.Reason)
+	profiler := metering.ExtensionsResetDurationProfiler{}
+	gracefulShutdown(execCtx, watchdog, &profiler, reset.DeadlineNs, execCtx.standaloneMode, reset.Reason)
+
+	extensionsResetMs, resetTimeout := profiler.CalculateExtensionsResetMs()
+
+	meta := interop.DoneMetadata{
+		ExtensionsResetMs: extensionsResetMs,
+	}
 
 	if !execCtx.standaloneMode {
-		// GIRP interopServer implementation sends GIRP RSTDONE
-		if err := execCtx.interopServer.SendDone(&interop.Done{CorrelationID: reset.CorrelationID}); err != nil {
-			log.Panicf("Failed to SendDone: %s", err)
+		// GIRP interopServer implementation sends GIRP RSTFAIL/RSTDONE
+		if resetTimeout {
+			// TODO: DoneFail must contain a reset timeout ErrorType for rapid local to distinguish errors
+			doneFail := &interop.DoneFail{CorrelationID: reset.CorrelationID, Meta: meta}
+			if err := execCtx.interopServer.SendDoneFail(doneFail); err != nil {
+				log.Panicf("Failed to SendDoneFail: %s", err)
+			}
+		} else {
+			done := &interop.Done{CorrelationID: reset.CorrelationID, Meta: meta}
+			if err := execCtx.interopServer.SendDone(done); err != nil {
+				log.Panicf("Failed to SendDone: %s", err)
+			}
 		}
+
 		os.Exit(0)
 	}
 
@@ -425,8 +502,16 @@ func handleReset(execCtx *rapidContext, watchdog *core.Watchdog, reset *interop.
 
 	fatalErrorType, _ := appctx.LoadFirstFatalError(execCtx.appCtx)
 
-	if err := execCtx.interopServer.SendDone(&interop.Done{CorrelationID: reset.CorrelationID, ErrorType: string(fatalErrorType)}); err != nil {
-		log.Panicf("Failed to SendDone: %s", err)
+	if resetTimeout {
+		doneFail := &interop.DoneFail{CorrelationID: reset.CorrelationID, ErrorType: fatalErrorType, Meta: meta}
+		if err := execCtx.interopServer.SendDoneFail(doneFail); err != nil {
+			log.Panicf("Failed to SendDoneFail: %s", err)
+		}
+	} else {
+		done := &interop.Done{CorrelationID: reset.CorrelationID, ErrorType: fatalErrorType, Meta: meta}
+		if err := execCtx.interopServer.SendDone(done); err != nil {
+			log.Panicf("Failed to SendDone: %s", err)
+		}
 	}
 }
 
@@ -434,11 +519,11 @@ func handleReset(execCtx *rapidContext, watchdog *core.Watchdog, reset *interop.
 func handleShutdown(execCtx *rapidContext, watchdog *core.Watchdog, shutdown *interop.Shutdown, reason string) {
 	log.Warnf("Shutdown initiated")
 
-	gracefulShutdown(execCtx, watchdog, shutdown.DeadlineNs, true, reason)
+	gracefulShutdown(execCtx, watchdog, &metering.ExtensionsResetDurationProfiler{}, shutdown.DeadlineNs, true, reason)
 
 	fatalErrorType, _ := appctx.LoadFirstFatalError(execCtx.appCtx)
 
-	if err := execCtx.interopServer.SendDone(&interop.Done{CorrelationID: shutdown.CorrelationID, ErrorType: string(fatalErrorType)}); err != nil {
+	if err := execCtx.interopServer.SendDone(&interop.Done{CorrelationID: shutdown.CorrelationID, ErrorType: fatalErrorType}); err != nil {
 		log.Panicf("Failed to SendDone: %s", err)
 	}
 

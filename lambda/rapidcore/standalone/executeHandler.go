@@ -4,7 +4,6 @@
 package standalone
 
 import (
-	"io/ioutil"
 	"net/http"
 
 	log "github.com/sirupsen/logrus"
@@ -13,17 +12,11 @@ import (
 )
 
 func Execute(w http.ResponseWriter, r *http.Request, sandbox rapidcore.Sandbox) {
-	bodyBytes, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		log.Errorf("Failed to read invoke body: %s", err)
-		w.WriteHeader(500)
-		return
-	}
 
 	invokePayload := &interop.Invoke{
 		TraceID:         r.Header.Get("X-Amzn-Trace-Id"),
 		LambdaSegmentID: r.Header.Get("X-Amzn-Segment-Id"),
-		Payload:         bodyBytes,
+		Payload:         r.Body,
 		CorrelationID:   "invokeCorrelationID",
 	}
 

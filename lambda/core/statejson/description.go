@@ -10,8 +10,9 @@ import (
 
 // StateDescription ...
 type StateDescription struct {
-	Name         string `json:"name"`
-	LastModified int64  `json:"lastModified"`
+	Name           string `json:"name"`
+	LastModified   int64  `json:"lastModified"`
+	ResponseTimeNs int64  `json:"responseTimeNs"`
 }
 
 // RuntimeDescription ...
@@ -34,10 +35,23 @@ type InternalStateDescription struct {
 	FirstFatalError string                 `json:"firstFatalError"`
 }
 
+// ResetDescription describes fields of the response to an INVOKE API request
+type ResetDescription struct {
+	ExtensionsResetMs int64 `json:"extensionsResetMs"`
+}
+
 func (s *InternalStateDescription) AsJSON() []byte {
 	bytes, err := json.Marshal(s)
 	if err != nil {
 		log.Panicf("Failed to marshall internal states: %s", err)
+	}
+	return bytes
+}
+
+func (s *ResetDescription) AsJSON() []byte {
+	bytes, err := json.Marshal(s)
+	if err != nil {
+		log.Panicf("Failed to marshall reset description: %s", err)
 	}
 	return bytes
 }

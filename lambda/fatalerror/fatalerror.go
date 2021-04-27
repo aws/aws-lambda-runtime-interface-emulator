@@ -16,6 +16,7 @@ const (
 	AgentLaunchError  ErrorType = "Extension.LaunchError" // agent could not be launched
 	RuntimeExit       ErrorType = "Runtime.ExitError"
 	InvalidEntrypoint ErrorType = "Runtime.InvalidEntrypoint"
+	InvalidWorkingDir ErrorType = "Runtime.InvalidWorkingDir"
 	InvalidTaskConfig ErrorType = "Runtime.InvalidTaskConfig"
 	Unknown           ErrorType = "Unknown"
 )

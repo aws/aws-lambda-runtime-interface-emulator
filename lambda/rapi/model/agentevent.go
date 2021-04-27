@@ -12,9 +12,9 @@ type AgentEvent struct {
 // AgentInvokeEvent is the response to agent's get next request
 type AgentInvokeEvent struct {
 	*AgentEvent
-	RequestID          string  `json:"requestId"`
-	InvokedFunctionArn string  `json:"invokedFunctionArn"`
-	Tracing            Tracing `json:"tracing"`
+	RequestID          string   `json:"requestId"`
+	InvokedFunctionArn string   `json:"invokedFunctionArn"`
+	Tracing            *Tracing `json:"tracing,omitempty"`
 }
 
 // AgentShutdownEvent is the response to agent's get next request

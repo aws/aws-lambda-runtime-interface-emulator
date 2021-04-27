@@ -6,6 +6,7 @@ package rapidcore
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"go.amzn.com/lambda/fatalerror"
 	"go.amzn.com/lambda/logging"
@@ -37,10 +38,24 @@ func NewBootstrap(cmdCandidates [][]string, currentWorkingDir string) *Bootstrap
 			orderedLookupBootstrapPaths = append(orderedLookupBootstrapPaths, args[0])
 		}
 	}
+
+	if currentWorkingDir == "" {
+		// use the root directory as the default working directory
+		currentWorkingDir = "/"
+	}
+
 	return &Bootstrap{
 		orderedLookupPaths: orderedLookupBootstrapPaths,
 		workingDir:         currentWorkingDir,
 		cmdCandidates:      cmdCandidates,
+	}
+}
+
+func NewBootstrapSingleCmd(cmd []string, currentWorkingDir string) *Bootstrap {
+	// a single candidate command makes it automatically valid
+	return &Bootstrap{
+		validCmd:   cmd,
+		workingDir: currentWorkingDir,
 	}
 }
 
@@ -60,6 +75,10 @@ func (b *Bootstrap) locateBootstrap() error {
 // Cmd returns the args of bootstrap, where args[0]
 // is the path to executable
 func (b *Bootstrap) Cmd() ([]string, error) {
+	if len(b.validCmd) > 0 {
+		return b.validCmd, nil
+	}
+
 	if err := b.locateBootstrap(); err != nil {
 		return []string{}, err
 	}
@@ -75,8 +94,14 @@ func (b *Bootstrap) Env(e rapid.EnvironmentVariables) []string {
 }
 
 // Cwd returns the working directory of the bootstrap process
-func (b *Bootstrap) Cwd() string {
-	return b.workingDir
+func (b *Bootstrap) Cwd() (string, error) {
+	if !filepath.IsAbs(b.workingDir) {
+		return "", fmt.Errorf("the working directory '%s' is invalid, it needs to be an absolute path", b.workingDir)
+	} else if _, err := os.Stat(b.workingDir); os.IsNotExist(err) {
+		return "", fmt.Errorf("the working directory doesn't exist: %s", b.workingDir)
+	}
+
+	return b.workingDir, nil
 }
 
 // SetExtraFiles sets the extra file descriptors apart from 1 & 2 to be passed to runtime
@@ -107,16 +132,22 @@ func (b *Bootstrap) SetCachedFatalError(bootstrapErrFn BootstrapError) {
 	b.bootstrapError = bootstrapErrFn
 }
 
-// BootstrapErrInvalidOCITaskConfig represents an error while parsing OCI task config
-func BootstrapErrInvalidOCITaskConfig(err error) BootstrapError {
+// BootstrapErrInvalidLCISTaskConfig represents an error while parsing LCIS task config
+func BootstrapErrInvalidLCISTaskConfig(err error) BootstrapError {
 	return func() (fatalerror.ErrorType, LogFormatter) {
 		return fatalerror.InvalidTaskConfig, logging.SupernovaInvalidTaskConfigRepr(err)
 	}
 }
 
-// BootstrapErrInvalidOCIEntrypoint represents an invalid OCI entrypoint error
-func BootstrapErrInvalidOCIEntrypoint(entrypoint []string, cmd []string, workingdir string) BootstrapError {
+// BootstrapErrInvalidLCISEntrypoint represents an invalid LCIS entrypoint error
+func BootstrapErrInvalidLCISEntrypoint(entrypoint []string, cmd []string, workingdir string) BootstrapError {
 	return func() (fatalerror.ErrorType, LogFormatter) {
 		return fatalerror.InvalidEntrypoint, logging.SupernovaLaunchErrorRepr(entrypoint, cmd, workingdir)
+	}
+}
+
+func BootstrapErrInvalidLCISWorkingDir(entrypoint []string, cmd []string, workingdir string) BootstrapError {
+	return func() (fatalerror.ErrorType, LogFormatter) {
+		return fatalerror.InvalidWorkingDir, logging.SupernovaLaunchErrorRepr(entrypoint, cmd, workingdir)
 	}
 }

@@ -52,7 +52,7 @@ func runTestInvocationErrorHandler(t *testing.T) {
 		DeadlineNs:            "deadlinens1",
 		ClientContext:         "clientcontext1",
 		ContentType:           "image/png",
-		Payload:               []byte("Payload1"),
+		Payload:               strings.NewReader("Payload1"),
 	}
 
 	flowTest.ConfigureForInvoke(context.Background(), invoke)

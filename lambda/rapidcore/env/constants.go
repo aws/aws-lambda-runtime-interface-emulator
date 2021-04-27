@@ -5,12 +5,13 @@ package env
 
 func predefinedInternalEnvVarKeys() map[string]bool {
 	return map[string]bool{
-		"_LAMBDA_SB_ID":             true,
-		"_LAMBDA_LOG_FD":            true,
-		"_LAMBDA_SHARED_MEM_FD":     true,
-		"_LAMBDA_CONTROL_SOCKET":    true,
-		"_LAMBDA_RUNTIME_LOAD_TIME": true,
-		"_LAMBDA_CONSOLE_SOCKET":    true,
+		"_LAMBDA_SB_ID":                true,
+		"_LAMBDA_LOG_FD":               true,
+		"_LAMBDA_SHARED_MEM_FD":        true,
+		"_LAMBDA_CONTROL_SOCKET":       true,
+		"_LAMBDA_DIRECT_INVOKE_SOCKET": true,
+		"_LAMBDA_RUNTIME_LOAD_TIME":    true,
+		"_LAMBDA_CONSOLE_SOCKET":       true,
 		// _X_AMZN_TRACE_ID is set by stock runtimes. Provided
 		// runtimes should set and mutate it on each invoke.
 		"_X_AMZN_TRACE_ID":                 true,

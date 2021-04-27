@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"os"
 
-	"go.amzn.com/lambda/appctx"
 	"go.amzn.com/lambda/extensions"
 	"go.amzn.com/lambda/fatalerror"
 	"go.amzn.com/lambda/interop"
@@ -39,13 +38,9 @@ func trySendDefaultErrorResponse(interopServer interop.Server, invokeID string, 
 	}
 }
 
-func reportErrorAndExit(appCtx appctx.ApplicationContext, execCtx *rapidContext, invokeID string, interopServer interop.Server, err error, correlationID string) {
+func reportErrorAndExit(doneFailMsg *interop.DoneFail, invokeID string, interopServer interop.Server, err error) {
 	// This function maintains compatibility of exit sequence behaviour
 	// with Sandbox Factory in the absence of extensions
-	errorType, found := appctx.LoadFirstFatalError(appCtx)
-	if !found {
-		errorType = fatalerror.Unknown
-	}
 
 	// NOTE this check will prevent us from sending FAULT message in case
 	// response (positive or negative) has already been sent. This is done
@@ -53,20 +48,18 @@ func reportErrorAndExit(appCtx appctx.ApplicationContext, execCtx *rapidContext,
 	// ALSO NOTE, this works in case of positive response because this will
 	// be followed by RAPID exit.
 	if !interopServer.IsResponseSent() {
-		trySendDefaultErrorResponse(interopServer, invokeID, errorType, err)
+		trySendDefaultErrorResponse(interopServer, invokeID, doneFailMsg.ErrorType, err)
 	}
 
 	if err := interopServer.CommitResponse(); err != nil {
 		checkInteropError("Failed to commit error response: %s", err)
 	}
 
+	// old behavior: no DoneFails
 	doneMsg := &interop.Done{
-		WaitForExit:    true,
-		RuntimeRelease: appctx.GetRuntimeRelease(appCtx),
-		CorrelationID:  correlationID, // required for standalone mode
-	}
-	if execCtx.telemetryAPIEnabled {
-		doneMsg.LogsAPIMetrics = execCtx.telemetryService.FlushMetrics()
+		WaitForExit:   true,
+		CorrelationID: doneFailMsg.CorrelationID, // required for standalone mode
+		Meta:          doneFailMsg.Meta,
 	}
 
 	if err := interopServer.SendDone(doneMsg); err != nil {
@@ -76,26 +69,17 @@ func reportErrorAndExit(appCtx appctx.ApplicationContext, execCtx *rapidContext,
 	os.Exit(1)
 }
 
-func reportErrorAndRequestReset(appCtx appctx.ApplicationContext, execCtx *rapidContext, invokeID string, interopServer interop.Server, err error, correlationID string) {
-	errorType, found := appctx.LoadFirstFatalError(appCtx)
-	if !found {
-		errorType = fatalerror.Unknown
+func reportErrorAndRequestReset(doneFailMsg *interop.DoneFail, invokeID string, interopServer interop.Server, err error) {
+	if err == errResetReceived {
+		// errResetReceived is returned when execution flow was interrupted by the Reset message,
+		// hence this error deserves special handling and we yield to main receive loop to handle it
+		return
 	}
 
-	trySendDefaultErrorResponse(interopServer, invokeID, errorType, err)
+	trySendDefaultErrorResponse(interopServer, invokeID, doneFailMsg.ErrorType, err)
 
 	if err := interopServer.CommitResponse(); err != nil {
 		checkInteropError("Failed to commit error response: %s", err)
-	}
-
-	doneFailMsg := &interop.DoneFail{
-		ErrorType:           string(errorType),
-		RuntimeRelease:      appctx.GetRuntimeRelease(appCtx),
-		CorrelationID:       correlationID, // required for standalone mode
-		NumActiveExtensions: execCtx.registrationService.CountAgents(),
-	}
-	if execCtx.telemetryAPIEnabled {
-		doneFailMsg.LogsAPIMetrics = execCtx.telemetryService.FlushMetrics()
 	}
 
 	if err := interopServer.SendDoneFail(doneFailMsg); err != nil {
@@ -103,40 +87,30 @@ func reportErrorAndRequestReset(appCtx appctx.ApplicationContext, execCtx *rapid
 	}
 }
 
-func handleError(appCtx appctx.ApplicationContext, execCtx *rapidContext, invokeID string, interopServer interop.Server, err error, correlationID string) {
-	if err == errResetReceived {
-		// errResetReceived is returned when execution flow was interrupted by the Reset message,
-		// hence this error deserves special handling and we yield to main receive loop to handle it
-		return
-	}
-
-	reportErrorAndRequestReset(appCtx, execCtx, invokeID, interopServer, err, correlationID)
-}
-
-func handleInitError(appCtx appctx.ApplicationContext, execCtx *rapidContext, invokeID string, interopServer interop.Server, err error, correlationID string) {
+func handleInitError(doneFailMsg *interop.DoneFail, execCtx *rapidContext, invokeID string, interopServer interop.Server, err error) {
 	if execCtx.standaloneMode {
-		handleError(appCtx, execCtx, invokeID, interopServer, err, correlationID)
+		reportErrorAndRequestReset(doneFailMsg, invokeID, interopServer, err)
 		return
 	}
 
 	if !execCtx.HasActiveExtensions() {
 		// we don't expect Slicer to send RESET during INIT, that's why we Exit here
-		reportErrorAndExit(appCtx, execCtx, invokeID, interopServer, err, correlationID)
+		reportErrorAndExit(doneFailMsg, invokeID, interopServer, err)
 	}
 
-	handleError(appCtx, execCtx, invokeID, interopServer, err, correlationID)
+	reportErrorAndRequestReset(doneFailMsg, invokeID, interopServer, err)
 }
 
-func handleInvokeError(appCtx appctx.ApplicationContext, execCtx *rapidContext, invokeID string, interopServer interop.Server, err error, correlationID string) {
+func handleInvokeError(doneFailMsg *interop.DoneFail, execCtx *rapidContext, invokeID string, interopServer interop.Server, err error) {
 	if execCtx.standaloneMode {
-		handleError(appCtx, execCtx, invokeID, interopServer, err, correlationID)
+		reportErrorAndRequestReset(doneFailMsg, invokeID, interopServer, err)
 		return
 	}
 
 	// Invoke with extensions disabled maintains behaviour parity with pre-extensions rapid
 	if !extensions.AreEnabled() {
-		reportErrorAndExit(appCtx, execCtx, invokeID, interopServer, err, correlationID)
+		reportErrorAndExit(doneFailMsg, invokeID, interopServer, err)
 	}
 
-	handleError(appCtx, execCtx, invokeID, interopServer, err, correlationID)
+	reportErrorAndRequestReset(doneFailMsg, invokeID, interopServer, err)
 }
