@@ -20,8 +20,12 @@ type XRayTracing struct {
 }
 
 // NewXRayTracing returns a new XRayTracing object with specified value
-func NewXRayTracing(value string) Tracing {
-	return Tracing{
+func NewXRayTracing(value string) *Tracing {
+	if len(value) == 0 {
+		return nil
+	}
+
+	return &Tracing{
 		XRayTracingType,
 		XRayTracing{value},
 	}

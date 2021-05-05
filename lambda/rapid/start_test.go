@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -79,7 +80,7 @@ func BenchmarkChannelsSelect2(b *testing.B) {
 func TestListen(t *testing.T) {
 	flowTest := testdata.NewFlowTest()
 	flowTest.ConfigureForInit()
-	flowTest.ConfigureForInvoke(context.Background(), &interop.Invoke{ID: "ID", DeadlineNs: "1", Payload: []byte("MyTest")})
+	flowTest.ConfigureForInvoke(context.Background(), &interop.Invoke{ID: "ID", DeadlineNs: "1", Payload: strings.NewReader("MyTest")})
 
 	ctx := context.Background()
 	telemetryAPIEnabled := true

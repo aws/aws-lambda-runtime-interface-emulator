@@ -8,6 +8,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"net/http"
 	"strconv"
 	"sync"
@@ -82,11 +84,20 @@ func NewRenderingService() *EventRenderingService {
 	}
 }
 
+// InvokeRendererMetrics contains metrics of invoke request
+type InvokeRendererMetrics struct {
+	ReadTime  time.Duration
+	SizeBytes int
+}
+
 // InvokeRenderer knows how to render invoke event.
 type InvokeRenderer struct {
 	ctx                 context.Context
 	invoke              *interop.Invoke
 	tracingHeaderParser func(context.Context, *interop.Invoke) string
+	requestBuffer       []byte
+	requestMutex        sync.Mutex
+	metrics             InvokeRendererMetrics
 }
 
 // NewAgentInvokeEvent forms a new AgentInvokeEvent from INVOKE request
@@ -127,6 +138,22 @@ func (s *InvokeRenderer) RenderAgentEvent(writer http.ResponseWriter, request *h
 	return nil
 }
 
+func (s *InvokeRenderer) bufferInvokeRequest() error {
+	s.requestMutex.Lock()
+	defer s.requestMutex.Unlock()
+	var err error = nil
+	if nil == s.requestBuffer {
+		reader := io.LimitReader(s.invoke.Payload, interop.MaxPayloadSize)
+		start := time.Now()
+		s.requestBuffer, err = ioutil.ReadAll(reader)
+		s.metrics = InvokeRendererMetrics{
+			ReadTime:  time.Since(start),
+			SizeBytes: len(s.requestBuffer),
+		}
+	}
+	return err
+}
+
 // RenderRuntimeEvent renders invoke payload for runtime.
 func (s *InvokeRenderer) RenderRuntimeEvent(writer http.ResponseWriter, request *http.Request) error {
 	invoke := s.invoke
@@ -155,18 +182,32 @@ func (s *InvokeRenderer) RenderRuntimeEvent(writer http.ResponseWriter, request 
 	renderInvokeHeaders(writer, invoke.ID, customerTraceID, invoke.ClientContext,
 		cognitoIdentityJSON, invoke.InvokedFunctionArn, deadlineHeader, invoke.ContentType)
 
-	_, err := writer.Write(invoke.Payload)
+	if invoke.Payload != nil {
+		if err := s.bufferInvokeRequest(); err != nil {
+			return err
+		}
+		_, err := writer.Write(s.requestBuffer)
+		return err
+	}
 
-	return err
+	return nil
 }
 
 // NewInvokeRenderer returns new invoke event renderer
-func NewInvokeRenderer(ctx context.Context, invoke *interop.Invoke, traceParser func(context.Context, *interop.Invoke) string) RendererState {
+func NewInvokeRenderer(ctx context.Context, invoke *interop.Invoke, traceParser func(context.Context, *interop.Invoke) string) *InvokeRenderer {
 	return &InvokeRenderer{
 		invoke:              invoke,
 		ctx:                 ctx,
 		tracingHeaderParser: traceParser,
+		requestBuffer:       nil,
+		requestMutex:        sync.Mutex{},
 	}
+}
+
+func (s *InvokeRenderer) GetMetrics() InvokeRendererMetrics {
+	s.requestMutex.Lock()
+	defer s.requestMutex.Unlock()
+	return s.metrics
 }
 
 // ShutdownRenderer renderer for shutdown event.

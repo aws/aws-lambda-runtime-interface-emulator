@@ -43,7 +43,7 @@ func awaitSigkilledProcessesToExit(exitPidChan chan int, processesExited, sigkil
 	}
 }
 
-func gracefulShutdown(execCtx *rapidContext, watchdog *core.Watchdog, deadlineNs int64, killAgents bool, reason string) {
+func gracefulShutdown(execCtx *rapidContext, watchdog *core.Watchdog, profiler *metering.ExtensionsResetDurationProfiler, deadlineNs int64, killAgents bool, reason string) {
 	watchdog.Mute()
 	defer watchdog.Unmute()
 
@@ -68,18 +68,24 @@ func gracefulShutdown(execCtx *rapidContext, watchdog *core.Watchdog, deadlineNs
 		availableNs = 0
 	}
 
+	profiler.AvailableNs = availableNs
+
 	start := time.Now()
+	profiler.Start()
 
 	runtimeDeadline := start.Add(time.Duration(float64(availableNs) * runtimeDeadlineShare))
 	agentsDeadline := start.Add(time.Duration(availableNs))
 
 	sigkilledPids := make(map[int]bool)   // Track process ids that were sent sigkill
 	processesExited := make(map[int]bool) // Don't send sigkill to processes that exit out of order
+
 	processesExited, sigkilledPids = shutdownRuntime(execCtx, start, runtimeDeadline, processesExited, sigkilledPids)
-	processesExited, sigkilledPids = shutdownAgents(execCtx, start, agentsDeadline, killAgents, reason, processesExited, sigkilledPids)
+	processesExited, sigkilledPids = shutdownAgents(execCtx, start, profiler, agentsDeadline, killAgents, reason, processesExited, sigkilledPids)
 	if execCtx.standaloneMode {
 		awaitSigkilledProcessesToExit(execCtx.exitPidChan, processesExited, sigkilledPids)
 	}
+
+	profiler.Stop()
 }
 
 func shutdownRuntime(execCtx *rapidContext, start time.Time, deadline time.Time, processesExited, sigkilledPids map[int]bool) (map[int]bool, map[int]bool) {
@@ -110,14 +116,14 @@ func shutdownRuntime(execCtx *rapidContext, start time.Time, deadline time.Time,
 
 			log.Warnf("Process %d exited unexpectedly", pid)
 		case <-runtimeTimer.C:
-			log.Warnf("Runtime didn't exit after SIGTERM in %v; dispatching SIGKILL to runtime process group", runtimeTimeout)
+			log.Warnf("Timeout: no SIGCHLD from Runtime after %d ms; dispatching SIGKILL to runtime process group", int64(runtimeTimeout/time.Millisecond))
 			sigkilledPids = sigkillProcessGroup(runtime.Pid, sigkilledPids)
 			return processesExited, sigkilledPids
 		}
 	}
 }
 
-func shutdownAgents(execCtx *rapidContext, start time.Time, deadline time.Time, killAgents bool, reason string, processesExited, sigkilledPids map[int]bool) (map[int]bool, map[int]bool) {
+func shutdownAgents(execCtx *rapidContext, start time.Time, profiler *metering.ExtensionsResetDurationProfiler, deadline time.Time, killAgents bool, reason string, processesExited, sigkilledPids map[int]bool) (map[int]bool, map[int]bool) {
 	// For each external agent, if agent is launched:
 	// 1. Send Shutdown event if subscribed for it, else send SIGKILL to process group
 	// 2. Wait for all Shutdown-subscribed agents to exit with timeout
@@ -150,6 +156,7 @@ func shutdownAgents(execCtx *rapidContext, start time.Time, deadline time.Time, 
 			}
 		}
 	}
+	profiler.NumAgentsRegisteredForShutdown = len(pidsToShutdown)
 
 	var timerChan <-chan time.Time // default timerChan
 	if killAgents {

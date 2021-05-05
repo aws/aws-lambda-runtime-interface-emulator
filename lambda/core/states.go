@@ -85,6 +85,7 @@ type Runtime struct {
 	currentState      RuntimeState
 	stateLastModified time.Time
 	Pid               int
+	responseTime      time.Time
 
 	RuntimeStartedState                 RuntimeState
 	RuntimeInitErrorState               RuntimeState
@@ -150,19 +151,27 @@ func (s *Runtime) InitError() error {
 func (s *Runtime) ResponseSent() error {
 	s.ManagedThread.Lock()
 	defer s.ManagedThread.Unlock()
-	return s.currentState.ResponseSent()
+	err := s.currentState.ResponseSent()
+	if err == nil {
+		s.responseTime = time.Now()
+	}
+	return err
 }
 
 // GetRuntimeDescription returns runtime description object for debugging purposes
 func (s *Runtime) GetRuntimeDescription() statejson.RuntimeDescription {
 	s.ManagedThread.Lock()
 	defer s.ManagedThread.Unlock()
-	return statejson.RuntimeDescription{
+	res := statejson.RuntimeDescription{
 		State: statejson.StateDescription{
 			Name:         s.currentState.Name(),
 			LastModified: s.stateLastModified.UnixNano() / int64(time.Millisecond),
 		},
 	}
+	if !s.responseTime.IsZero() {
+		res.State.ResponseTimeNs = s.responseTime.UnixNano()
+	}
+	return res
 }
 
 // NewRuntime returns new Runtime instance.

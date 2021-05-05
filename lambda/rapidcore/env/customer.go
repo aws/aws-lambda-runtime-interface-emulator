@@ -10,24 +10,32 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func logUnfilteredInternalEnvVars(envKey string) {
-	// We would like to filter out all internal environment variables, but we
-	// log this for now to get data to ensure customers aren't depending on it.
-	if strings.HasPrefix(envKey, "_") {
-		log.Warn("Internal environment variable not filtered")
+func isInternalEnvVar(envKey string) bool {
+	// the rule is no '_' prefixed env. variables will be propagated to the runtime but the ones explicitly exempted
+	allowedKeys := map[string]bool{
+		"_HANDLER":                 true,
+		"_AWS_XRAY_DAEMON_ADDRESS": true,
+		"_AWS_XRAY_DAEMON_PORT":    true,
+		"_LAMBDA_TELEMETRY_LOG_FD": true,
 	}
+	return strings.HasPrefix(envKey, "_") && !allowedKeys[envKey]
 }
 
 // CustomerEnvironmentVariables parses all environment variables that are
 // not internal/credential/platform, and must be called before agent bootstrap.
 func CustomerEnvironmentVariables() map[string]string {
-	isInternal := predefinedInternalEnvVarKeys()
-	isPlatform := predefinedPlatformEnvVarKeys()
-	isRuntime := predefinedRuntimeEnvVarKeys()
-	isCredential := predefinedCredentialsEnvVarKeys()
-	isPlatformUnreserved := predefinedPlatformUnreservedEnvVarKeys()
+	internalKeys := predefinedInternalEnvVarKeys()
+	platformKeys := predefinedPlatformEnvVarKeys()
+	runtimeKeys := predefinedRuntimeEnvVarKeys()
+	credentialKeys := predefinedCredentialsEnvVarKeys()
+	platformUnreservedKeys := predefinedPlatformUnreservedEnvVarKeys()
 	isCustomer := func(key string) bool {
-		return !isInternal[key] && !isRuntime[key] && !isPlatform[key] && !isCredential[key] && !isPlatformUnreserved[key]
+		return !internalKeys[key] &&
+			!runtimeKeys[key] &&
+			!platformKeys[key] &&
+			!credentialKeys[key] &&
+			!platformUnreservedKeys[key] &&
+			!isInternalEnvVar(key)
 	}
 
 	customerEnv := map[string]string{}
@@ -39,7 +47,6 @@ func CustomerEnvironmentVariables() map[string]string {
 		}
 
 		if isCustomer(key) {
-			logUnfilteredInternalEnvVars(key)
 			customerEnv[key] = val
 		}
 	}

@@ -14,6 +14,7 @@ import (
 
 const runtimeAPIAddressKey = "AWS_LAMBDA_RUNTIME_API"
 const handlerEnvKey = "_HANDLER"
+const executionEnvKey = "AWS_EXECUTION_ENV"
 
 // Environment holds env vars for runtime, agents, and for
 // internal use, parsed during startup and from START msg
@@ -37,6 +38,7 @@ type RapidConfig struct {
 	ShmFd                  int
 	CtrlFd                 int
 	CnslFd                 int
+	DirectInvokeFd         int
 	LambdaTaskRoot         string
 	XrayDaemonAddress      string
 	PreLoadTimeNs          int64
@@ -88,6 +90,16 @@ func (e *Environment) SetHandler(handler string) {
 	e.Runtime[handlerEnvKey] = handler
 }
 
+// GetExecutionEnv returns the current setting for AWS_EXECUTION_ENV
+func (e *Environment) GetExecutionEnv() string {
+	return e.Runtime[executionEnvKey]
+}
+
+// SetExecutionEnv sets AWS_EXECUTION_ENV variable value for Runtime
+func (e *Environment) SetExecutionEnv(executionEnv string) {
+	e.Runtime[executionEnvKey] = executionEnv
+}
+
 // StoreEnvironmentVariablesFromInit sets the environment variables
 // for credentials & _HANDLER which are received in the START message
 func (e *Environment) StoreEnvironmentVariablesFromInit(customerEnv map[string]string, handler, awsKey, awsSecret, awsSession, funcName, funcVer string) {
@@ -112,7 +124,7 @@ func (e *Environment) StoreEnvironmentVariablesFromInit(customerEnv map[string]s
 }
 
 // StoreEnvironmentVariablesFromCLIOptions sets the environment
-// variables received via a CLI flag, for example OCI config
+// variables received via a CLI flag, for example LCIS config
 func (e *Environment) StoreEnvironmentVariablesFromCLIOptions(envVars map[string]string) {
 	e.mergeCustomerEnvironmentVariables(envVars)
 }
@@ -154,6 +166,7 @@ func (e *Environment) RAPIDInternalConfig() RapidConfig {
 		ShmFd:                  e.getSocketEnvVarOrDie(e.RAPID, "_LAMBDA_SHARED_MEM_FD"),
 		CtrlFd:                 e.getSocketEnvVarOrDie(e.RAPID, "_LAMBDA_CONTROL_SOCKET"),
 		CnslFd:                 e.getSocketEnvVarOrDie(e.RAPID, "_LAMBDA_CONSOLE_SOCKET"),
+		DirectInvokeFd:         e.getOptionalSocketEnvVar(e.RAPID, "_LAMBDA_DIRECT_INVOKE_SOCKET"),
 		PreLoadTimeNs:          e.getInt64EnvVarOrDie(e.RAPID, "_LAMBDA_RUNTIME_LOAD_TIME"),
 		LambdaTaskRoot:         e.getStrEnvVarOrDie(e.Runtime, "LAMBDA_TASK_ROOT"),
 		XrayDaemonAddress:      e.getStrEnvVarOrDie(e.PlatformUnreserved, "AWS_XRAY_DAEMON_ADDRESS"),
@@ -188,6 +201,26 @@ func (e *Environment) getIntEnvVarOrDie(env map[string]string, name string) int 
 // It also makes CloseOnExec for this value.
 func (e *Environment) getSocketEnvVarOrDie(env map[string]string, name string) int {
 	sock := e.getIntEnvVarOrDie(env, name)
+	syscall.CloseOnExec(sock)
+	return sock
+}
+
+// returns -1 if env variable was not set. Exits if it holds unexpected (non-int) value
+func (e *Environment) getOptionalSocketEnvVar(env map[string]string, name string) int {
+	val, found := env[name]
+	if !found {
+		return -1
+	}
+
+	sock, err := strconv.Atoi(val)
+	if err != nil {
+		log.WithError(err).WithField("name", name).Fatal("Unable to parse socket env var.")
+	}
+
+	if sock < 0 {
+		log.WithError(err).WithField("name", name).Fatal("Negative socket descriptor value")
+	}
+
 	syscall.CloseOnExec(sock)
 	return sock
 }

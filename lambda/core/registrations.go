@@ -158,6 +158,13 @@ func (s *registrationServiceImpl) getInternalStateDescription(appCtx appctx.Appl
 }
 
 func (s *registrationServiceImpl) CountAgents() int {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	return s.countAgentsUnsafe()
+}
+
+func (s *registrationServiceImpl) countAgentsUnsafe() int {
 	res := 0
 	s.externalAgents.Visit(func(a *ExternalAgent) {
 		res++
@@ -237,7 +244,7 @@ func (s *registrationServiceImpl) CreateInternalAgent(agentName string) (*Intern
 		return nil, ErrRegistrationServiceOff
 	}
 
-	if s.CountAgents() >= MaxAgentsAllowed {
+	if s.countAgentsUnsafe() >= MaxAgentsAllowed {
 		return nil, ErrTooManyExtensions
 	}
 

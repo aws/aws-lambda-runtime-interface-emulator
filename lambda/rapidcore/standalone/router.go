@@ -24,6 +24,7 @@ func NewHTTPRouter(sandbox rapidcore.Sandbox, eventLog *telemetry.EventLog, shut
 	r.Post("/test/waitUntilRelease", func(w http.ResponseWriter, r *http.Request) { WaitUntilReleaseHandler(w, r, ipcSrv) })
 	r.Post("/test/reset", func(w http.ResponseWriter, r *http.Request) { ResetHandler(w, r, ipcSrv) })
 	r.Post("/test/shutdown", func(w http.ResponseWriter, r *http.Request) { ShutdownHandler(w, r, ipcSrv, shutdownFunc) })
+	r.Post("/test/directInvoke/{reservationtoken}", func(w http.ResponseWriter, r *http.Request) { DirectInvokeHandler(w, r, ipcSrv) })
 	r.Get("/test/internalState", func(w http.ResponseWriter, r *http.Request) { InternalStateHandler(w, r, ipcSrv) })
 	r.Get("/test/eventLog", func(w http.ResponseWriter, r *http.Request) { EventLogHandler(w, r, eventLog) })
 
