@@ -130,8 +130,22 @@ class TestEndToEnd(TestCase):
         # sleep 1s to give enough time for the endpoint to be up to curl
         time.sleep(SLEEP_TIME)
         # Executation time is not decided, 8.0s ~ 10.0s is a good estimation
-        self.assertLess(int(r.content), 8000)
-        self.assertMore(int(r.content), 10000)
+        self.assertLess(int(r.content), 10000)
+        self.assertMore(int(r.content), 8000)
+
+    
+    def test_context_get_remaining_time_in_default_deadline(self):
+        cmd = f"docker run --name remainingtime -d -v {self.path_to_binary}:/local-lambda-runtime-server -p 9006:8080 --entrypoint /local-lambda-runtime-server/aws-lambda-rie {self.image_name} {DEFAULT_1P_ENTRYPOINT} main.check_remaining_time_handler"
+
+        Popen(cmd.split(' ')).communicate()
+
+        r = requests.post("http://localhost:9006/2015-03-31/functions/function/invocations", json={})
+
+        # sleep 1s to give enough time for the endpoint to be up to curl
+        time.sleep(SLEEP_TIME)
+        # Executation time is not decided, 298.0s ~ 300.0s is a good estimation
+        self.assertLess(int(r.content), 300000)
+        self.assertMore(int(r.content), 298000)
 
 class TestPython36Runtime(TestCase):
 
