@@ -18,7 +18,6 @@ def success_handler(event, context):
 
     return "My lambda ran succesfully"
 
-
 def check_env_var_handler(event, context):
     return os.environ.get("MyEnv")
 
@@ -35,3 +34,6 @@ def assert_lambda_arn_in_context(event, context):
         return "My lambda ran succesfully"
     else:
         raise("Function Arn was not there")
+
+def check_remaining_time_handler(event, context):
+    return context.get_remaining_time_in_millis()

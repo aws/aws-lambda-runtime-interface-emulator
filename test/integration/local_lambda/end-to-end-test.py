@@ -27,7 +27,7 @@ class TestEndToEnd(TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        cmds_to_delete_images = ["docker rm -f envvarcheck", "docker rm -f testing", "docker rm -f timeout", "docker rm -f exception"]
+        cmds_to_delete_images = ["docker rm -f envvarcheck", "docker rm -f testing", "docker rm -f timeout", "docker rm -f exception", "docker rm -f remainingtime"]
 
         for cmd in cmds_to_delete_images:
             Popen(cmd.split(' ')).communicate()
@@ -105,6 +105,17 @@ class TestEndToEnd(TestCase):
 
         r = requests.post("http://localhost:9002/2015-03-31/functions/function/invocations", json={})
         self.assertEqual(b'{"errorMessage": "Raising an exception", "errorType": "Exception", "stackTrace": ["  File \\"/var/task/main.py\\", line 13, in exception_handler\\n    raise Exception(\\"Raising an exception\\")\\n"]}', r.content)
+
+    def test_context_get_remaining_time_in_three_seconds(self):
+        cmd = f"docker run --name remainingtime -d --env AWS_LAMBDA_FUNCTION_TIMEOUT=3 -v {self.path_to_binary}:/local-lambda-runtime-server -p 9004:8080 --entrypoint /local-lambda-runtime-server/aws-lambda-rie {self.image_name} {DEFAULT_1P_ENTRYPOINT} main.check_remaining_time_handler"
+
+        Popen(cmd.split(' ')).communicate()
+
+        r = requests.post("http://localhost:9004/2015-03-31/functions/function/invocations", json={})
+
+        # sleep 1s to give enough time for the endpoint to be up to curl
+        time.sleep(SLEEP_TIME)
+        self.assertLess(int(r.content), 3000)
 
 class TestPython36Runtime(TestCase):
 
