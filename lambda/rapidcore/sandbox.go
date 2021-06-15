@@ -25,6 +25,9 @@ import (
 
 const (
 	defaultSigtermResetTimeoutMs = int64(2000)
+
+	defaultRuntimeAPIHost = "127.0.0.1"
+	defaultRuntimeAPIPort = 9001
 )
 
 type Sandbox interface {
@@ -78,6 +81,8 @@ func NewSandboxBuilder(bootstrap *Bootstrap) *SandboxBuilder {
 			Environment:        env.NewEnvironment(),
 			Tracer:             telemetry.NewNoOpTracer(),
 			SignalCtx:          signalCtx,
+			RuntimeAPIHost:     defaultRuntimeAPIHost,
+			RuntimeAPIPort:     defaultRuntimeAPIPort,
 		},
 		defaultInteropServer: defaultInteropServer,
 		shutdownFuncs:        []context.CancelFunc{},
@@ -157,6 +162,21 @@ func (b *SandboxBuilder) SetTelemetryService(telemetryService telemetry.LogsAPIS
 
 func (b *SandboxBuilder) SetHandler(handler string) *SandboxBuilder {
 	b.sandbox.Handler = handler
+	return b
+}
+
+// SetRuntimeAPIHost sets the host the runtime api will listen on
+// Defaults to "127.0.0.1"
+func (b *SandboxBuilder) SetRuntimeAPIHost(host string) *SandboxBuilder {
+	b.sandbox.RuntimeAPIHost = host
+	return b
+}
+
+// SetRuntimeAPIPort sets the port the runtime api will listen on
+// 0 uses any free port (via Listen)
+// Defaults to 9001
+func (b *SandboxBuilder) SetRuntimeAPIPort(port int) *SandboxBuilder {
+	b.sandbox.RuntimeAPIPort = port
 	return b
 }
 

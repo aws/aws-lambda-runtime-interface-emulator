@@ -86,6 +86,10 @@ func (s *Server) Listen() error {
 	return nil
 }
 
+func (s *Server) IsListening() bool {
+	return s.listener != nil
+}
+
 // Serve requests and close on cancelation signals
 func (s *Server) Serve(ctx context.Context) error {
 	defer s.Close()
