@@ -174,7 +174,7 @@ func (s *InvokeRenderer) RenderRuntimeEvent(writer http.ResponseWriter, request 
 
 	var deadlineHeader string
 	if t, err := strconv.ParseInt(invoke.DeadlineNs, 10, 64); err == nil {
-		deadlineHeader = strconv.FormatInt(t/int64(time.Millisecond), 10)
+		deadlineHeader = strconv.FormatInt(metering.MonoToEpoch(t)/int64(time.Millisecond), 10)
 	} else {
 		log.WithError(err).Warn("Failed to compute deadline header")
 	}
