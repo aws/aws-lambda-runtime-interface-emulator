@@ -9,11 +9,8 @@ import (
 	_ "unsafe" //for go:linkname
 )
 
-func Monotime() int64 {
-	// Override monotime to time.Now() due to this issue: https://github.com/aws/aws-sam-cli/issues/2519
-	// Wall and monotonic clocks get out of sync inside docker: https://github.com/golang/go/issues/27090
-	return time.Now().UnixNano()
-}
+//go:linkname Monotime runtime.nanotime
+func Monotime() int64
 
 //go:linkname walltime runtime.walltime
 func walltime() (sec int64, nsec int32)
