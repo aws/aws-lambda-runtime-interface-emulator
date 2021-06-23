@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	"go.amzn.com/lambda/core/statejson"
 	"go.amzn.com/lambda/fatalerror"
@@ -45,7 +46,8 @@ type Token struct {
 	ReservationToken string
 	InvokeID         string
 	VersionID        string
-	DeadlineNs       string
+	FunctionTimeout  time.Duration
+	InvackDeadlineNs int64
 	TraceID          string
 	LambdaSegmentID  string
 	InvokeMetadata   string
@@ -158,6 +160,9 @@ var ErrMalformedCustomerHeaders = fmt.Errorf("ErrMalformedCustomerHeaders")
 
 // ErrResponseSent is returned when response with given invokeID was already sent.
 var ErrResponseSent = fmt.Errorf("ErrResponseSent")
+
+// ErrReservationExpired is returned when invoke arrived after InvackDeadline
+var ErrReservationExpired = fmt.Errorf("ErrReservationExpired")
 
 // ErrorResponseTooLarge is returned when response Payload exceeds shared memory buffer size
 type ErrorResponseTooLarge struct {

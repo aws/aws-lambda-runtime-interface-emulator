@@ -4,11 +4,13 @@
 package directinvoke
 
 import (
+	"fmt"
 	"io"
 	"net/http"
 
 	"github.com/go-chi/chi"
 	"go.amzn.com/lambda/interop"
+	"go.amzn.com/lambda/metering"
 )
 
 const (
@@ -51,6 +53,7 @@ func ReceiveDirectInvoke(w http.ResponseWriter, r *http.Request, token interop.T
 		return nil, interop.ErrMalformedCustomerHeaders
 	}
 
+	now := metering.Monotime()
 	inv := &interop.Invoke{
 		ID:                    r.Header.Get(InvokeIDHeader),
 		ReservationToken:      chi.URLParam(r, "reservationtoken"),
@@ -64,7 +67,7 @@ func ReceiveDirectInvoke(w http.ResponseWriter, r *http.Request, token interop.T
 		ClientContext:         custHeaders.ClientContext,
 		Payload:               r.Body,
 		CorrelationID:         "invokeCorrelationID",
-		DeadlineNs:            token.DeadlineNs,
+		DeadlineNs:            fmt.Sprintf("%d", now+token.FunctionTimeout.Nanoseconds()),
 	}
 
 	if inv.ID != token.InvokeID {
@@ -80,6 +83,11 @@ func ReceiveDirectInvoke(w http.ResponseWriter, r *http.Request, token interop.T
 	if inv.VersionID != token.VersionID {
 		renderBadRequest(w, r, interop.ErrInvalidFunctionVersion.Error())
 		return nil, interop.ErrInvalidFunctionVersion
+	}
+ 
+	if now > token.InvackDeadlineNs {
+		renderBadRequest(w, r, interop.ErrReservationExpired.Error())
+		return nil, interop.ErrReservationExpired
 	}
 
 	w.Header().Set(VersionIDHeader, token.VersionID)
