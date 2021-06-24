@@ -24,6 +24,9 @@ type MockInteropServer struct {
 	ActiveInvokeID string
 }
 
+// StartAcceptingDirectInvokes
+func (i *MockInteropServer) StartAcceptingDirectInvokes() error { return nil }
+
 // SendResponse writes response to a shared memory.
 func (i *MockInteropServer) SendResponse(invokeID string, reader io.Reader) error {
 	bytes, err := ioutil.ReadAll(reader)
@@ -91,7 +94,6 @@ func (m *MockInteropServer) Init(i *interop.Start, invokeTimeoutMs int64) {}
 func (m *MockInteropServer) Invoke(w http.ResponseWriter, i *interop.Invoke) error { return nil }
 
 func (m *MockInteropServer) Shutdown(shutdown *interop.Shutdown) *statejson.InternalStateDescription { return nil }
-
 
 // FlowTest provides configuration for tests that involve synchronization flows.
 type FlowTest struct {

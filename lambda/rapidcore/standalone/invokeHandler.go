@@ -4,9 +4,11 @@
 package standalone
 
 import (
+	"fmt"
 	"net/http"
 
 	"go.amzn.com/lambda/interop"
+	"go.amzn.com/lambda/metering"
 	"go.amzn.com/lambda/rapidcore"
 
 	log "github.com/sirupsen/logrus"
@@ -25,7 +27,7 @@ func InvokeHandler(w http.ResponseWriter, r *http.Request, s rapidcore.InteropSe
 		LambdaSegmentID: r.Header.Get("X-Amzn-Segment-Id"),
 		Payload:         r.Body,
 		CorrelationID:   "invokeCorrelationID",
-		DeadlineNs:      tok.DeadlineNs,
+		DeadlineNs:      fmt.Sprintf("%d", metering.Monotime()+tok.FunctionTimeout.Nanoseconds()),
 	}
 
 	if err := s.FastInvoke(w, invokePayload, false); err != nil {

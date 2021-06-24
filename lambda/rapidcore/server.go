@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math"
 	"net/http"
 	"sync"
 	"time"
@@ -103,6 +104,10 @@ type Server struct {
 	runtimeState runtimeState
 }
 
+func (s *Server) StartAcceptingDirectInvokes() error {
+	return nil
+}
+
 func (s *Server) setRapidPhase(phase rapidPhase) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -153,13 +158,7 @@ func (s *Server) GetInvokeContext() *InvokeContext {
 	return &ctx
 }
 
-func (s *Server) generateInvokeDeadline() string {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	return fmt.Sprintf("%v", time.Now().Add(s.invokeTimeout).UnixNano())
-}
-
-func (s *Server) setNewInvokeContext(invokeID string, traceID, lambdaSegmentID, deadline string) (*ReserveResponse, error) {
+func (s *Server) setNewInvokeContext(invokeID string, traceID, lambdaSegmentID string) (*ReserveResponse, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -172,9 +171,10 @@ func (s *Server) setNewInvokeContext(invokeID string, traceID, lambdaSegmentID, 
 			ReservationToken: uuid.New().String(),
 			InvokeID:         invokeID,
 			VersionID:        standaloneVersionID,
-			DeadlineNs:       deadline,
+			FunctionTimeout:  s.invokeTimeout,
 			TraceID:          traceID,
 			LambdaSegmentID:  lambdaSegmentID,
+			InvackDeadlineNs: math.MaxInt64, // no INVACK in standalone
 		},
 	}
 
@@ -189,12 +189,11 @@ func (s *Server) setNewInvokeContext(invokeID string, traceID, lambdaSegmentID, 
 
 // Reserve allocates invoke context
 func (s *Server) Reserve(id string, traceID, lambdaSegmentID string) (*ReserveResponse, error) {
-	ddl := s.generateInvokeDeadline()
 	invokeID := uuid.New().String()
 	if len(id) > 0 {
 		invokeID = id
 	}
-	resp, err := s.setNewInvokeContext(invokeID, traceID, lambdaSegmentID, ddl)
+	resp, err := s.setNewInvokeContext(invokeID, traceID, lambdaSegmentID)
 	if err != nil {
 		return nil, err
 	}
@@ -614,7 +613,7 @@ func (s *Server) Invoke(responseWriter http.ResponseWriter, invoke *interop.Invo
 		}
 	}
 
-	invoke.DeadlineNs = reserveResp.Token.DeadlineNs
+	invoke.DeadlineNs = fmt.Sprintf("%d", metering.Monotime()+reserveResp.Token.FunctionTimeout.Nanoseconds())
 
 	invokeChan := make(chan error)
 	go func() {

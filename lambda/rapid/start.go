@@ -359,7 +359,7 @@ func handleStart(ctx context.Context, execCtx *rapidContext, watchdog *core.Watc
 	if !startRequest.SuppressInit {
 		if err := doInit(ctx, execCtx, watchdog); err != nil {
 			log.WithError(err).WithField("InvokeID", startRequest.InvokeID).Error("Init failed")
-			doneFailMsg := generateDoneFail(execCtx, startRequest.CorrelationID, nil)
+			doneFailMsg := generateDoneFail(execCtx, startRequest.CorrelationID, nil, 0)
 			handleInitError(doneFailMsg, execCtx, startRequest.InvokeID, interopServer, err)
 			return
 		}
@@ -378,9 +378,13 @@ func handleStart(ctx context.Context, execCtx *rapidContext, watchdog *core.Watc
 	if err := interopServer.SendDone(doneMsg); err != nil {
 		log.Panic(err)
 	}
+
+	if err := interopServer.StartAcceptingDirectInvokes(); err != nil {
+		log.Panic(err)
+	}
 }
 
-func generateDoneFail(execCtx *rapidContext, correlationID string, invokeMx *rendering.InvokeRendererMetrics) *interop.DoneFail {
+func generateDoneFail(execCtx *rapidContext, correlationID string, invokeMx *rendering.InvokeRendererMetrics, invokeReceivedTime int64) *interop.DoneFail {
 	errorType, found := appctx.LoadFirstFatalError(execCtx.appCtx)
 	if !found {
 		errorType = fatalerror.Unknown
@@ -392,6 +396,7 @@ func generateDoneFail(execCtx *rapidContext, correlationID string, invokeMx *ren
 		Meta: interop.DoneMetadata{
 			RuntimeRelease:      appctx.GetRuntimeRelease(execCtx.appCtx),
 			NumActiveExtensions: execCtx.registrationService.CountAgents(),
+			InvokeReceivedTime:  invokeReceivedTime,
 		},
 	}
 
@@ -414,7 +419,7 @@ func handleInvoke(ctx context.Context, execCtx *rapidContext, watchdog *core.Wat
 
 	if err := doInvoke(ctx, execCtx, watchdog, invokeRequest, &invokeMx); err != nil {
 		log.WithError(err).WithField("InvokeID", invokeRequest.ID).Error("Invoke failed")
-		doneFailMsg := generateDoneFail(execCtx, invokeRequest.CorrelationID, &invokeMx)
+		doneFailMsg := generateDoneFail(execCtx, invokeRequest.CorrelationID, &invokeMx, invokeRequest.InvokeReceivedTime)
 		handleInvokeError(doneFailMsg, execCtx, invokeRequest.ID, interopServer, err)
 		return
 	}
@@ -436,6 +441,7 @@ func handleInvoke(ctx context.Context, execCtx *rapidContext, watchdog *core.Wat
 			InvokeRequestReadTimeNs: invokeMx.ReadTime.Nanoseconds(),
 			InvokeRequestSizeBytes:  int64(invokeMx.SizeBytes),
 			InvokeCompletionTimeNs:  invokeCompletionTimeNs,
+			InvokeReceivedTime:      invokeRequest.InvokeReceivedTime,
 		},
 	}
 	if execCtx.telemetryAPIEnabled {
