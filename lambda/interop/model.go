@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	"go.amzn.com/lambda/core/statejson"
 	"go.amzn.com/lambda/fatalerror"
@@ -39,16 +40,19 @@ type Invoke struct {
 	CorrelationID         string // internal use only
 	ReservationToken      string
 	VersionID             string
+	InvokeReceivedTime    int64
 }
 
 type Token struct {
 	ReservationToken string
 	InvokeID         string
 	VersionID        string
-	DeadlineNs       string
+	FunctionTimeout  time.Duration
+	InvackDeadlineNs int64
 	TraceID          string
 	LambdaSegmentID  string
 	InvokeMetadata   string
+	NeedDebugLogs    bool
 }
 
 type ErrorResponse struct {
@@ -129,6 +133,7 @@ type DoneMetadata struct {
 	InvokeRequestReadTimeNs int64
 	InvokeRequestSizeBytes  int64
 	InvokeCompletionTimeNs  int64
+	InvokeReceivedTime      int64
 }
 
 type Done struct {
@@ -159,6 +164,9 @@ var ErrMalformedCustomerHeaders = fmt.Errorf("ErrMalformedCustomerHeaders")
 // ErrResponseSent is returned when response with given invokeID was already sent.
 var ErrResponseSent = fmt.Errorf("ErrResponseSent")
 
+// ErrReservationExpired is returned when invoke arrived after InvackDeadline
+var ErrReservationExpired = fmt.Errorf("ErrReservationExpired")
+
 // ErrorResponseTooLarge is returned when response Payload exceeds shared memory buffer size
 type ErrorResponseTooLarge struct {
 	MaxResponseSize int
@@ -186,6 +194,9 @@ func (s *ErrorResponseTooLarge) AsInteropError() *ErrorResponse {
 
 // Server implements Slicer communication protocol.
 type Server interface {
+	// StartAcceptingDirectInvokes starts accepting on direct invoke socket (if one is available)
+	StartAcceptingDirectInvokes() error
+
 	// SendErrorResponse sends response.
 	// Errors returned:
 	//   ErrInvalidInvokeID - validation error indicating that provided invokeID doesn't match current invokeID
