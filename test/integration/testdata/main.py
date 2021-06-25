@@ -35,3 +35,9 @@ def assert_lambda_arn_in_context(event, context):
         return "My lambda ran succesfully"
     else:
         raise("Function Arn was not there")
+
+
+def check_remaining_time_handler(event, context):
+    # Wait 1s to see if the remaining time changes
+    time.sleep(1)
+    return context.get_remaining_time_in_millis()
