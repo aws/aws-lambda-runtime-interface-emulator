@@ -21,10 +21,11 @@ func ResetHandler(w http.ResponseWriter, r *http.Request, s rapidcore.InteropSer
 		return
 	}
 
-	if err := s.Reset(reset.Reason, reset.TimeoutMs); err != nil {
+	resetDescription, err := s.Reset(reset.Reason, reset.TimeoutMs)
+	if err != nil {
 		(&FailureReply{}).Send(w, r)
 		return
 	}
 
-	(&SuccessReply{}).Send(w, r)
+	w.Write(resetDescription.AsJSON())
 }

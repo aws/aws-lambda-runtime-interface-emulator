@@ -15,7 +15,6 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-
 const (
 	optBootstrap     = "/opt/bootstrap"
 	runtimeBootstrap = "/var/runtime/bootstrap"
@@ -58,24 +57,22 @@ func getCLIArgs() (options, []string) {
 }
 
 func getBootstrap(args []string, opts options) (*rapidcore.Bootstrap, string) {
-	var bootstrapLookupCmdList [][]string
+	var bootstrapLookupCmd []string
 	var handler string
 	currentWorkingDir := "/var/task" // default value
 
 	if len(args) <= 1 {
-		bootstrapLookupCmdList = [][]string{
-			[]string{fmt.Sprintf("%s/bootstrap", currentWorkingDir)},
-			[]string{optBootstrap},
-			[]string{runtimeBootstrap},
+		bootstrapLookupCmd = []string{
+			fmt.Sprintf("%s/bootstrap", currentWorkingDir),
+			optBootstrap,
+			runtimeBootstrap,
 		}
 
 		// handler is used later to set an env var for Lambda Image support
 		handler = ""
 	} else if len(args) > 1 {
 
-		bootstrapLookupCmdList = [][]string{
-			args[1:],
-		}
+		bootstrapLookupCmd = args[1:]
 
 		if cwd, err := os.Getwd(); err == nil {
 			currentWorkingDir = cwd
@@ -92,5 +89,5 @@ func getBootstrap(args []string, opts options) (*rapidcore.Bootstrap, string) {
 		log.Panic("insufficient arguments: bootstrap not provided")
 	}
 
-	return rapidcore.NewBootstrap(bootstrapLookupCmdList, currentWorkingDir), handler
+	return rapidcore.NewBootstrapSingleCmd(bootstrapLookupCmd, currentWorkingDir), handler
 }

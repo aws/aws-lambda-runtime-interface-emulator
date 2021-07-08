@@ -14,6 +14,7 @@ import (
 	"os"
 	"runtime"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -52,6 +53,7 @@ func TestRenderInvoke(t *testing.T) {
 	appCtx := flowTest.AppCtx
 
 	deadlineNs := 12345
+	invokePayload := "Payload"
 	invoke := &interop.Invoke{
 		TraceID:               "Root=RootID;Parent=LambdaFrontend;Sampled=1",
 		ID:                    "ID",
@@ -61,7 +63,7 @@ func TestRenderInvoke(t *testing.T) {
 		ClientContext:         "ClientContext",
 		DeadlineNs:            strconv.Itoa(deadlineNs),
 		ContentType:           "image/png",
-		Payload:               []byte("Payload"),
+		Payload:               strings.NewReader(invokePayload),
 	}
 
 	ctx := telemetry.NewTraceContext(context.Background(), "RootID", "InvocationSubegmentID")
@@ -87,7 +89,7 @@ func TestRenderInvoke(t *testing.T) {
 
 	assert.Equal(t, "image/png", headers.Get("Content-Type"))
 	assert.Len(t, headers, 7)
-	assert.Equal(t, invoke.Payload, responseRecorder.Body.Bytes())
+	assert.Equal(t, invokePayload, responseRecorder.Body.String())
 }
 
 //Cgo calls removed due to crashes while spawning threads under memory pressure.
@@ -115,7 +117,7 @@ func BenchmarkRenderInvoke(b *testing.B) {
 		ClientContext:         "ClientContext",
 		DeadlineNs:            strconv.Itoa(deadlineNs),
 		ContentType:           "image/png",
-		Payload:               []byte("Payload"),
+		Payload:               strings.NewReader("Payload"),
 	}
 
 	ctx := telemetry.NewTraceContext(context.Background(), "RootID", "InvocationSubegmentID")

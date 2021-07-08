@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -25,7 +26,7 @@ func createInvoke(id string) *interop.Invoke {
 	return &interop.Invoke{
 		ID:                 id,
 		InvokedFunctionArn: "arn::dummy:Function",
-		Payload:            []byte("{\"invoke\":\"" + id + "\"}"),
+		Payload:            strings.NewReader("{\"invoke\":\"" + id + "\"}"),
 		DeadlineNs:         "123456",
 	}
 }

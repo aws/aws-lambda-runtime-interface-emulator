@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -103,7 +104,7 @@ func TestRenderAgentInvokeNextHappy(t *testing.T) {
 		ClientContext:         "ClientContext",
 		DeadlineNs:            fmt.Sprintf("%d", deadlineNs),
 		ContentType:           "image/png",
-		Payload:               []byte("Payload"),
+		Payload:               strings.NewReader("Payload"),
 	}
 
 	renderingService := rendering.NewRenderingService()
@@ -152,7 +153,7 @@ func TestRenderAgentInternalInvokeNextHappy(t *testing.T) {
 		ClientContext:         "ClientContext",
 		DeadlineNs:            fmt.Sprintf("%d", deadlineNs),
 		ContentType:           "image/png",
-		Payload:               []byte("Payload"),
+		Payload:               strings.NewReader("Payload"),
 	}
 
 	renderingService := rendering.NewRenderingService()
@@ -260,4 +261,44 @@ func TestRenderAgentExternalShutdownEvent(t *testing.T) {
 	assert.Equal(t, "SHUTDOWN", response.AgentEvent.EventType)
 	assert.Equal(t, int64(deadlineMs), response.AgentEvent.DeadlineMs)
 	assert.Equal(t, shutdownReason, response.ShutdownReason)
+}
+
+func TestRenderAgentInvokeNextHappyEmptyTraceID(t *testing.T) {
+	registrationService := core.NewRegistrationService(
+		core.NewInitFlowSynchronization(),
+		core.NewInvokeFlowSynchronization(),
+	)
+	agent, err := registrationService.CreateExternalAgent("dummyName")
+	assert.NoError(t, err)
+
+	agent.SetState(agent.RegisteredState)
+	agent.Release() // sets operator condition to true so that the thread doesn't suspend waiting for invoke request
+
+	deadlineNs := metering.Monotime() + int64(100*time.Millisecond)
+	requestID, functionArn := "ID", "InvokedFunctionArn"
+	traceID := ""
+	invoke := &interop.Invoke{
+		TraceID:            traceID,
+		ID:                 requestID,
+		InvokedFunctionArn: functionArn,
+		DeadlineNs:         fmt.Sprintf("%d", deadlineNs),
+		ContentType:        "image/png",
+		Payload:            strings.NewReader("Payload"),
+	}
+
+	renderingService := rendering.NewRenderingService()
+	renderingService.SetRenderer(rendering.NewInvokeRenderer(context.Background(), invoke, telemetry.GetCustomerTracingHeader))
+
+	handler := NewAgentNextHandler(registrationService, renderingService)
+	request := httptest.NewRequest("GET", "/", nil)
+	request = request.WithContext(context.WithValue(context.Background(), AgentIDCtxKey, agent.ID))
+	responseRecorder := httptest.NewRecorder()
+
+	handler.ServeHTTP(responseRecorder, request)
+	assert.Equal(t, http.StatusOK, responseRecorder.Code)
+	var response model.AgentInvokeEvent
+	respBody, _ := ioutil.ReadAll(responseRecorder.Body)
+	json.Unmarshal(respBody, &response)
+
+	assert.Nil(t, response.Tracing)
 }

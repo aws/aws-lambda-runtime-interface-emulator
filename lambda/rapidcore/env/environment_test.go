@@ -23,6 +23,7 @@ func TestRAPIDInternalConfig(t *testing.T) {
 	os.Setenv("AWS_XRAY_DAEMON_ADDRESS", "a")
 	os.Setenv("AWS_LAMBDA_FUNCTION_NAME", "a")
 	os.Setenv("_LAMBDA_TELEMETRY_API_PASSPHRASE", "a")
+	os.Setenv("_LAMBDA_DIRECT_INVOKE_SOCKET", "1")
 	NewEnvironment().RAPIDInternalConfig()
 }
 
@@ -40,6 +41,7 @@ func TestEnvironmentParsing(t *testing.T) {
 	setAll(predefinedCredentialsEnvVarKeys(), credsEnvVal)
 	os.Setenv("MY_FOOBAR_ENV_1", customerEnvVal)
 	os.Setenv("MY_EMPTY_ENV", "")
+	os.Setenv("_UNKNOWN_INTERNAL_ENV", platformEnvVal)
 
 	env := NewEnvironment() // parse environment variables
 	customerEnv := CustomerEnvironmentVariables()
@@ -72,8 +74,9 @@ func TestEnvironmentParsing(t *testing.T) {
 		assert.Equal(t, customerEnvVal, val)
 	}
 
-	assert.Equal(t, env.Customer["MY_FOOBAR_ENV_1"], customerEnvVal)
-	assert.Equal(t, env.Customer["MY_EMPTY_ENV"], "")
+	assert.Equal(t, customerEnvVal, env.Customer["MY_FOOBAR_ENV_1"])
+	assert.Equal(t, "", env.Customer["MY_EMPTY_ENV"])
+	assert.Equal(t, "", env.Customer["_UNKNOWN_INTERNAL_ENV"])
 }
 
 func TestEnvironmentParsingUnsetPlatformAndInternalEnvVarKeysAreDeleted(t *testing.T) {
@@ -172,7 +175,7 @@ func TestRuntimeExecEnvironmentVariablesPriority(t *testing.T) {
 	}
 
 	cliOptionsEnv := map[string]string{
-		"LCIS_ARG1":                 lcisCLIArgEnvVal,
+		"LCIS_ARG1":                lcisCLIArgEnvVal,
 		conflictPlatformKeyFromCLI: lcisCLIArgEnvVal,
 	}
 
@@ -208,7 +211,7 @@ func TestCustomerEnvironmentVariablesFromInitCanOverrideEnvironmentVariablesFrom
 	}
 
 	cliOptionsEnv := map[string]string{
-		"LCIS_ARG1":        lcisCLIArgEnvVal,
+		"LCIS_ARG1":       lcisCLIArgEnvVal,
 		"MY_FOOBAR_ENV_1": lcisCLIArgEnvVal,
 	}
 

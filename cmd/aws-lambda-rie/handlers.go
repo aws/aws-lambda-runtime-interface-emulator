@@ -4,8 +4,8 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"math"
 	"net/http"
@@ -24,7 +24,7 @@ import (
 
 type Sandbox interface {
 	Init(i *interop.Init, invokeTimeoutMs int64)
-	Invoke(responseWriter io.Writer, invoke *interop.Invoke) error
+	Invoke(responseWriter http.ResponseWriter, invoke *interop.Invoke) error
 }
 
 var initDone bool
@@ -98,7 +98,7 @@ func InvokeHandler(w http.ResponseWriter, r *http.Request, sandbox Sandbox) {
 		InvokedFunctionArn: fmt.Sprintf("arn:aws:lambda:us-east-1:012345678912:function:%s", GetenvWithDefault("AWS_LAMBDA_FUNCTION_NAME", "test_function")),
 		TraceID:            r.Header.Get("X-Amzn-Trace-Id"),
 		LambdaSegmentID:    r.Header.Get("X-Amzn-Segment-Id"),
-		Payload:            bodyBytes,
+		Payload:            bytes.NewReader(bodyBytes),
 		CorrelationID:      "invokeCorrelationID",
 	}
 	fmt.Println("START RequestId: " + invokePayload.ID + " Version: " + functionVersion)

@@ -110,6 +110,7 @@ func TestRuntimeStateTransitionsFromInvocationResponseState(t *testing.T) {
 	runtime.SetState(runtime.RuntimeInvocationResponseState)
 	assert.NoError(t, runtime.ResponseSent())
 	assert.Equal(t, runtime.RuntimeResponseSentState, runtime.GetState())
+	assert.NotEqual(t, 0, runtime.GetRuntimeDescription().State.ResponseTimeNs)
 	// InvocationResponse-> InvocationResponse
 	runtime.SetState(runtime.RuntimeInvocationResponseState)
 	assert.Equal(t, ErrNotAllowed, runtime.InvocationResponse())

@@ -6,6 +6,7 @@ package testdata
 import (
 	"context"
 	"io"
+	"io/ioutil"
 	"net/http"
 
 	"go.amzn.com/lambda/appctx"
@@ -18,14 +19,27 @@ import (
 )
 
 type MockInteropServer struct {
-	Response       *interop.Response
+	Response       []byte
 	ErrorResponse  *interop.ErrorResponse
 	ActiveInvokeID string
 }
 
+// StartAcceptingDirectInvokes
+func (i *MockInteropServer) StartAcceptingDirectInvokes() error { return nil }
+
 // SendResponse writes response to a shared memory.
-func (i *MockInteropServer) SendResponse(invokeID string, response *interop.Response) error {
-	i.Response = response
+func (i *MockInteropServer) SendResponse(invokeID string, reader io.Reader) error {
+	bytes, err := ioutil.ReadAll(reader)
+	if err != nil {
+		return err
+	}
+	if len(bytes) > interop.MaxPayloadSize {
+		return &interop.ErrorResponseTooLarge{
+			ResponseSize:    len(bytes),
+			MaxResponseSize: interop.MaxPayloadSize,
+		}
+	}
+	i.Response = bytes
 	return nil
 }
 
@@ -77,10 +91,9 @@ func (i *MockInteropServer) SetInternalStateGetter(isd interop.InternalStateGett
 
 func (m *MockInteropServer) Init(i *interop.Start, invokeTimeoutMs int64) {}
 
-func (m *MockInteropServer) Invoke(w io.Writer, i *interop.Invoke) error { return nil }
+func (m *MockInteropServer) Invoke(w http.ResponseWriter, i *interop.Invoke) error { return nil }
 
 func (m *MockInteropServer) Shutdown(shutdown *interop.Shutdown) *statejson.InternalStateDescription { return nil }
-
 
 // FlowTest provides configuration for tests that involve synchronization flows.
 type FlowTest struct {

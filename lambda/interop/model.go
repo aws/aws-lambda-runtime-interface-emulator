@@ -7,12 +7,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
+	"time"
 
 	"go.amzn.com/lambda/core/statejson"
+	"go.amzn.com/lambda/fatalerror"
 )
 
 // MaxPayloadSize max event body size declared as LAMBDA_EVENT_BODY_SIZE
 const MaxPayloadSize = 6*1024*1024 + 100 // 6 MiB + 100 bytes
+
+const functionResponseSizeTooLargeType = "Function.ResponseSizeTooLarge"
 
 // Message is a generic interop message.
 type Message interface{}
@@ -30,23 +35,29 @@ type Invoke struct {
 	DeadlineNs            string
 	ClientContext         string
 	ContentType           string
-	Payload               []byte
+	Payload               io.Reader
 	NeedDebugLogs         bool
 	CorrelationID         string // internal use only
+	ReservationToken      string
+	VersionID             string
+	InvokeReceivedTime    int64
 }
 
-// Response is a response to an invoke that is sent to the slicer.
-type Response struct {
-	Payload []byte
+type Token struct {
+	ReservationToken string
+	InvokeID         string
+	VersionID        string
+	FunctionTimeout  time.Duration
+	InvackDeadlineNs int64
+	TraceID          string
+	LambdaSegmentID  string
+	InvokeMetadata   string
+	NeedDebugLogs    bool
 }
 
-// ErrorResponse is an error response that is sent to the slicer.
-//
-// Note, this struct is implementation-specific to how Slicer
-// processes errors.
 type ErrorResponse struct {
 	// Payload sent via shared memory.
-	Payload []byte
+	Payload []byte `json:"Payload,omitempty"`
 
 	// When error response body (Payload) is not provided, e.g.
 	// not retrievable, error type and error message will be
@@ -57,11 +68,11 @@ type ErrorResponse struct {
 	//
 	// when error type is provided, error response becomes:
 	// '{"errorMessage":"Unknown application error occurred","errorType":"ErrorType"}'
-	ErrorType    string
-	ErrorMessage string
+	ErrorType    string `json:"errorType,omitempty"`
+	ErrorMessage string `json:"errorMessage,omitempty"`
 
 	// Attached to invoke segment
-	ErrorCause json.RawMessage
+	ErrorCause json.RawMessage `json:"ErrorCause,omitempty"`
 }
 
 // SandboxType identifies sandbox type (PreWarmed vs Classic)
@@ -113,41 +124,85 @@ type Shutdown struct {
 // Metrics for response status of LogsAPI `/subscribe` calls
 type LogsAPIMetrics map[string]int
 
-// Done message is sent to the slicer, part of the protocol.
+type DoneMetadata struct {
+	NumActiveExtensions int
+	ExtensionsResetMs   int64
+	RuntimeRelease      string
+	// Metrics for response status of LogsAPI `/subscribe` calls
+	LogsAPIMetrics          LogsAPIMetrics
+	InvokeRequestReadTimeNs int64
+	InvokeRequestSizeBytes  int64
+	InvokeCompletionTimeNs  int64
+	InvokeReceivedTime      int64
+}
+
 type Done struct {
-	WaitForExit         bool
-	NumActiveExtensions int
-	RuntimeRelease      string
-	ErrorType           string // internal use only, still in use by standalone
-	CorrelationID       string // internal use only
-	// Metrics for response status of LogsAPI `/subscribe` calls
-	LogsAPIMetrics LogsAPIMetrics
+	WaitForExit   bool
+	ErrorType     fatalerror.ErrorType
+	CorrelationID string // internal use only
+	Meta          DoneMetadata
 }
 
-// DoneFail message is sent to the slicer to report error and request reset.
 type DoneFail struct {
-	RuntimeRelease      string
-	NumActiveExtensions int
-	ErrorType           string
-	CorrelationID       string // internal use only
-	// Metrics for response status of LogsAPI `/subscribe` calls
-	LogsAPIMetrics LogsAPIMetrics
+	ErrorType     fatalerror.ErrorType
+	CorrelationID string // internal use only
+	Meta          DoneMetadata
 }
 
-// ErrInvalidInvokeID is returned when provided invokeID doesn't match current invokeID
+// ErrInvalidInvokeID is returned when invokeID provided in Invoke2 does not match one provided in Token
 var ErrInvalidInvokeID = fmt.Errorf("ErrInvalidInvokeID")
+
+// ErrInvalidReservationToken is returned when reservationToken provided in Invoke2 does not match one provided in Token
+var ErrInvalidReservationToken = fmt.Errorf("ErrInvalidReservationToken")
+
+// ErrInvalidFunctionVersion is returned when functionVersion provided in Invoke2 does not match one provided in Token
+var ErrInvalidFunctionVersion = fmt.Errorf("ErrInvalidFunctionVersion")
+
+// ErrMalformedCustomerHeaders is returned when customer headers format is invalid
+var ErrMalformedCustomerHeaders = fmt.Errorf("ErrMalformedCustomerHeaders")
 
 // ErrResponseSent is returned when response with given invokeID was already sent.
 var ErrResponseSent = fmt.Errorf("ErrResponseSent")
 
+// ErrReservationExpired is returned when invoke arrived after InvackDeadline
+var ErrReservationExpired = fmt.Errorf("ErrReservationExpired")
+
+// ErrorResponseTooLarge is returned when response Payload exceeds shared memory buffer size
+type ErrorResponseTooLarge struct {
+	MaxResponseSize int
+	ResponseSize    int
+}
+
+// ErrorResponseTooLarge is returned when response provided by Runtime does not fit into shared memory buffer
+func (s *ErrorResponseTooLarge) Error() string {
+	return fmt.Sprintf("Response payload size (%d bytes) exceeded maximum allowed payload size (%d bytes).", s.ResponseSize, s.MaxResponseSize)
+}
+
+// AsErrorResponse generates ErrorResponse from ErrorResponseTooLarge
+func (s *ErrorResponseTooLarge) AsInteropError() *ErrorResponse {
+	resp := ErrorResponse{
+		ErrorType:    functionResponseSizeTooLargeType,
+		ErrorMessage: s.Error(),
+	}
+	respJSON, err := json.Marshal(resp)
+	if err != nil {
+		panic("Failed to marshal interop.ErrorResponse")
+	}
+	resp.Payload = respJSON
+	return &resp
+}
+
 // Server implements Slicer communication protocol.
 type Server interface {
+	// StartAcceptingDirectInvokes starts accepting on direct invoke socket (if one is available)
+	StartAcceptingDirectInvokes() error
+
 	// SendErrorResponse sends response.
 	// Errors returned:
 	//   ErrInvalidInvokeID - validation error indicating that provided invokeID doesn't match current invokeID
 	//   ErrResponseSent    - validation error indicating that response with given invokeID was already sent
 	//   Non-nil error      - non-nil error indicating transport failure
-	SendResponse(invokeID string, response *Response) error
+	SendResponse(invokeID string, response io.Reader) error
 
 	// SendErrorResponse sends error response.
 	// Errors returned:
@@ -207,7 +262,7 @@ type Server interface {
 
 	Init(i *Start, invokeTimeoutMs int64)
 
-	Invoke(responseWriter io.Writer, invoke *Invoke) error
+	Invoke(responseWriter http.ResponseWriter, invoke *Invoke) error
 
 	Shutdown(shutdown *Shutdown) *statejson.InternalStateDescription
 }

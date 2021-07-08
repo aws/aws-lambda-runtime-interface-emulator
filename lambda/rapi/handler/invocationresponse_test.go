@@ -8,8 +8,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/aws/aws-lambda-go/events/test"
@@ -36,7 +38,7 @@ func TestResponseTooLarge(t *testing.T) {
 		DeadlineNs:            "deadlinens1",
 		ClientContext:         "clientcontext1",
 		ContentType:           "application/json",
-		Payload:               []byte(`{"message": "hello"}`),
+		Payload:               strings.NewReader(`{"message": "hello"}`),
 	}
 
 	flowTest.ConfigureForInvoke(context.Background(), invoke)
@@ -53,7 +55,9 @@ func TestResponseTooLarge(t *testing.T) {
 		responseRecorder.Code, http.StatusRequestEntityTooLarge)
 
 	expectedAPIResponse := fmt.Sprintf("{\"errorMessage\":\"Exceeded maximum allowed payload size (%d bytes).\",\"errorType\":\"RequestEntityTooLarge\"}\n", interop.MaxPayloadSize)
-	test.AssertJsonsEqual(t, []byte(expectedAPIResponse), responseRecorder.Body.Bytes())
+	body, err := ioutil.ReadAll(responseRecorder.Body)
+	assert.NoError(t, err)
+	test.AssertJsonsEqual(t, []byte(expectedAPIResponse), body)
 
 	errorResponse := flowTest.InteropServer.ErrorResponse
 	assert.NotNil(t, errorResponse)
@@ -62,7 +66,7 @@ func TestResponseTooLarge(t *testing.T) {
 	assert.Equal(t, "Response payload size (6291557 bytes) exceeded maximum allowed payload size (6291556 bytes).", errorResponse.ErrorMessage)
 
 	var errorPayload map[string]interface{}
-	json.Unmarshal(errorResponse.Payload, &errorPayload)
+	assert.NoError(t, json.Unmarshal(errorResponse.Payload, &errorPayload))
 	assert.Equal(t, errorResponse.ErrorType, errorPayload["errorType"])
 	assert.Equal(t, errorResponse.ErrorMessage, errorPayload["errorMessage"])
 }
@@ -84,7 +88,7 @@ func TestResponseAccepted(t *testing.T) {
 		DeadlineNs:            "deadlinens1",
 		ClientContext:         "clientcontext1",
 		ContentType:           "application/json",
-		Payload:               []byte(`{"message": "hello"}`),
+		Payload:               strings.NewReader(`{"message": "hello"}`),
 	}
 
 	flowTest.ConfigureForInvoke(context.Background(), invoke)
@@ -101,11 +105,13 @@ func TestResponseAccepted(t *testing.T) {
 		responseRecorder.Code, http.StatusAccepted)
 
 	expectedAPIResponse := "{\"status\":\"OK\"}\n"
-	test.AssertJsonsEqual(t, []byte(expectedAPIResponse), responseRecorder.Body.Bytes())
+	body, err := ioutil.ReadAll(responseRecorder.Body)
+	assert.NoError(t, err)
+	test.AssertJsonsEqual(t, []byte(expectedAPIResponse), body)
 
 	response := flowTest.InteropServer.Response
 	assert.NotNil(t, response)
 	assert.Nil(t, flowTest.InteropServer.ErrorResponse)
-	assert.Equal(t, responseBody, response.Payload,
+	assert.Equal(t, responseBody, response,
 		"Persisted response data in app context must match the submitted.")
 }
