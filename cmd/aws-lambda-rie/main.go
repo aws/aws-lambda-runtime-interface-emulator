@@ -56,7 +56,7 @@ func getCLIArgs() (options, []string) {
 	return opts, args
 }
 
-func isBootstrapFileExist(filePath string) (bool) {
+func isBootstrapFileExist(filePath string) bool {
     file, err := os.Stat(filePath)
     return os.IsNotExist(err) || file.IsDir()
 }
