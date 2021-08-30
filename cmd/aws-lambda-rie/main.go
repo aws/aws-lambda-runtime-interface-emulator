@@ -57,8 +57,8 @@ func getCLIArgs() (options, []string) {
 }
 
 func isBootstrapFileExist(filePath string) bool {
-    file, err := os.Stat(filePath)
-    return os.IsNotExist(err) || file.IsDir()
+	file, err := os.Stat(filePath)
+	return !os.IsNotExist(err) && !file.IsDir()
 }
 
 func getBootstrap(args []string, opts options) (*rapidcore.Bootstrap, string) {
