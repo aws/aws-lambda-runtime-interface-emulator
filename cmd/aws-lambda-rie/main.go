@@ -56,16 +56,34 @@ func getCLIArgs() (options, []string) {
 	return opts, args
 }
 
+func isBootstrapFileExist(filePath string) bool {
+	file, err := os.Stat(filePath)
+	return !os.IsNotExist(err) && !file.IsDir()
+}
+
 func getBootstrap(args []string, opts options) (*rapidcore.Bootstrap, string) {
 	var bootstrapLookupCmd []string
 	var handler string
 	currentWorkingDir := "/var/task" // default value
 
 	if len(args) <= 1 {
+		// set default value to /var/task/bootstrap, but switch to the other options if it doesn't exist
 		bootstrapLookupCmd = []string{
 			fmt.Sprintf("%s/bootstrap", currentWorkingDir),
-			optBootstrap,
-			runtimeBootstrap,
+		}
+
+		if !isBootstrapFileExist(bootstrapLookupCmd[0])  {
+			var bootstrapCmdCandidates = []string{
+				optBootstrap,
+				runtimeBootstrap,
+			}
+
+			for i, bootstrapCandidate := range bootstrapCmdCandidates {
+				if isBootstrapFileExist(bootstrapCandidate) {
+					bootstrapLookupCmd = []string{bootstrapCmdCandidates[i]}
+					break
+				}
+			}
 		}
 
 		// handler is used later to set an env var for Lambda Image support
