@@ -56,6 +56,11 @@ func getCLIArgs() (options, []string) {
 	return opts, args
 }
 
+func isBootstrapFileExist(filePath string) (bool) {
+    file, err := os.Stat(filePath)
+    return os.IsNotExist(err) || file.IsDir()
+}
+
 func getBootstrap(args []string, opts options) (*rapidcore.Bootstrap, string) {
 	var bootstrapLookupCmd []string
 	var handler string
@@ -67,14 +72,14 @@ func getBootstrap(args []string, opts options) (*rapidcore.Bootstrap, string) {
 			fmt.Sprintf("%s/bootstrap", currentWorkingDir),
 		}
 
-		if file, err := os.Stat(bootstrapLookupCmd[0]); os.IsNotExist(err) || file.IsDir() {
+		if !isBootstrapFileExist(bootstrapLookupCmd[0])  {
 			var bootstrapCmdCandidates = []string{
 				optBootstrap,
 				runtimeBootstrap,
 			}
 
 			for i, bootstrapCandidate := range bootstrapCmdCandidates {
-				if file, err := os.Stat(bootstrapCandidate); !os.IsNotExist(err) && !file.IsDir() {
+				if isBootstrapFileExist(bootstrapCandidate) {
 					bootstrapLookupCmd = []string{bootstrapCmdCandidates[i]}
 					break
 				}
