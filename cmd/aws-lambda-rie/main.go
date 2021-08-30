@@ -62,10 +62,20 @@ func getBootstrap(args []string, opts options) (*rapidcore.Bootstrap, string) {
 	currentWorkingDir := "/var/task" // default value
 
 	if len(args) <= 1 {
-		bootstrapLookupCmd = []string{
+		var bootstrapCmdCandidates = []string{
 			fmt.Sprintf("%s/bootstrap", currentWorkingDir),
 			optBootstrap,
 			runtimeBootstrap,
+		}
+
+		// set default value to /var/task/bootstrap, but switch to the other options if it doesn't exist
+		bootstrapLookupCmd = []string{bootstrapCmdCandidates[0]}
+
+		for i, bootstrapCandidate := range bootstrapCmdCandidates {
+			if file, err := os.Stat(bootstrapCandidate); !os.IsNotExist(err) && !file.IsDir() {
+				bootstrapLookupCmd = []string{bootstrapCmdCandidates[i]}
+				break
+			}
 		}
 
 		// handler is used later to set an env var for Lambda Image support
