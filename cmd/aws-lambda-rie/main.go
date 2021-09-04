@@ -78,13 +78,15 @@ func main() {
 		sandbox.SetRuntimeAPIAddress(opts.RuntimeAPIAddress)
 	}
 
+	funcName := GetenvWithDefault("AWS_LAMBDA_FUNCTION_NAME", "function")
+
 	sandboxContext, internalStateFn := sandbox.Create()
 	// Since we have not specified a custom interop server for standalone, we can
 	// directly reference the default interop server, which is a concrete type
 	sandbox.DefaultInteropServer().SetSandboxContext(sandboxContext)
 	sandbox.DefaultInteropServer().SetInternalStateGetter(internalStateFn)
 
-	startHTTPServer(opts.RuntimeInterfaceEmulatorAddress, sandbox, bootstrap)
+	startHTTPServer(opts.RuntimeInterfaceEmulatorAddress, sandbox, bootstrap, funcName)
 }
 
 func getCLIArgs() (options, []string) {
