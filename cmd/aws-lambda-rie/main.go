@@ -46,7 +46,8 @@ func main() {
 	go sandbox.Create()
 
 	testAPIipport := "0.0.0.0:8080"
-	startHTTPServer(testAPIipport, sandbox)
+	funcName := GetenvWithDefault("AWS_LAMBDA_FUNCTION_NAME", "function")
+	startHTTPServer(testAPIipport, sandbox, funcName)
 }
 
 func getCLIArgs() (options, []string) {
