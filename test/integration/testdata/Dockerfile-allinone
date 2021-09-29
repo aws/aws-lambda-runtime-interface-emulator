@@ -1,4 +1,4 @@
-FROM public.ecr.aws/lambda/python:3.8
+FROM 265565150187.dkr.ecr.us-west-2.amazonaws.com/awslambda/python3.8-runtime:base-image-multi-arch
 
 WORKDIR /var/task
 COPY ./ ./
