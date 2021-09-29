@@ -1,7 +1,0 @@
-FROM public.ecr.aws/lambda/python:3.8
-
-WORKDIR /var/task
-COPY ./ ./
-
-# This is to verify env vars are parsed correctly before executing the function
-ENV MyEnv="4=4"
