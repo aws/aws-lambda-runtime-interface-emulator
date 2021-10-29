@@ -138,7 +138,7 @@ You can configure your credentials by setting:
 * `AWS_SESSION_TOKEN`
 * `AWS_REGION`
 
-You can configure timeout by setting AWS_LAMBDA_FUNCTION_TIMEOUT to the number of seconds you want your function to timeout in.
+You can configure timeout by setting `AWS_LAMBDA_FUNCTION_TIMEOUT` to the number of seconds you want your function to timeout in.
 
 The rest of these Environment Variables can be set to match AWS Lambda's environment but are not required.
 * `AWS_LAMBDA_FUNCTION_VERSION`
