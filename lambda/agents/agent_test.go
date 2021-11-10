@@ -204,7 +204,7 @@ func TestFindAgentMixed(t *testing.T) {
 // Test our ability to start agents
 func TestAgentStart(t *testing.T) {
 	assert := assert.New(t)
-	agent := NewExternalAgentProcess("../testdata/agents/bash_true.sh", []string{}, &mockWriter{})
+	agent := NewExternalAgentProcess("../testdata/agents/bash_true.sh", []string{}, &mockWriter{}, &mockWriter{})
 	assert.Nil(agent.Start())
 	assert.Nil(agent.Wait())
 }
@@ -212,22 +212,68 @@ func TestAgentStart(t *testing.T) {
 // Test that execution of invalid agents is correctly reported
 func TestInvalidAgentStart(t *testing.T) {
 	assert := assert.New(t)
-	agent := NewExternalAgentProcess("/bin/none", []string{}, &mockWriter{})
+	agent := NewExternalAgentProcess("/bin/none", []string{}, &mockWriter{}, &mockWriter{})
 	assert.True(os.IsNotExist(agent.Start()))
 }
 
-// Test that execution of invalid agents is correctly reported
-func TestAgentTelemetry(t *testing.T) {
+func TestAgentStdoutWriter(t *testing.T) {
+	// Given
 	assert := assert.New(t)
-	buffer := &mockWriter{}
 
-	agent := NewExternalAgentProcess("../testdata/agents/bash_echo.sh", []string{}, buffer)
+	stdout := &mockWriter{}
+	stderr := &mockWriter{}
+	expectedStdout := "stdout line 1\nstdout line 2\nstdout line 3\n"
+	expectedStderr := ""
 
+	agent := NewExternalAgentProcess("../testdata/agents/bash_stdout.sh", []string{}, stdout, stderr)
+
+	// When
 	assert.NoError(agent.Start())
 	assert.NoError(agent.Wait())
 
-	message := "hello world\n|barbaz\n|hello world\n|barbaz2"
-	assert.Equal(message, string(bytes.Join(buffer.bytesReceived, []byte("|"))))
+	// Then
+	assert.Equal(expectedStdout, string(bytes.Join(stdout.bytesReceived, []byte(""))))
+	assert.Equal(expectedStderr, string(bytes.Join(stderr.bytesReceived, []byte(""))))
+}
+
+func TestAgentStderrWriter(t *testing.T) {
+	// Given
+	assert := assert.New(t)
+
+	stdout := &mockWriter{}
+	stderr := &mockWriter{}
+	expectedStdout := ""
+	expectedStderr := "stderr line 1\nstderr line 2\nstderr line 3\n"
+
+	agent := NewExternalAgentProcess("../testdata/agents/bash_stderr.sh", []string{}, stdout, stderr)
+
+	// When
+	assert.NoError(agent.Start())
+	assert.NoError(agent.Wait())
+
+	// Then
+	assert.Equal(expectedStdout, string(bytes.Join(stdout.bytesReceived, []byte(""))))
+	assert.Equal(expectedStderr, string(bytes.Join(stderr.bytesReceived, []byte(""))))
+}
+
+func TestAgentStdoutAndStderrSeperateWriters(t *testing.T) {
+	// Given
+	assert := assert.New(t)
+
+	stdout := &mockWriter{}
+	stderr := &mockWriter{}
+	expectedStdout := "stdout line 1\nstdout line 2\nstdout line 3\n"
+	expectedStderr := "stderr line 1\nstderr line 2\nstderr line 3\n"
+
+	agent := NewExternalAgentProcess("../testdata/agents/bash_stdout_and_stderr.sh", []string{}, stdout, stderr)
+
+	// When
+	assert.NoError(agent.Start())
+	assert.NoError(agent.Wait())
+
+	// Then
+	assert.Equal(expectedStdout, string(bytes.Join(stdout.bytesReceived, []byte(""))))
+	assert.Equal(expectedStderr, string(bytes.Join(stderr.bytesReceived, []byte(""))))
 }
 
 type mockWriter struct {

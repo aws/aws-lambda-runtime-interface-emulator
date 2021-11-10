@@ -5,6 +5,7 @@ package appctx
 
 import (
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -28,6 +29,63 @@ func runTestRequestWithUserAgent(t *testing.T, userAgent string, expectedRuntime
 	ctxRuntimeRelease, ok := appCtx.Load(AppCtxRuntimeReleaseKey)
 	assert.True(t, ok)
 	assert.Equal(t, expectedRuntimeRelease, ctxRuntimeRelease, "failed to extract runtime_release token")
+}
+
+func TestCreateRuntimeReleaseFromRequest(t *testing.T) {
+	tests := map[string]struct {
+		userAgentHeader             string
+		lambdaRuntimeFeaturesHeader string
+		expectedRuntimeRelease      string
+	}{
+		"No User-Agent header": {
+			userAgentHeader:             "",
+			lambdaRuntimeFeaturesHeader: "httpcl/2.0 execwr",
+			expectedRuntimeRelease:      "Unknown (httpcl/2.0 execwr)",
+		},
+		"No Lambda-Runtime-Features header": {
+			userAgentHeader:             "Node.js/14.16.0",
+			lambdaRuntimeFeaturesHeader: "",
+			expectedRuntimeRelease:      "Node.js/14.16.0",
+		},
+		"Lambda-Runtime-Features header with additional spaces": {
+			userAgentHeader:             "Node.js/14.16.0",
+			lambdaRuntimeFeaturesHeader: "httpcl/2.0    execwr",
+			expectedRuntimeRelease:      "Node.js/14.16.0 (httpcl/2.0 execwr)",
+		},
+		"Lambda-Runtime-Features header with special characters": {
+			userAgentHeader:             "Node.js/14.16.0",
+			lambdaRuntimeFeaturesHeader: "httpcl/2.0@execwr-1 abcd?efg nodewr/(4.33)) nodewr/4.3",
+			expectedRuntimeRelease:      "Node.js/14.16.0 (httpcl/2.0@execwr-1 abcd?efg nodewr/4.33 nodewr/4.3)",
+		},
+		"Lambda-Runtime-Features header with long Lambda-Runtime-Features header": {
+			userAgentHeader:             "Node.js/14.16.0",
+			lambdaRuntimeFeaturesHeader: strings.Repeat("abcdef ", MaxRuntimeReleaseLength/7),
+			expectedRuntimeRelease:      "Node.js/14.16.0 (" + strings.Repeat("abcdef ", (MaxRuntimeReleaseLength-18-6)/7) + "abcdef)",
+		},
+		"Lambda-Runtime-Features header with long Lambda-Runtime-Features header with UTF-8 characters": {
+			userAgentHeader:             "Node.js/14.16.0",
+			lambdaRuntimeFeaturesHeader: strings.Repeat("我爱亚马逊 ", MaxRuntimeReleaseLength/16),
+			expectedRuntimeRelease:      "Node.js/14.16.0 (" + strings.Repeat("我爱亚马逊 ", (MaxRuntimeReleaseLength-18-15)/16) + "我爱亚马逊)",
+		},
+	}
+
+	for _, tc := range tests {
+		req := httptest.NewRequest("", "/", nil)
+		if tc.userAgentHeader != "" {
+			req.Header.Set("User-Agent", tc.userAgentHeader)
+		}
+		if tc.lambdaRuntimeFeaturesHeader != "" {
+			req.Header.Set("Lambda-Runtime-Features", tc.lambdaRuntimeFeaturesHeader)
+		}
+		appCtx := NewApplicationContext()
+		request := RequestWithAppCtx(req, appCtx)
+
+		UpdateAppCtxWithRuntimeRelease(request, appCtx)
+		runtimeRelease := GetRuntimeRelease(appCtx)
+
+		assert.LessOrEqual(t, len(runtimeRelease), MaxRuntimeReleaseLength)
+		assert.Equal(t, tc.expectedRuntimeRelease, runtimeRelease)
+	}
 }
 
 func TestUpdateAppCtxWithRuntimeRelease(t *testing.T) {
@@ -72,6 +130,25 @@ func TestUpdateAppCtxWithRuntimeReleaseWithBlankUserAgent(t *testing.T) {
 	assert.False(t, ok)
 	_, ok = appCtx.Load(AppCtxRuntimeReleaseKey)
 	assert.False(t, ok)
+}
+
+func TestUpdateAppCtxWithRuntimeReleaseWithLambdaRuntimeFeatures(t *testing.T) {
+	// GIVEN
+	// Simple LambdaRuntimeFeatures passed.
+	req := httptest.NewRequest("", "/", nil)
+	req.Header.Set("User-Agent", "Node.js/14.16.0")
+	req.Header.Set("Lambda-Runtime-Features", "httpcl/2.0 execwr nodewr/4.3")
+	request := RequestWithAppCtx(req, NewApplicationContext())
+	appCtx := request.Context().Value(ReqCtxApplicationContextKey).(ApplicationContext)
+
+	// DO
+	ok := UpdateAppCtxWithRuntimeRelease(request, appCtx)
+
+	//ASSERT
+	assert.True(t, ok, "runtime_release updated based only on User-Agent and valid features")
+	ctxRuntimeRelease, ok := appCtx.Load(AppCtxRuntimeReleaseKey)
+	assert.True(t, ok)
+	assert.Equal(t, "Node.js/14.16.0 (httpcl/2.0 execwr nodewr/4.3)", ctxRuntimeRelease)
 }
 
 // Test that RAPID allows updating runtime_release only once

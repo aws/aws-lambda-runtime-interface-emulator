@@ -78,6 +78,14 @@ type RuntimeState interface {
 	Name() string
 }
 
+type disallowEveryTransitionByDefault struct{}
+
+func (s *disallowEveryTransitionByDefault) InitError() error               { return ErrNotAllowed }
+func (s *disallowEveryTransitionByDefault) Ready() error                   { return ErrNotAllowed }
+func (s *disallowEveryTransitionByDefault) InvocationResponse() error      { return ErrNotAllowed }
+func (s *disallowEveryTransitionByDefault) InvocationErrorResponse() error { return ErrNotAllowed }
+func (s *disallowEveryTransitionByDefault) ResponseSent() error            { return ErrNotAllowed }
+
 // Runtime is runtime object.
 type Runtime struct {
 	ManagedThread Suspendable
@@ -90,6 +98,7 @@ type Runtime struct {
 	RuntimeStartedState                 RuntimeState
 	RuntimeInitErrorState               RuntimeState
 	RuntimeReadyState                   RuntimeState
+	RuntimeRunningState                 RuntimeState
 	RuntimeInvocationResponseState      RuntimeState
 	RuntimeInvocationErrorResponseState RuntimeState
 	RuntimeResponseSentState            RuntimeState
@@ -182,7 +191,8 @@ func NewRuntime(initFlow InitFlowSynchronization, invokeFlow InvokeFlowSynchroni
 
 	runtime.RuntimeStartedState = &RuntimeStartedState{runtime: runtime, initFlow: initFlow}
 	runtime.RuntimeInitErrorState = &RuntimeInitErrorState{runtime: runtime, initFlow: initFlow}
-	runtime.RuntimeReadyState = &RuntimeReadyState{runtime: runtime, invokeFlow: invokeFlow}
+	runtime.RuntimeReadyState = &RuntimeReadyState{runtime: runtime}
+	runtime.RuntimeRunningState = &RuntimeRunningState{runtime: runtime, invokeFlow: invokeFlow}
 	runtime.RuntimeInvocationResponseState = &RuntimeInvocationResponseState{runtime: runtime, invokeFlow: invokeFlow}
 	runtime.RuntimeInvocationErrorResponseState = &RuntimeInvocationErrorResponseState{runtime: runtime, invokeFlow: invokeFlow}
 	runtime.RuntimeResponseSentState = &RuntimeResponseSentState{runtime: runtime, invokeFlow: invokeFlow}
@@ -193,36 +203,26 @@ func NewRuntime(initFlow InitFlowSynchronization, invokeFlow InvokeFlowSynchroni
 
 // RuntimeStartedState runtime started state.
 type RuntimeStartedState struct {
+	disallowEveryTransitionByDefault
 	runtime  *Runtime
 	initFlow InitFlowSynchronization
 }
 
 // Ready call when runtime init done.
 func (s *RuntimeStartedState) Ready() error {
+	s.runtime.setStateUnsafe(s.runtime.RuntimeReadyState)
 	err := s.initFlow.RuntimeReady()
 	if err != nil {
 		return err
 	}
 
 	s.runtime.ManagedThread.SuspendUnsafe()
+	if s.runtime.currentState != s.runtime.RuntimeReadyState && s.runtime.currentState != s.runtime.RuntimeRunningState {
+		return ErrConcurrentStateModification
+	}
 
-	s.runtime.setStateUnsafe(s.runtime.RuntimeReadyState)
+	s.runtime.setStateUnsafe(s.runtime.RuntimeRunningState)
 	return nil
-}
-
-// InvocationResponse not allowed in this state.
-func (s *RuntimeStartedState) InvocationResponse() error {
-	return ErrNotAllowed
-}
-
-// InvocationErrorResponse not allowed in this state.
-func (s *RuntimeStartedState) InvocationErrorResponse() error {
-	return ErrNotAllowed
-}
-
-// InvocationErrorResponse not allowed in this state.
-func (s *RuntimeStartedState) ResponseSent() error {
-	return ErrNotAllowed
 }
 
 // InitError move runtime to init error state.
@@ -238,33 +238,9 @@ func (s *RuntimeStartedState) Name() string {
 
 // RuntimeInitErrorState runtime started state.
 type RuntimeInitErrorState struct {
+	disallowEveryTransitionByDefault
 	runtime  *Runtime
 	initFlow InitFlowSynchronization
-}
-
-// Ready not allowed
-func (s *RuntimeInitErrorState) Ready() error {
-	return ErrNotAllowed
-}
-
-// InvocationResponse not allowed
-func (s *RuntimeInitErrorState) InvocationResponse() error {
-	return ErrNotAllowed
-}
-
-// InvocationErrorResponse not allowed
-func (s *RuntimeInitErrorState) InvocationErrorResponse() error {
-	return ErrNotAllowed
-}
-
-// InvocationErrorResponse not allowed
-func (s *RuntimeInitErrorState) ResponseSent() error {
-	return ErrNotAllowed
-}
-
-// InitError not allowed
-func (s *RuntimeInitErrorState) InitError() error {
-	return ErrNotAllowed
 }
 
 // Name ...
@@ -274,34 +250,18 @@ func (s *RuntimeInitErrorState) Name() string {
 
 // RuntimeReadyState runtime ready state.
 type RuntimeReadyState struct {
-	runtime    *Runtime
-	invokeFlow InvokeFlowSynchronization
+	disallowEveryTransitionByDefault
+	runtime *Runtime
 }
 
 func (s *RuntimeReadyState) Ready() error {
+	s.runtime.ManagedThread.SuspendUnsafe()
+	if s.runtime.currentState != s.runtime.RuntimeReadyState && s.runtime.currentState != s.runtime.RuntimeRunningState {
+		return ErrConcurrentStateModification
+	}
+
+	s.runtime.setStateUnsafe(s.runtime.RuntimeRunningState)
 	return nil
-}
-
-// InvocationResponse call when runtime response is available.
-func (s *RuntimeReadyState) InvocationResponse() error {
-	s.runtime.setStateUnsafe(s.runtime.RuntimeInvocationResponseState)
-	return nil
-}
-
-// InvocationErrorResponse call when runtime error response is available.
-func (s *RuntimeReadyState) InvocationErrorResponse() error {
-	s.runtime.setStateUnsafe(s.runtime.RuntimeInvocationErrorResponseState)
-	return nil
-}
-
-// ResponseSent is a closing state for InvocationResponseState and InvocationErrorResponseState.
-func (s *RuntimeReadyState) ResponseSent() error {
-	return ErrNotAllowed
-}
-
-// InitError not allowed in this state.
-func (s *RuntimeReadyState) InitError() error {
-	return ErrNotAllowed
 }
 
 // Name ...
@@ -309,38 +269,46 @@ func (s *RuntimeReadyState) Name() string {
 	return RuntimeReadyStateName
 }
 
-// RuntimeInvocationResponseState runtime response is available.
-// Start state for runtime response submission.
-type RuntimeInvocationResponseState struct {
+// RuntimeRunningState runtime ready state.
+type RuntimeRunningState struct {
+	disallowEveryTransitionByDefault
 	runtime    *Runtime
 	invokeFlow InvokeFlowSynchronization
 }
 
-// Ready call when runtime ready.
-func (s *RuntimeInvocationResponseState) Ready() error {
-	return ErrNotAllowed
+func (s *RuntimeRunningState) Ready() error {
+	return nil
 }
 
-// InvocationResponse not allowed in this state.
-func (s *RuntimeInvocationResponseState) InvocationResponse() error {
-	return ErrNotAllowed
+// InvocationResponse call when runtime response is available.
+func (s *RuntimeRunningState) InvocationResponse() error {
+	s.runtime.setStateUnsafe(s.runtime.RuntimeInvocationResponseState)
+	return nil
 }
 
-// InvocationErrorResponse not allowed in this state.
-func (s *RuntimeInvocationResponseState) InvocationErrorResponse() error {
-	return ErrNotAllowed
+// InvocationErrorResponse call when runtime error response is available.
+func (s *RuntimeRunningState) InvocationErrorResponse() error {
+	s.runtime.setStateUnsafe(s.runtime.RuntimeInvocationErrorResponseState)
+	return nil
+}
+
+// Name ...
+func (s *RuntimeRunningState) Name() string {
+	return RuntimeRunningStateName
+}
+
+// RuntimeInvocationResponseState runtime response is available.
+// Start state for runtime response submission.
+type RuntimeInvocationResponseState struct {
+	disallowEveryTransitionByDefault
+	runtime    *Runtime
+	invokeFlow InvokeFlowSynchronization
 }
 
 // ResponseSent completes RuntimeInvocationResponseState.
 func (s *RuntimeInvocationResponseState) ResponseSent() error {
 	s.runtime.setStateUnsafe(s.runtime.RuntimeResponseSentState)
 	return s.invokeFlow.RuntimeResponse(s.runtime)
-}
-
-// InitError not allowed in this state.
-func (s *RuntimeInvocationResponseState) InitError() error {
-	// TODO log
-	return ErrNotAllowed
 }
 
 // Name ...
@@ -351,34 +319,15 @@ func (s *RuntimeInvocationResponseState) Name() string {
 // RuntimeInvocationErrorResponseState runtime response is available.
 // Start state for runtime error response submission.
 type RuntimeInvocationErrorResponseState struct {
+	disallowEveryTransitionByDefault
 	runtime    *Runtime
 	invokeFlow InvokeFlowSynchronization
-}
-
-// Ready call when runtime ready.
-func (s *RuntimeInvocationErrorResponseState) Ready() error {
-	return ErrNotAllowed
-}
-
-// InvocationResponse not allowed in this state.
-func (s *RuntimeInvocationErrorResponseState) InvocationResponse() error {
-	return ErrNotAllowed
-}
-
-// InvocationErrorResponse not allowed in this state.
-func (s *RuntimeInvocationErrorResponseState) InvocationErrorResponse() error {
-	return ErrNotAllowed
 }
 
 // ResponseSent completes RuntimeInvocationErrorResponseState.
 func (s *RuntimeInvocationErrorResponseState) ResponseSent() error {
 	s.runtime.setStateUnsafe(s.runtime.RuntimeResponseSentState)
 	return s.invokeFlow.RuntimeResponse(s.runtime)
-}
-
-// InitError not allowed in this state.
-func (s *RuntimeInvocationErrorResponseState) InitError() error {
-	return ErrNotAllowed
 }
 
 // Name ...
@@ -388,41 +337,25 @@ func (s *RuntimeInvocationErrorResponseState) Name() string {
 
 // RuntimeResponseSentState ends started runtime response or runtime error response submission.
 type RuntimeResponseSentState struct {
+	disallowEveryTransitionByDefault
 	runtime    *Runtime
 	invokeFlow InvokeFlowSynchronization
 }
 
 // Ready call when runtime ready.
 func (s *RuntimeResponseSentState) Ready() error {
+	s.runtime.setStateUnsafe(s.runtime.RuntimeReadyState)
 	if err := s.invokeFlow.RuntimeReady(s.runtime); err != nil {
 		return err
 	}
 
 	s.runtime.ManagedThread.SuspendUnsafe()
+	if s.runtime.currentState != s.runtime.RuntimeReadyState && s.runtime.currentState != s.runtime.RuntimeRunningState {
+		return ErrConcurrentStateModification
+	}
 
-	s.runtime.setStateUnsafe(s.runtime.RuntimeReadyState)
+	s.runtime.setStateUnsafe(s.runtime.RuntimeRunningState)
 	return nil
-}
-
-// InvocationResponse not allowed in this state.
-func (s *RuntimeResponseSentState) InvocationResponse() error {
-	return ErrNotAllowed
-}
-
-// InvocationErrorResponse not allowed in this state.
-func (s *RuntimeResponseSentState) InvocationErrorResponse() error {
-	return ErrNotAllowed
-}
-
-// ResponseSent completes RuntimeInvocationErrorResponseState.
-func (s *RuntimeResponseSentState) ResponseSent() error {
-	return ErrNotAllowed
-}
-
-// InitError not allowed in this state.
-func (s *RuntimeResponseSentState) InitError() error {
-	// TODO log
-	return ErrNotAllowed
 }
 
 // Name ...

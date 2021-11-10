@@ -9,6 +9,7 @@ import (
 	"errors"
 	"io"
 	"os"
+	"strings"
 	"time"
 
 	"go.amzn.com/lambda/agents"
@@ -24,6 +25,8 @@ import (
 	"go.amzn.com/lambda/runtimecmd"
 	"go.amzn.com/lambda/telemetry"
 
+	"github.com/google/uuid"
+
 	log "github.com/sirupsen/logrus"
 )
 
@@ -36,6 +39,8 @@ const (
 )
 
 const (
+	// Same value as defined in LambdaSandbox minus 1.
+	maxExtensionNamesLength = 127
 	standaloneShutdownReason = "spindown"
 )
 
@@ -55,7 +60,8 @@ type rapidContext struct {
 	registrationService core.RegistrationService
 	renderingService    *rendering.EventRenderingService
 	telemetryAPIEnabled bool
-	telemetryService    telemetry.LogsAPIService
+	logsSubscriptionAPI telemetry.LogsSubscriptionAPI
+	logsEgressAPI       telemetry.LogsEgressAPI
 	xray                telemetry.Tracer
 	exitPidChan         chan int
 	resetChan           chan *interop.Reset
@@ -63,12 +69,35 @@ type rapidContext struct {
 	standaloneMode      bool
 	debugTailLogger     *logging.TailLogWriter
 	platformLogger      logging.PlatformLogger
-	extensionLogWriter  io.Writer
-	runtimeLogWriter    io.Writer
+	runtimeStdoutWriter io.Writer
+	runtimeStderrWriter io.Writer
+	eventsAPI           telemetry.EventsAPI
+	initCachingEnabled  bool
+	credentialsService  core.CredentialsService
+}
+
+type invokeMetrics struct {
+	rendererMetrics  rendering.InvokeRendererMetrics
+	runtimeReadyTime int64
 }
 
 func (c *rapidContext) HasActiveExtensions() bool {
 	return extensions.AreEnabled() && c.registrationService.CountAgents() > 0
+}
+
+func (c *rapidContext) GetExtensionNames() string {
+	var extensionNamesList []string
+	for _, agent := range c.registrationService.AgentsInfo() {
+		extensionNamesList = append(extensionNamesList, agent.Name)
+	}
+	extensionNames := strings.Join(extensionNamesList, ";")
+	if len(extensionNames) > maxExtensionNamesLength {
+		if idx := strings.LastIndex(extensionNames[:maxExtensionNamesLength], ";"); idx != -1 {
+			return extensionNames[:idx]
+		}
+		return ""
+	}
+	return extensionNames
 }
 
 func logAgentsInitStatus(execCtx *rapidContext) {
@@ -95,10 +124,22 @@ func doInitExtensions(execCtx *rapidContext, watchdog *core.Watchdog) error {
 
 	for _, agentPath := range agentPaths {
 		env := execCtx.environment.AgentExecEnv()
-		agentLogSinks := execCtx.extensionLogWriter
-		agentProc := agents.NewExternalAgentProcess(agentPath, env, agentLogSinks)
+
+		agentStdoutWriter, agentStderrWriter, err := execCtx.logsEgressAPI.GetExtensionSockets()
+
+		if err != nil {
+			return err
+		}
+
+		// Compose debug log writer with all log sinks. Debug log writer w
+		// will not write logs when disabled by invoke parameter
+		agentStdoutWriter = io.MultiWriter(execCtx.debugTailLogger, agentStdoutWriter)
+		agentStderrWriter = io.MultiWriter(execCtx.debugTailLogger, agentStderrWriter)
+
+		agentProc := agents.NewExternalAgentProcess(agentPath, env, agentStdoutWriter, agentStderrWriter)
 
 		agent, err := execCtx.registrationService.CreateExternalAgent(agentProc.Name())
+
 		if err != nil {
 			return err
 		}
@@ -176,7 +217,7 @@ func doInit(ctx context.Context, execCtx *rapidContext, watchdog *core.Watchdog)
 	}
 
 	bootstrapExtraFiles := bootstrap.ExtraFiles()
-	runtimeCmd := runtimecmd.NewCustomRuntimeCmd(ctx, bootstrapCmd, bootstrapCwd, bootstrapEnv, execCtx.runtimeLogWriter, bootstrapExtraFiles)
+	runtimeCmd := runtimecmd.NewCustomRuntimeCmd(ctx, bootstrapCmd, bootstrapCwd, bootstrapEnv, execCtx.runtimeStdoutWriter, execCtx.runtimeStderrWriter, bootstrapExtraFiles)
 
 	log.Debug("Start runtime")
 	err = runtimeCmd.Start()
@@ -211,14 +252,15 @@ func doInit(ctx context.Context, execCtx *rapidContext, watchdog *core.Watchdog)
 
 	// Logs API subscription phase finished for agents - no more agents can be subscribed to the Logs API
 	if execCtx.telemetryAPIEnabled {
-		execCtx.telemetryService.TurnOff()
+		execCtx.logsSubscriptionAPI.TurnOff()
 	}
 
 	execCtx.initDone = true
 	return nil
 }
 
-func doInvoke(ctx context.Context, execCtx *rapidContext, watchdog *core.Watchdog, invokeRequest *interop.Invoke, mx *rendering.InvokeRendererMetrics) error {
+func doInvoke(ctx context.Context, execCtx *rapidContext, watchdog *core.Watchdog, invokeRequest *interop.Invoke, mx *invokeMetrics) error {
+	execCtx.eventsAPI.SetCurrentRequestID(invokeRequest.ID)
 	appCtx := execCtx.appCtx
 	appctx.StoreErrorResponse(appCtx, nil)
 
@@ -268,7 +310,7 @@ func doInvoke(ctx context.Context, execCtx *rapidContext, watchdog *core.Watchdo
 			log.Debug("Set renderer for invoke")
 			renderer := rendering.NewInvokeRenderer(ctx, invokeRequest, xray.TracingHeaderParser())
 			defer func() {
-				*mx = renderer.GetMetrics()
+				mx.rendererMetrics = renderer.GetMetrics()
 			}()
 
 			execCtx.renderingService.SetRenderer(renderer)
@@ -296,6 +338,10 @@ func doInvoke(ctx context.Context, execCtx *rapidContext, watchdog *core.Watchdo
 			return invokeFlow.AwaitRuntimeReady()
 		}); err != nil {
 			return err
+		}
+		mx.runtimeReadyTime = metering.Monotime()
+		if err := execCtx.eventsAPI.SendRuntimeDone("success"); err != nil {
+			log.Errorf("Failed to send RUNDONE: %s", err)
 		}
 
 		// Extensions overhead
@@ -341,8 +387,53 @@ func (c *rapidContext) acceptStartRequest(startRequest *interop.Start) {
 	}
 }
 
+func (c *rapidContext) acceptStartRequestForInitCaching(startRequest *interop.Start) error {
+	log.Info("Configure environment for Init Caching.")
+	c.startRequest = startRequest
+	randomUUID, err := uuid.NewRandom()
+
+	if err != nil {
+		return err
+	}
+
+	initCachingToken := randomUUID.String()
+
+	c.environment.StoreEnvironmentVariablesFromInitForInitCaching(
+		RuntimeAPIHost,
+		RuntimeAPIPort,
+		startRequest.CustomerEnvironmentVariables,
+		startRequest.Handler,
+		startRequest.FunctionName,
+		startRequest.FunctionVersion,
+		initCachingToken)
+
+	c.registrationService.SetFunctionMetadata(core.FunctionMetadata{
+		FunctionName:    startRequest.FunctionName,
+		FunctionVersion: startRequest.FunctionVersion,
+		Handler:         startRequest.Handler,
+	})
+
+	c.credentialsService.SetCredentials(initCachingToken, startRequest.AwsKey, startRequest.AwsSecret, startRequest.AwsSession)
+
+	if extensionsDisabledByLayer() {
+		extensions.Disable()
+	}
+
+	return nil
+}
+
 func handleStart(ctx context.Context, execCtx *rapidContext, watchdog *core.Watchdog, startRequest *interop.Start) {
-	execCtx.acceptStartRequest(startRequest)
+	if execCtx.initCachingEnabled {
+		if err := execCtx.acceptStartRequestForInitCaching(startRequest); err != nil {
+			handleStartError(execCtx, startRequest.InvokeID, startRequest.CorrelationID, err)
+			return
+		}
+
+		execCtx.credentialsService.UnblockService()
+		defer execCtx.credentialsService.BlockService()
+	} else {
+		execCtx.acceptStartRequest(startRequest)
+	}
 
 	interopServer, appCtx := execCtx.interopServer, execCtx.appCtx
 
@@ -358,9 +449,7 @@ func handleStart(ctx context.Context, execCtx *rapidContext, watchdog *core.Watc
 
 	if !startRequest.SuppressInit {
 		if err := doInit(ctx, execCtx, watchdog); err != nil {
-			log.WithError(err).WithField("InvokeID", startRequest.InvokeID).Error("Init failed")
-			doneFailMsg := generateDoneFail(execCtx, startRequest.CorrelationID, nil, 0)
-			handleInitError(doneFailMsg, execCtx, startRequest.InvokeID, interopServer, err)
+			handleStartError(execCtx, startRequest.InvokeID, startRequest.CorrelationID, err)
 			return
 		}
 	}
@@ -370,10 +459,11 @@ func handleStart(ctx context.Context, execCtx *rapidContext, watchdog *core.Watc
 		Meta: interop.DoneMetadata{
 			RuntimeRelease:      appctx.GetRuntimeRelease(appCtx),
 			NumActiveExtensions: execCtx.registrationService.CountAgents(),
+			ExtensionNames:      execCtx.GetExtensionNames(),
 		},
 	}
 	if execCtx.telemetryAPIEnabled {
-		doneMsg.Meta.LogsAPIMetrics = execCtx.telemetryService.FlushMetrics()
+		doneMsg.Meta.LogsAPIMetrics = execCtx.logsSubscriptionAPI.FlushMetrics()
 	}
 	if err := interopServer.SendDone(doneMsg); err != nil {
 		log.Panic(err)
@@ -384,7 +474,13 @@ func handleStart(ctx context.Context, execCtx *rapidContext, watchdog *core.Watc
 	}
 }
 
-func generateDoneFail(execCtx *rapidContext, correlationID string, invokeMx *rendering.InvokeRendererMetrics, invokeReceivedTime int64) *interop.DoneFail {
+func handleStartError(execCtx *rapidContext, invokeID string, correlationID string, err error) {
+	log.WithError(err).WithField("InvokeID", invokeID).Error("Init failed")
+	doneFailMsg := generateDoneFail(execCtx, correlationID, nil, 0)
+	handleInitError(doneFailMsg, execCtx, invokeID, execCtx.interopServer, err)
+}
+
+func generateDoneFail(execCtx *rapidContext, correlationID string, invokeMx *invokeMetrics, invokeReceivedTime int64) *interop.DoneFail {
 	errorType, found := appctx.LoadFirstFatalError(execCtx.appCtx)
 	if !found {
 		errorType = fatalerror.Unknown
@@ -401,12 +497,14 @@ func generateDoneFail(execCtx *rapidContext, correlationID string, invokeMx *ren
 	}
 
 	if invokeMx != nil {
-		doneFailMsg.Meta.InvokeRequestReadTimeNs = invokeMx.ReadTime.Nanoseconds()
-		doneFailMsg.Meta.InvokeRequestSizeBytes = int64(invokeMx.SizeBytes)
+		doneFailMsg.Meta.InvokeRequestReadTimeNs = invokeMx.rendererMetrics.ReadTime.Nanoseconds()
+		doneFailMsg.Meta.InvokeRequestSizeBytes = int64(invokeMx.rendererMetrics.SizeBytes)
+		doneFailMsg.Meta.RuntimeReadyTime = int64(invokeMx.runtimeReadyTime)
+		doneFailMsg.Meta.ExtensionNames = execCtx.GetExtensionNames()
 	}
 
 	if execCtx.telemetryAPIEnabled {
-		doneFailMsg.Meta.LogsAPIMetrics = execCtx.telemetryService.FlushMetrics()
+		doneFailMsg.Meta.LogsAPIMetrics = execCtx.logsSubscriptionAPI.FlushMetrics()
 	}
 
 	return doneFailMsg
@@ -415,7 +513,18 @@ func generateDoneFail(execCtx *rapidContext, correlationID string, invokeMx *ren
 func handleInvoke(ctx context.Context, execCtx *rapidContext, watchdog *core.Watchdog, invokeRequest *interop.Invoke) {
 	interopServer, appCtx := execCtx.interopServer, execCtx.appCtx
 
-	invokeMx := rendering.InvokeRendererMetrics{}
+	invokeMx := invokeMetrics{}
+
+	if invokeRequest.ResyncState.IsResyncReceived {
+		err := execCtx.credentialsService.UpdateCredentials(invokeRequest.ResyncState.AwsKey, invokeRequest.ResyncState.AwsSecret, invokeRequest.ResyncState.AwsSession)
+		execCtx.credentialsService.UnblockService()
+
+		if err != nil {
+			log.WithError(err).WithField("InvokeID", invokeRequest.ID).Error("Resync for Invoke failed")
+			doneFailMsg := generateDoneFail(execCtx, invokeRequest.CorrelationID, &invokeMx, invokeRequest.InvokeReceivedTime)
+			handleInvokeError(doneFailMsg, execCtx, invokeRequest.ID, interopServer, err)
+		}
+	}
 
 	if err := doInvoke(ctx, execCtx, watchdog, invokeRequest, &invokeMx); err != nil {
 		log.WithError(err).WithField("InvokeID", invokeRequest.ID).Error("Invoke failed")
@@ -438,14 +547,16 @@ func handleInvoke(ctx context.Context, execCtx *rapidContext, watchdog *core.Wat
 		Meta: interop.DoneMetadata{
 			RuntimeRelease:          appctx.GetRuntimeRelease(appCtx),
 			NumActiveExtensions:     execCtx.registrationService.CountAgents(),
-			InvokeRequestReadTimeNs: invokeMx.ReadTime.Nanoseconds(),
-			InvokeRequestSizeBytes:  int64(invokeMx.SizeBytes),
+			ExtensionNames:          execCtx.GetExtensionNames(),
+			InvokeRequestReadTimeNs: invokeMx.rendererMetrics.ReadTime.Nanoseconds(),
+			InvokeRequestSizeBytes:  int64(invokeMx.rendererMetrics.SizeBytes),
 			InvokeCompletionTimeNs:  invokeCompletionTimeNs,
 			InvokeReceivedTime:      invokeRequest.InvokeReceivedTime,
+			RuntimeReadyTime:        invokeMx.runtimeReadyTime,
 		},
 	}
 	if execCtx.telemetryAPIEnabled {
-		doneMsg.Meta.LogsAPIMetrics = execCtx.telemetryService.FlushMetrics()
+		doneMsg.Meta.LogsAPIMetrics = execCtx.logsSubscriptionAPI.FlushMetrics()
 	}
 
 	if err := interopServer.SendDone(doneMsg); err != nil {
@@ -464,7 +575,7 @@ func reinitialize(execCtx *rapidContext, watchdog *core.Watchdog) {
 	execCtx.initFlow.Clear()
 	execCtx.invokeFlow.Clear()
 	if execCtx.telemetryAPIEnabled {
-		execCtx.telemetryService.Clear()
+		execCtx.logsSubscriptionAPI.Clear()
 	}
 	watchdog.Clear()
 }
@@ -476,6 +587,13 @@ func blockForever() {
 // handle notification of reset
 func handleReset(execCtx *rapidContext, watchdog *core.Watchdog, reset *interop.Reset) {
 	log.Warnf("Reset initiated: %s", reset.Reason)
+	if execCtx.initCachingEnabled {
+		execCtx.credentialsService.UnblockService()
+	}
+
+	if err := execCtx.eventsAPI.SendRuntimeDone(reset.Reason); err != nil {
+		log.Errorf("Failed to send RUNDONE: %s", err)
+	}
 
 	profiler := metering.ExtensionsResetDurationProfiler{}
 	gracefulShutdown(execCtx, watchdog, &profiler, reset.DeadlineNs, execCtx.standaloneMode, reset.Reason)

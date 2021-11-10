@@ -67,17 +67,23 @@ const (
 func NewSandboxBuilder(bootstrap *Bootstrap) *SandboxBuilder {
 	defaultInteropServer := NewServer(context.Background())
 	signalCtx, cancelSignalCtx := context.WithCancel(context.Background())
+	logsEgressAPI := &telemetry.NoOpLogsEgressAPI{}
+	runtimeStdoutWriter, runtimeStderrWriter, _ := logsEgressAPI.GetRuntimeSockets()
+
 	b := &SandboxBuilder{
 		sandbox: &rapid.Sandbox{
-			Bootstrap:          bootstrap,
-			PreLoadTimeNs:      0, // TODO
-			StandaloneMode:     true,
-			ExtensionLogWriter: os.Stdout,
-			RuntimeLogWriter:   os.Stdout,
-			EnableTelemetryAPI: false,
-			Environment:        env.NewEnvironment(),
-			Tracer:             telemetry.NewNoOpTracer(),
-			SignalCtx:          signalCtx,
+			Bootstrap:           bootstrap,
+			PreLoadTimeNs:       0, // TODO
+			StandaloneMode:      true,
+			RuntimeStdoutWriter: runtimeStdoutWriter,
+			RuntimeStderrWriter: runtimeStderrWriter,
+			LogsEgressAPI:       logsEgressAPI,
+			EnableTelemetryAPI:  false,
+			Environment:         env.NewEnvironment(),
+			Tracer:              telemetry.NewNoOpTracer(),
+			SignalCtx:           signalCtx,
+			EventsAPI:           &telemetry.NoOpEventsAPI{},
+			InitCachingEnabled:  false,
 		},
 		defaultInteropServer: defaultInteropServer,
 		shutdownFuncs:        []context.CancelFunc{},
@@ -100,6 +106,11 @@ func (b *SandboxBuilder) SetInteropServer(interopServer interop.Server) *Sandbox
 	return b
 }
 
+func (b *SandboxBuilder) SetEventsAPI(eventsAPI telemetry.EventsAPI) *SandboxBuilder {
+	b.sandbox.EventsAPI = eventsAPI
+	return b
+}
+
 func (b *SandboxBuilder) SetTracer(tracer telemetry.Tracer) *SandboxBuilder {
 	b.sandbox.Tracer = tracer
 	return b
@@ -116,6 +127,11 @@ func (b *SandboxBuilder) SetExtensionsFlag(extensionsEnabled bool) *SandboxBuild
 	} else {
 		extensions.Disable()
 	}
+	return b
+}
+
+func (b *SandboxBuilder) SetInitCachingFlag(initCachingEnabled bool) *SandboxBuilder {
+	b.sandbox.InitCachingEnabled = initCachingEnabled
 	return b
 }
 
@@ -139,19 +155,22 @@ func (b *SandboxBuilder) SetTailLogOutput(w io.Writer) *SandboxBuilder {
 	return b
 }
 
-func (b *SandboxBuilder) SetLogWriter(logSink logSink, w io.Writer) *SandboxBuilder {
-	switch logSink {
-	case RuntimeLogSink:
-		b.sandbox.RuntimeLogWriter = w
-	case ExtensionLogSink:
-		b.sandbox.ExtensionLogWriter = w
-	}
+func (b *SandboxBuilder) SetLogsSubscriptionAPI(logsSubscriptionAPI telemetry.LogsSubscriptionAPI) *SandboxBuilder {
+	b.sandbox.EnableTelemetryAPI = true
+	b.sandbox.LogsSubscriptionAPI = logsSubscriptionAPI
 	return b
 }
 
-func (b *SandboxBuilder) SetTelemetryService(telemetryService telemetry.LogsAPIService) *SandboxBuilder {
-	b.sandbox.EnableTelemetryAPI = true
-	b.sandbox.TelemetryService = telemetryService
+func (b *SandboxBuilder) SetLogsEgressAPI(logsEgressAPI telemetry.LogsEgressAPI) *SandboxBuilder {
+	runtimeStdoutWriter, runtimeStderrWriter, err := logsEgressAPI.GetRuntimeSockets()
+
+	if err != nil {
+		log.WithError(err).Fatal("failed to get the Runtime sockets from the logs egress API")
+	}
+
+	b.sandbox.LogsEgressAPI = logsEgressAPI
+	b.sandbox.RuntimeStdoutWriter = runtimeStdoutWriter
+	b.sandbox.RuntimeStderrWriter = runtimeStderrWriter
 	return b
 }
 
@@ -170,8 +189,8 @@ func (b *SandboxBuilder) setupLoggingWithDebugLogs() {
 	// will not write logs when disabled by invoke parameter
 	b.sandbox.DebugTailLogger = logging.NewTailLogWriter(b.debugTailLogWriter)
 	b.sandbox.PlatformLogger = logging.NewPlatformLogger(b.platformLogWriter, b.sandbox.DebugTailLogger)
-	b.sandbox.RuntimeLogWriter = io.MultiWriter(b.sandbox.DebugTailLogger, b.sandbox.RuntimeLogWriter)
-	b.sandbox.ExtensionLogWriter = io.MultiWriter(b.sandbox.ExtensionLogWriter, b.sandbox.DebugTailLogger)
+	b.sandbox.RuntimeStdoutWriter = io.MultiWriter(b.sandbox.DebugTailLogger, b.sandbox.RuntimeStdoutWriter)
+	b.sandbox.RuntimeStderrWriter = io.MultiWriter(b.sandbox.DebugTailLogger, b.sandbox.RuntimeStderrWriter)
 }
 
 func (b *SandboxBuilder) Create() {
@@ -221,9 +240,7 @@ func SetLogLevel(logLevel string) {
 	}
 
 	log.SetLevel(level)
-	Formatter := new(log.TextFormatter)
-	Formatter.TimestampFormat = "2006-01-02T15:04:05.999"
-	log.SetFormatter(Formatter)
+	log.SetFormatter(&logging.InternalFormatter{})
 }
 
 func SetInternalLogOutput(w io.Writer) {

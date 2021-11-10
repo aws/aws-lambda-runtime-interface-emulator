@@ -5,11 +5,10 @@ package appctx
 
 import (
 	"context"
-	"net/http"
-	"strings"
-
 	"go.amzn.com/lambda/fatalerror"
 	"go.amzn.com/lambda/interop"
+	"net/http"
+	"strings"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -23,6 +22,9 @@ type ReqCtxKey int
 // ReqCtxApplicationContextKey is used for injecting application
 // context object into request context.
 const ReqCtxApplicationContextKey ReqCtxKey = iota
+
+// MaxRuntimeReleaseLength Max length for user agent string.
+const MaxRuntimeReleaseLength = 128
 
 // FromRequest retrieves application context from the request context.
 func FromRequest(request *http.Request) ApplicationContext {
@@ -39,24 +41,78 @@ func GetRuntimeRelease(appCtx ApplicationContext) string {
 	return appCtx.GetOrDefault(AppCtxRuntimeReleaseKey, "").(string)
 }
 
-// UpdateAppCtxWithRuntimeRelease extracts runtime release info from user agent header and put it into appCtx.
+// GetUserAgentFromRequest Returns the first token -seperated by a space-
+// from request header 'User-Agent'.
+func GetUserAgentFromRequest(request *http.Request) string {
+	runtimeRelease := ""
+	userAgent := request.Header.Get("User-Agent")
+	// Split around spaces and use only the first token.
+	if fields := strings.Fields(userAgent); len(fields) > 0 && len(fields[0]) > 0 {
+		runtimeRelease = fields[0]
+	}
+	return runtimeRelease
+}
+
+// CreateRuntimeReleaseFromRequest Gets runtime features from request header
+// 'Lambda-Runtime-Features', and append it to the given runtime release.
+func CreateRuntimeReleaseFromRequest(request *http.Request, runtimeRelease string) string {
+	lambdaRuntimeFeaturesHeader := request.Header.Get("Lambda-Runtime-Features")
+
+	// "(", ")" are not valid token characters, and potentially could invalidate runtime_release
+	lambdaRuntimeFeaturesHeader = strings.ReplaceAll(lambdaRuntimeFeaturesHeader, "(", "")
+	lambdaRuntimeFeaturesHeader = strings.ReplaceAll(lambdaRuntimeFeaturesHeader, ")", "")
+
+	numberOfAppendedFeatures := 0
+	// Available length is a maximum length available for runtime features (including delimiters). From maximal runtime
+	// release length we subtract what we already have plus 3 additional bytes for a space and a pair of brackets for
+	// list of runtime features that is added later.
+	runtimeReleaseLength := len(runtimeRelease)
+	if runtimeReleaseLength == 0 {
+		runtimeReleaseLength = len("Unknown")
+	}
+	availableLength := MaxRuntimeReleaseLength - runtimeReleaseLength - 3
+	var lambdaRuntimeFeatures []string
+
+	for _, feature := range strings.Fields(lambdaRuntimeFeaturesHeader) {
+		featureLength := len(feature)
+		// If featureLength <= availableLength - numberOfAppendedFeatures
+		// (where numberOfAppendedFeatures is equal to number of delimiters needed).
+		if featureLength <= availableLength-numberOfAppendedFeatures {
+			availableLength -= featureLength
+			lambdaRuntimeFeatures = append(lambdaRuntimeFeatures, feature)
+			numberOfAppendedFeatures++
+		}
+	}
+	// Append valid features to runtime release.
+	if len(lambdaRuntimeFeatures) > 0 {
+		if runtimeRelease == "" {
+			runtimeRelease = "Unknown"
+		}
+		runtimeRelease += " (" + strings.Join(lambdaRuntimeFeatures, " ") + ")"
+	}
+
+	return runtimeRelease
+}
+
+// UpdateAppCtxWithRuntimeRelease extracts runtime release info from user agent & lambda runtime features
+// headers and update it into appCtx.
 // Sample UA:
 // Mozilla/5.0 (Windows NT 6.1; Win64; x64; rv:47.0) Gecko/20100101 Firefox/47.0
 func UpdateAppCtxWithRuntimeRelease(request *http.Request, appCtx ApplicationContext) bool {
-	// If appCtx has runtime release value already, skip updating for consistency.
-	if len(GetRuntimeRelease(appCtx)) > 0 {
+	// If appCtx has runtime release value already, just append the runtime features.
+	if appCtxRuntimeRelease := GetRuntimeRelease(appCtx); len(appCtxRuntimeRelease) > 0 {
+		// if the runtime features are not appended before append them, otherwise ignore
+		if runtimeReleaseWithFeatures := CreateRuntimeReleaseFromRequest(request, appCtxRuntimeRelease); len(runtimeReleaseWithFeatures) > len(appCtxRuntimeRelease) &&
+			appCtxRuntimeRelease[len(appCtxRuntimeRelease)-1] != ')' {
+			appCtx.Store(AppCtxRuntimeReleaseKey, runtimeReleaseWithFeatures)
+			return true
+		}
 		return false
 	}
-
-	userAgent := request.Header.Get("User-Agent")
-	if len(userAgent) == 0 {
-		return false
-	}
-
-	// Split around spaces and use only the first token.
-	if fields := strings.Fields(userAgent); len(fields) > 0 && len(fields[0]) > 0 {
-		appCtx.Store(AppCtxRuntimeReleaseKey,
-			fields[0])
+	// If appCtx doesn't have runtime release value, update it with user agent and runtime features.
+	if runtimeReleaseWithFeatures := CreateRuntimeReleaseFromRequest(request,
+		GetUserAgentFromRequest(request)); runtimeReleaseWithFeatures != "" {
+		appCtx.Store(AppCtxRuntimeReleaseKey, runtimeReleaseWithFeatures)
 		return true
 	}
 	return false

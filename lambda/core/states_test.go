@@ -7,8 +7,36 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"go.amzn.com/lambda/testdata/mockthread"
+	"sync"
 	"testing"
 )
+
+func TestRuntimeInitErrorAfterReady(t *testing.T) {
+	initFlow := &mockInitFlowSynchronization{}
+	initFlow.ReadyCond = sync.NewCond(&sync.Mutex{})
+	invokeFlow := &mockInvokeFlowSynchronization{}
+	runtime := NewRuntime(initFlow, invokeFlow)
+
+	readyChan := make(chan struct{})
+	runtime.SetState(runtime.RuntimeStartedState)
+	go func() {
+		assert.NoError(t, runtime.Ready())
+		readyChan <- struct{}{}
+	}()
+
+	initFlow.ReadyCond.L.Lock()
+	for !initFlow.ReadyCalled {
+		initFlow.ReadyCond.Wait()
+	}
+	initFlow.ReadyCond.L.Unlock()
+	assert.Equal(t, runtime.RuntimeReadyState, runtime.GetState())
+
+	assert.Equal(t, ErrNotAllowed, runtime.InitError())
+	runtime.Release()
+	<-readyChan
+	assert.Equal(t, ErrNotAllowed, runtime.InitError())
+	assert.Equal(t, runtime.RuntimeRunningState, runtime.GetState())
+}
 
 func TestRuntimeStateTransitionsFromStartedState(t *testing.T) {
 	initFlow := &mockInitFlowSynchronization{}
@@ -24,7 +52,7 @@ func TestRuntimeStateTransitionsFromStartedState(t *testing.T) {
 	// Started -> Ready
 	runtime.SetState(runtime.RuntimeStartedState)
 	assert.NoError(t, runtime.Ready())
-	assert.Equal(t, runtime.RuntimeReadyState, runtime.GetState())
+	assert.Equal(t, runtime.RuntimeRunningState, runtime.GetState())
 	// Started -> ResponseSent
 	runtime.SetState(runtime.RuntimeStartedState)
 	assert.Equal(t, ErrNotAllowed, runtime.ResponseSent())
@@ -78,17 +106,44 @@ func TestRuntimeStateTransitionsFromReadyState(t *testing.T) {
 	// Ready -> Ready
 	runtime.SetState(runtime.RuntimeReadyState)
 	assert.NoError(t, runtime.Ready())
-	assert.Equal(t, runtime.RuntimeReadyState, runtime.GetState())
+	assert.Equal(t, runtime.RuntimeRunningState, runtime.GetState())
 	// Ready -> ResponseSent
 	runtime.SetState(runtime.RuntimeReadyState)
 	assert.Equal(t, ErrNotAllowed, runtime.ResponseSent())
 	assert.Equal(t, runtime.RuntimeReadyState, runtime.GetState())
 	// Ready -> InvocationResponse
 	runtime.SetState(runtime.RuntimeReadyState)
-	assert.NoError(t, runtime.InvocationResponse())
-	assert.Equal(t, runtime.RuntimeInvocationResponseState, runtime.GetState())
+	assert.Equal(t, ErrNotAllowed, runtime.InvocationResponse())
+	assert.Equal(t, runtime.RuntimeReadyState, runtime.GetState())
 	// Ready -> InvocationErrorResponse
 	runtime.SetState(runtime.RuntimeReadyState)
+	assert.Equal(t, ErrNotAllowed, runtime.InvocationErrorResponse())
+	assert.Equal(t, runtime.RuntimeReadyState, runtime.GetState())
+}
+
+func TestRuntimeStateTransitionsFromRunningState(t *testing.T) {
+	initFlow := &mockInitFlowSynchronization{}
+	invokeFlow := &mockInvokeFlowSynchronization{}
+	runtime := NewRuntime(initFlow, invokeFlow)
+	runtime.ManagedThread = &mockthread.MockManagedThread{}
+	// Running -> InitError
+	runtime.SetState(runtime.RuntimeRunningState)
+	assert.Equal(t, ErrNotAllowed, runtime.InitError())
+	assert.Equal(t, runtime.RuntimeRunningState, runtime.GetState())
+	// Running -> Ready
+	runtime.SetState(runtime.RuntimeRunningState)
+	assert.NoError(t, runtime.Ready())
+	assert.Equal(t, runtime.RuntimeRunningState, runtime.GetState())
+	// Running -> ResponseSent
+	runtime.SetState(runtime.RuntimeRunningState)
+	assert.Equal(t, ErrNotAllowed, runtime.ResponseSent())
+	assert.Equal(t, runtime.RuntimeRunningState, runtime.GetState())
+	// Running -> InvocationResponse
+	runtime.SetState(runtime.RuntimeRunningState)
+	assert.NoError(t, runtime.InvocationResponse())
+	assert.Equal(t, runtime.RuntimeInvocationResponseState, runtime.GetState())
+	// Running -> InvocationErrorResponse
+	runtime.SetState(runtime.RuntimeRunningState)
 	assert.NoError(t, runtime.InvocationErrorResponse())
 	assert.Equal(t, runtime.RuntimeInvocationErrorResponseState, runtime.GetState())
 }
@@ -160,7 +215,7 @@ func TestRuntimeStateTransitionsFromResponseSentState(t *testing.T) {
 	// ResponseSent -> Ready
 	runtime.SetState(runtime.RuntimeResponseSentState)
 	assert.NoError(t, runtime.Ready())
-	assert.Equal(t, runtime.RuntimeReadyState, runtime.GetState())
+	assert.Equal(t, runtime.RuntimeRunningState, runtime.GetState())
 	// ResponseSent -> ResponseSent
 	runtime.SetState(runtime.RuntimeResponseSentState)
 	assert.Equal(t, ErrNotAllowed, runtime.ResponseSent())
@@ -175,7 +230,11 @@ func TestRuntimeStateTransitionsFromResponseSentState(t *testing.T) {
 	assert.Equal(t, runtime.RuntimeResponseSentState, runtime.GetState())
 }
 
-type mockInitFlowSynchronization struct{ mock.Mock }
+type mockInitFlowSynchronization struct {
+	mock.Mock
+	ReadyCond   *sync.Cond
+	ReadyCalled bool
+}
 
 func (s *mockInitFlowSynchronization) SetExternalAgentsRegisterCount(agentCount uint16) error {
 	return nil
@@ -198,6 +257,12 @@ func (s *mockInitFlowSynchronization) AwaitAgentsReady() error {
 	return nil
 }
 func (s *mockInitFlowSynchronization) RuntimeReady() error {
+	if s.ReadyCond != nil {
+		s.ReadyCond.L.Lock()
+		defer s.ReadyCond.L.Unlock()
+		s.ReadyCalled = true
+		s.ReadyCond.Signal()
+	}
 	return nil
 }
 func (s *mockInitFlowSynchronization) AgentReady() error {

@@ -8,6 +8,7 @@ const (
 	RuntimeStartedStateName                 = "Started"
 	RuntimeInitErrorStateName               = "InitError"
 	RuntimeReadyStateName                   = "Ready"
+	RuntimeRunningStateName                 = "Running"
 	RuntimeInvocationResponseStateName      = "InvocationResponse"
 	RuntimeInvocationErrorResponseStateName = "InvocationErrorResponse"
 	RuntimeResponseSentStateName            = "RuntimeResponseSentState"
