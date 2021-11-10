@@ -22,6 +22,7 @@ import (
 const version20180601 = "/2018-06-01"
 const version20200101 = "/2020-01-01"
 const version20200815 = "/2020-08-15"
+const version20210423 = "/2021-04-23"
 
 // Server is a Runtime API server
 type Server struct {
@@ -43,7 +44,7 @@ func NewServer(host string, port int, appCtx appctx.ApplicationContext,
 	registrationService core.RegistrationService,
 	renderingService *rendering.EventRenderingService,
 	telemetryAPIEnabled bool,
-	telemetryService telemetry.LogsAPIService) *Server {
+	logsSubscriptionAPI telemetry.LogsSubscriptionAPI, initCachingEnabled bool, credentialsService core.CredentialsService) *Server {
 
 	exitErrors := make(chan error, 1)
 
@@ -52,9 +53,13 @@ func NewServer(host string, port int, appCtx appctx.ApplicationContext,
 	router.Mount(version20200101, ExtensionsRouter(appCtx, registrationService, renderingService))
 
 	if telemetryAPIEnabled {
-		router.Mount(version20200815, TelemetryAPIRouter(registrationService, telemetryService))
+		router.Mount(version20200815, LogsAPIRouter(registrationService, logsSubscriptionAPI))
 	} else {
-		router.Mount(version20200815, TelemetryAPIStubRouter())
+		router.Mount(version20200815, LogsAPIStubRouter())
+	}
+
+	if initCachingEnabled {
+		router.Mount(version20210423, CredentialsAPIRouter(credentialsService))
 	}
 
 	return &Server{

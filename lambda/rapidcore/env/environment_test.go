@@ -4,6 +4,7 @@
 package env
 
 import (
+	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -275,6 +276,25 @@ func TestAgentExecEnvironmentVariables(t *testing.T) {
 	}
 
 	assert.Contains(t, agentEnvVars, runtimeAPIAddressKey+"="+env.Platform[runtimeAPIAddressKey])
+}
+
+func TestStoreEnvironmentVariablesFromInitCaching(t *testing.T) {
+	host := "samplehost"
+	port := 1234
+	handler := "samplehandler"
+	funcName := "samplefunctionname"
+	funcVer := "samplefunctionver"
+	token := "sampletoken"
+	env := NewEnvironment()
+	customerEnv := CustomerEnvironmentVariables()
+
+	env.StoreEnvironmentVariablesFromInitForInitCaching("samplehost", 1234, customerEnv, handler, funcName, funcVer, token)
+
+	assert.Equal(t, fmt.Sprintf("http://%s:%d/2021-04-23/credentials", host, port), env.Credentials["AWS_CONTAINER_CREDENTIALS_FULL_URI"])
+	assert.Equal(t, token, env.Credentials["AWS_CONTAINER_AUTHORIZATION_TOKEN"])
+	assert.Equal(t, funcName, env.Platform["AWS_LAMBDA_FUNCTION_NAME"])
+	assert.Equal(t, funcVer, env.Platform["AWS_LAMBDA_FUNCTION_VERSION"])
+	assert.Equal(t, handler, env.Runtime["_HANDLER"])
 }
 
 func setAll(keys map[string]bool, value string) {

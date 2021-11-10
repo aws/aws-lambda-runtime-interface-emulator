@@ -279,6 +279,7 @@ func TestInvocationResponsePayloadIsDefaultErrorMessageWhenRequestParsingFailsFo
 	errorResponse := flowTest.InteropServer.ErrorResponse
 	assert.NotNil(t, errorResponse)
 	assert.Nil(t, flowTest.InteropServer.Response)
+	assert.Equal(t, "application/octet-stream", flowTest.InteropServer.ResponseContentType)
 
 	invokeResponsePayload := errorResponse.Payload
 

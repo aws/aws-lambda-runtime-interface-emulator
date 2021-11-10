@@ -6,8 +6,11 @@ package rapid
 import (
 	"context"
 	"fmt"
+	"go.amzn.com/lambda/core"
 	"io/ioutil"
 	"net/http"
+	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -75,6 +78,61 @@ func BenchmarkChannelsSelect2(b *testing.B) {
 	}
 }
 
+func TestGetExtensionNamesWithNoExtensions(t *testing.T) {
+	rs := core.NewRegistrationService(nil, nil)
+
+	c := &rapidContext{
+		registrationService: rs,
+	}
+
+	assert.Equal(t, "", c.GetExtensionNames())
+}
+
+func TestGetExtensionNamesWithMultipleExtensions(t *testing.T) {
+	rs := core.NewRegistrationService(nil, nil)
+	_, _ = rs.CreateExternalAgent("Example1")
+	_, _ = rs.CreateInternalAgent("Example2")
+	_, _ = rs.CreateExternalAgent("Example3")
+	_, _ = rs.CreateInternalAgent("Example4")
+
+	c := &rapidContext{
+		registrationService: rs,
+	}
+
+	r := regexp.MustCompile(`^(Example\d;){3}(Example\d)$`)
+	assert.True(t, r.MatchString(c.GetExtensionNames()))
+}
+
+func TestGetExtensionNamesWithTooManyExtensions(t *testing.T) {
+	rs := core.NewRegistrationService(nil, nil)
+	for i := 10; i < 60; i++ {
+		_, _ = rs.CreateExternalAgent("E" + strconv.Itoa(i))
+	}
+
+	c := &rapidContext{
+		registrationService: rs,
+	}
+
+	output := c.GetExtensionNames()
+
+	r := regexp.MustCompile(`^(E\d\d;){30}(E\d\d)$`)
+	assert.LessOrEqual(t, len(output), maxExtensionNamesLength)
+	assert.True(t, r.MatchString(output))
+}
+
+func TestGetExtensionNamesWithTooLongExtensionName(t *testing.T) {
+	rs := core.NewRegistrationService(nil, nil)
+	for i := 10; i < 60; i++ {
+		_, _ = rs.CreateExternalAgent(strings.Repeat("E", 130))
+	}
+
+	c := &rapidContext{
+		registrationService: rs,
+	}
+
+	assert.Equal(t, "", c.GetExtensionNames())
+}
+
 // This test confirms our assumption that http client can establish a tcp connection
 // to a listening server.
 func TestListen(t *testing.T) {
@@ -84,7 +142,7 @@ func TestListen(t *testing.T) {
 
 	ctx := context.Background()
 	telemetryAPIEnabled := true
-	server := rapi.NewServer("127.0.0.1", 0, flowTest.AppCtx, flowTest.RegistrationService, flowTest.RenderingService, telemetryAPIEnabled, flowTest.TelemetryService)
+	server := rapi.NewServer("127.0.0.1", 0, flowTest.AppCtx, flowTest.RegistrationService, flowTest.RenderingService, telemetryAPIEnabled, flowTest.LogsSubscriptionAPI, false, flowTest.CredentialsService)
 	err := server.Listen()
 	assert.NoError(t, err)
 

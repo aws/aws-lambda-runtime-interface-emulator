@@ -78,27 +78,35 @@ func ExtensionsRouter(appCtx appctx.ApplicationContext, registrationService core
 	return router
 }
 
-// TelemetryAPIRouter returns a new instance of chi router implementing
+// LogsAPIRouter returns a new instance of chi router implementing
 // Logs API specification.
-func TelemetryAPIRouter(registrationService core.RegistrationService, telemetryService telemetry.LogsAPIService) http.Handler {
+func LogsAPIRouter(registrationService core.RegistrationService, logsSubscriptionAPI telemetry.LogsSubscriptionAPI) http.Handler {
 	router := chi.NewRouter()
 	router.Use(middleware.AccessLogMiddleware())
 	router.Use(middleware.AllowIfExtensionsEnabled)
 
 	router.Put("/logs",
 		middleware.AgentUniqueIdentifierHeaderValidator(
-			handler.NewRuntimeLogsHandler(registrationService, telemetryService)).ServeHTTP)
+			handler.NewRuntimeLogsHandler(registrationService, logsSubscriptionAPI)).ServeHTTP)
 
 	return router
 }
 
-// TelemetryAPIStubRouter returns a new instance of chi router implementing
+// LogsAPIStubRouter returns a new instance of chi router implementing
 // a stub of Logs API that always returns a non-committal response to
 // prevent customer code from crashing when Logs API is disabled locally
-func TelemetryAPIStubRouter() http.Handler {
+func LogsAPIStubRouter() http.Handler {
 	router := chi.NewRouter()
 
 	router.Put("/logs", handler.NewRuntimeLogsStubHandler().ServeHTTP)
+
+	return router
+}
+
+func CredentialsAPIRouter(credentialsService core.CredentialsService) http.Handler {
+	router := chi.NewRouter()
+
+	router.Get("/credentials", handler.NewCredentialsHandler(credentialsService).ServeHTTP)
 
 	return router
 }

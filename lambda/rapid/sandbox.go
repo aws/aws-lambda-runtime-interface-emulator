@@ -25,23 +25,27 @@ type EnvironmentVariables interface {
 	StoreRuntimeAPIEnvironmentVariable(runtimeAPIAddress string)
 	StoreEnvironmentVariablesFromInit(customerEnv map[string]string,
 		handler, awsKey, awsSecret, awsSession, funcName, funcVer string)
+	StoreEnvironmentVariablesFromInitForInitCaching(host string, port int, customerEnv map[string]string, handler, funcName, funcVer, token string)
 }
 
 type Sandbox struct {
-	EnableTelemetryAPI bool
-	StandaloneMode     bool
-	Bootstrap          Bootstrap
-	InteropServer      interop.Server
-	Tracer             telemetry.Tracer
-	TelemetryService   telemetry.LogsAPIService
-	Environment        EnvironmentVariables
-	DebugTailLogger    *logging.TailLogWriter
-	PlatformLogger     logging.PlatformLogger
-	ExtensionLogWriter io.Writer
-	RuntimeLogWriter   io.Writer
-	PreLoadTimeNs      int64
-	Handler            string
-	SignalCtx          context.Context
+	EnableTelemetryAPI  bool
+	StandaloneMode      bool
+	Bootstrap           Bootstrap
+	InteropServer       interop.Server
+	Tracer              telemetry.Tracer
+	LogsSubscriptionAPI telemetry.LogsSubscriptionAPI
+	LogsEgressAPI       telemetry.LogsEgressAPI
+	Environment         EnvironmentVariables
+	DebugTailLogger     *logging.TailLogWriter
+	PlatformLogger      logging.PlatformLogger
+	RuntimeStdoutWriter io.Writer
+	RuntimeStderrWriter io.Writer
+	PreLoadTimeNs       int64
+	Handler             string
+	SignalCtx           context.Context
+	EventsAPI           telemetry.EventsAPI
+	InitCachingEnabled  bool
 }
 
 // Start is a public version of start() that exports only configurable parameters
@@ -51,11 +55,12 @@ func Start(s *Sandbox) {
 	invokeFlow := core.NewInvokeFlowSynchronization()
 	registrationService := core.NewRegistrationService(initFlow, invokeFlow)
 	renderingService := rendering.NewRenderingService()
+	credentialsService := core.NewCredentialsService()
 
 	if s.StandaloneMode {
 		s.InteropServer.SetInternalStateGetter(registrationService.GetInternalStateDescriptor(appCtx))
 	}
-	server := rapi.NewServer(RuntimeAPIHost, RuntimeAPIPort, appCtx, registrationService, renderingService, s.EnableTelemetryAPI, s.TelemetryService)
+	server := rapi.NewServer(RuntimeAPIHost, RuntimeAPIPort, appCtx, registrationService, renderingService, s.EnableTelemetryAPI, s.LogsSubscriptionAPI, s.InitCachingEnabled, credentialsService)
 
 	postLoadTimeNs := metering.Monotime()
 
@@ -75,9 +80,11 @@ func Start(s *Sandbox) {
 		renderingService:    renderingService,
 		exitPidChan:         make(chan int),
 		resetChan:           make(chan *interop.Reset),
+		credentialsService:  credentialsService,
 
 		telemetryAPIEnabled: s.EnableTelemetryAPI,
-		telemetryService:    s.TelemetryService,
+		logsSubscriptionAPI: s.LogsSubscriptionAPI,
+		logsEgressAPI:       s.LogsEgressAPI,
 		bootstrap:           s.Bootstrap,
 		interopServer:       s.InteropServer,
 		xray:                s.Tracer,
@@ -85,8 +92,10 @@ func Start(s *Sandbox) {
 		standaloneMode:      s.StandaloneMode,
 		debugTailLogger:     s.DebugTailLogger,
 		platformLogger:      s.PlatformLogger,
-		extensionLogWriter:  s.ExtensionLogWriter,
-		runtimeLogWriter:    s.RuntimeLogWriter,
+		runtimeStdoutWriter: s.RuntimeStdoutWriter,
+		runtimeStderrWriter: s.RuntimeStderrWriter,
 		preLoadTimeNs:       s.PreLoadTimeNs,
+		eventsAPI:           s.EventsAPI,
+		initCachingEnabled:  s.InitCachingEnabled,
 	})
 }

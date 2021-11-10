@@ -49,15 +49,20 @@ func (h *invocationErrorHandler) ServeHTTP(writer http.ResponseWriter, request *
 
 	var errorCause json.RawMessage
 	var errorBody []byte
+	var contentType string
 	var err error
 
 	switch request.Header.Get("Content-Type") {
 	case errorWithCauseContentType:
 		errorBody, errorCause, err = h.getErrorBodyForErrorCauseContentType(request)
-
+		contentType = "application/json"
+		if err != nil {
+			contentType = "application/octet-stream"
+		}
 	default:
 		errorBody, err = h.getErrorBody(request)
 		errorCause = h.getValidatedErrorCause(request.Header)
+		contentType = request.Header.Get("Content-Type")
 	}
 
 	if err != nil {
@@ -65,9 +70,10 @@ func (h *invocationErrorHandler) ServeHTTP(writer http.ResponseWriter, request *
 	}
 
 	response := &interop.ErrorResponse{
-		ErrorType:  errorType,
-		Payload:    errorBody,
-		ErrorCause: errorCause,
+		ErrorType:   errorType,
+		Payload:     errorBody,
+		ErrorCause:  errorCause,
+		ContentType: contentType,
 	}
 
 	if err := server.SendErrorResponse(chi.URLParam(request, "awsrequestid"), response); err != nil {

@@ -20,7 +20,7 @@ func TestRuntimeCommandSetsEnvironmentVariables(t *testing.T) {
 	assert.NoError(t, err, errors.New("Failed to get working directory to execute helper process"))
 
 	execCmdArgs := []string{"foobar"}
-	runtimeCmd := NewCustomRuntimeCmd(context.Background(), execCmdArgs, currentDir, envVars, ioutil.Discard, nil)
+	runtimeCmd := NewCustomRuntimeCmd(context.Background(), execCmdArgs, currentDir, envVars, ioutil.Discard, ioutil.Discard, nil)
 
 	assert.ElementsMatch(t, envVars, runtimeCmd.Env)
 	assert.Equal(t, execCmdArgs, runtimeCmd.Args)
@@ -33,7 +33,7 @@ func TestRuntimeCommandSetsCurrentWorkingDir(t *testing.T) {
 	assert.NoError(t, err, errors.New("Failed to get working directory to execute helper process"))
 
 	execCmdArgs := []string{"foobar"}
-	runtimeCmd := NewCustomRuntimeCmd(context.Background(), execCmdArgs, currentDir, envVars, ioutil.Discard, nil)
+	runtimeCmd := NewCustomRuntimeCmd(context.Background(), execCmdArgs, currentDir, envVars, ioutil.Discard, ioutil.Discard, nil)
 
 	assert.Equal(t, currentDir, runtimeCmd.Dir)
 }
@@ -45,7 +45,7 @@ func TestRuntimeCommandSetsMultipleArgs(t *testing.T) {
 	assert.NoError(t, err, errors.New("Failed to get working directory to execute helper process"))
 
 	execCmdArgs := []string{"foobar", "--baz", "22"}
-	runtimeCmd := NewCustomRuntimeCmd(context.Background(), execCmdArgs, currentDir, envVars, ioutil.Discard, nil)
+	runtimeCmd := NewCustomRuntimeCmd(context.Background(), execCmdArgs, currentDir, envVars, ioutil.Discard, ioutil.Discard, nil)
 
 	assert.Equal(t, execCmdArgs, runtimeCmd.Args)
 }

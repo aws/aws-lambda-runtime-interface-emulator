@@ -33,8 +33,6 @@ const (
 	resetDefaultTimeoutMs = 2000
 )
 
-// rapidPhase tracks the state machine in the go.amzn.com/lambda/rapid receive loop. See
-// a state diagram of how the events and states of rapid package and this interop server
 type rapidPhase int
 
 const (
@@ -311,7 +309,7 @@ func (s *Server) TransportErrorChan() <-chan error {
 	return s.errorChanOut
 }
 
-func (s *Server) sendResponseUnsafe(invokeID string, status int, payload io.Reader) error {
+func (s *Server) sendResponseUnsafe(invokeID string, contentType string, status int, payload io.Reader) error {
 	if s.invokeCtx == nil || invokeID != s.invokeCtx.Token.InvokeID {
 		return interop.ErrInvalidInvokeID
 	}
@@ -330,12 +328,17 @@ func (s *Server) sendResponseUnsafe(invokeID string, status int, payload io.Read
 
 	// s.invokeCtx.ReplyStream.WriteHeader(status)
 
+	var reportedErr error
 	if s.invokeCtx.Direct {
-		if err := directinvoke.SendDirectInvokeResponse(nil, payload, s.invokeCtx.ReplyStream); err != nil {
-			// we intentionally do not return an error here:
-			// even if error happened, the response has already been initiated (and might be partially written into the socket)
-			// so there is no other option except to consider response to be sent.
+		if err := directinvoke.SendDirectInvokeResponse(map[string]string{"Content-Type": contentType}, payload, s.invokeCtx.ReplyStream); err != nil {
+			// TODO: Do we need to drain the reader in case of a large payload and connection reuse?
 			log.Errorf("Failed to write response to %s: %s", invokeID, err)
+			flusher, ok := s.invokeCtx.ReplyStream.(http.Flusher)
+			if !ok {
+				log.Error("Failed to flush response")
+			}
+			flusher.Flush()
+			reportedErr = err
 		}
 	} else {
 		data, err := ioutil.ReadAll(payload)
@@ -348,6 +351,8 @@ func (s *Server) sendResponseUnsafe(invokeID string, status int, payload io.Read
 				MaxResponseSize: interop.MaxPayloadSize,
 			}
 		}
+
+		s.invokeCtx.ReplyStream.Header().Add("Content-Type", contentType)
 		if _, err := s.invokeCtx.ReplyStream.Write(data); err != nil {
 			return fmt.Errorf("Failed to write response to %s: %s", invokeID, err)
 		}
@@ -356,14 +361,14 @@ func (s *Server) sendResponseUnsafe(invokeID string, status int, payload io.Read
 	s.sendResponseChan <- struct{}{}
 	s.invokeCtx.ReplySent = true
 	s.invokeCtx.Direct = false
-	return nil
+	return reportedErr
 }
 
-func (s *Server) SendResponse(invokeID string, reader io.Reader) error {
+func (s *Server) SendResponse(invokeID string, contentType string, reader io.Reader) error {
 	s.setRuntimeState(runtimeInvokeResponseSent)
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	return s.sendResponseUnsafe(invokeID, http.StatusOK, reader)
+	return s.sendResponseUnsafe(invokeID, contentType, http.StatusOK, reader)
 }
 
 func (s *Server) CommitResponse() error { return nil }
@@ -384,7 +389,7 @@ func (s *Server) SendErrorResponse(invokeID string, resp *interop.ErrorResponse)
 		s.setRuntimeState(runtimeInvokeError)
 		s.mutex.Lock()
 		defer s.mutex.Unlock()
-		return s.sendResponseUnsafe(invokeID, http.StatusInternalServerError, bytes.NewReader(resp.Payload))
+		return s.sendResponseUnsafe(invokeID, resp.ContentType, http.StatusInternalServerError, bytes.NewReader(resp.Payload))
 	default:
 		panic("received unexpected error response outside invoke or init phases")
 	}
@@ -641,6 +646,7 @@ func (s *Server) Invoke(responseWriter http.ResponseWriter, invoke *interop.Invo
 			s.Reset(autoresetReasonReleaseFail, resetDefaultTimeoutMs)
 		}
 	}
+
 	return err
 }
 

@@ -23,27 +23,27 @@ import (
 	"go.amzn.com/lambda/rapidcore/telemetry/logsapi"
 )
 
-type mockTelemetryService struct{ mock.Mock }
+type mockLogsSubscriptionAPI struct{ mock.Mock }
 
-func (s *mockTelemetryService) Subscribe(agentName string, body io.Reader, headers map[string][]string) ([]byte, int, map[string][]string, error) {
+func (s *mockLogsSubscriptionAPI) Subscribe(agentName string, body io.Reader, headers map[string][]string) ([]byte, int, map[string][]string, error) {
 	args := s.Called(agentName, body, headers)
 	return args.Get(0).([]byte), args.Int(1), args.Get(2).(map[string][]string), args.Error(3)
 }
 
-func (s *mockTelemetryService) RecordCounterMetric(metricName string, count int) {
+func (s *mockLogsSubscriptionAPI) RecordCounterMetric(metricName string, count int) {
 	s.Called(metricName, count)
 }
 
-func (s *mockTelemetryService) FlushMetrics() interop.LogsAPIMetrics {
+func (s *mockLogsSubscriptionAPI) FlushMetrics() interop.LogsAPIMetrics {
 	args := s.Called()
 	return args.Get(0).(interop.LogsAPIMetrics)
 }
 
-func (s *mockTelemetryService) Clear() {
+func (s *mockLogsSubscriptionAPI) Clear() {
 	s.Called()
 }
 
-func (s *mockTelemetryService) TurnOff() {
+func (s *mockLogsSubscriptionAPI) TurnOff() {
 	s.Called()
 }
 
@@ -60,11 +60,11 @@ func TestSuccessfulRuntimeLogsResponseProxy(t *testing.T) {
 	agent, err := registrationService.CreateExternalAgent(agentName)
 	assert.NoError(t, err)
 
-	telemetryService := &mockTelemetryService{}
-	telemetryService.On("Subscribe", agentName, bytes.NewReader(reqBody), reqHeaders).Return(respBody, respStatus, respHeaders, nil)
-	telemetryService.On("RecordCounterMetric", clientErrMetric, 1)
+	logsSubscriptionAPI := &mockLogsSubscriptionAPI{}
+	logsSubscriptionAPI.On("Subscribe", agentName, bytes.NewReader(reqBody), reqHeaders).Return(respBody, respStatus, respHeaders, nil)
+	logsSubscriptionAPI.On("RecordCounterMetric", clientErrMetric, 1)
 
-	handler := NewRuntimeLogsHandler(registrationService, telemetryService)
+	handler := NewRuntimeLogsHandler(registrationService, logsSubscriptionAPI)
 	request := httptest.NewRequest("PUT", "/", bytes.NewBuffer(reqBody))
 	for k, vals := range reqHeaders {
 		for _, v := range vals {
@@ -77,8 +77,8 @@ func TestSuccessfulRuntimeLogsResponseProxy(t *testing.T) {
 
 	handler.ServeHTTP(responseRecorder, request)
 
-	telemetryService.AssertCalled(t, "Subscribe", agentName, bytes.NewReader(reqBody), reqHeaders)
-	telemetryService.AssertCalled(t, "RecordCounterMetric", clientErrMetric, 1)
+	logsSubscriptionAPI.AssertCalled(t, "Subscribe", agentName, bytes.NewReader(reqBody), reqHeaders)
+	logsSubscriptionAPI.AssertCalled(t, "RecordCounterMetric", clientErrMetric, 1)
 
 	recordedBody, err := ioutil.ReadAll(responseRecorder.Body)
 	assert.NoError(t, err)
@@ -98,10 +98,10 @@ func TestErrorUnregisteredAgentID(t *testing.T) {
 		core.NewInvokeFlowSynchronization(),
 	)
 
-	telemetryService := &mockTelemetryService{}
-	telemetryService.On("RecordCounterMetric", clientErrMetric, 1)
+	logsSubscriptionAPI := &mockLogsSubscriptionAPI{}
+	logsSubscriptionAPI.On("RecordCounterMetric", clientErrMetric, 1)
 
-	handler := NewRuntimeLogsHandler(registrationService, telemetryService)
+	handler := NewRuntimeLogsHandler(registrationService, logsSubscriptionAPI)
 	request := httptest.NewRequest("PUT", "/", bytes.NewBuffer(reqBody))
 	for k, vals := range reqHeaders {
 		for _, v := range vals {
@@ -123,7 +123,7 @@ func TestErrorUnregisteredAgentID(t *testing.T) {
 	assert.Equal(t, http.StatusForbidden, responseRecorder.Code)
 	assert.Equal(t, expectedErrorBody, string(recordedBody))
 	assert.Equal(t, expectedHeaders, responseRecorder.Header())
-	telemetryService.AssertCalled(t, "RecordCounterMetric", clientErrMetric, 1)
+	logsSubscriptionAPI.AssertCalled(t, "RecordCounterMetric", clientErrMetric, 1)
 }
 
 func TestErrorTelemetryAPICallFailure(t *testing.T) {
@@ -139,11 +139,11 @@ func TestErrorTelemetryAPICallFailure(t *testing.T) {
 	agent, err := registrationService.CreateExternalAgent(agentName)
 	assert.NoError(t, err)
 
-	telemetryService := &mockTelemetryService{}
-	telemetryService.On("Subscribe", agentName, bytes.NewReader(reqBody), reqHeaders).Return([]byte(``), http.StatusOK, map[string][]string{}, apiError)
-	telemetryService.On("RecordCounterMetric", serverErrMetric, 1)
+	logsSubscriptionAPI := &mockLogsSubscriptionAPI{}
+	logsSubscriptionAPI.On("Subscribe", agentName, bytes.NewReader(reqBody), reqHeaders).Return([]byte(``), http.StatusOK, map[string][]string{}, apiError)
+	logsSubscriptionAPI.On("RecordCounterMetric", serverErrMetric, 1)
 
-	handler := NewRuntimeLogsHandler(registrationService, telemetryService)
+	handler := NewRuntimeLogsHandler(registrationService, logsSubscriptionAPI)
 	request := httptest.NewRequest("PUT", "/", bytes.NewBuffer(reqBody))
 	for k, vals := range reqHeaders {
 		for _, v := range vals {
@@ -165,7 +165,7 @@ func TestErrorTelemetryAPICallFailure(t *testing.T) {
 	assert.Equal(t, http.StatusInternalServerError, responseRecorder.Code)
 	assert.Equal(t, expectedErrorBody, string(recordedBody))
 	assert.Equal(t, expectedHeaders, responseRecorder.Header())
-	telemetryService.AssertCalled(t, "RecordCounterMetric", serverErrMetric, 1)
+	logsSubscriptionAPI.AssertCalled(t, "RecordCounterMetric", serverErrMetric, 1)
 }
 
 func TestRenderLogsSubscriptionClosed(t *testing.T) {
@@ -181,11 +181,11 @@ func TestRenderLogsSubscriptionClosed(t *testing.T) {
 	agent, err := registrationService.CreateExternalAgent(agentName)
 	assert.NoError(t, err)
 
-	telemetryService := &mockTelemetryService{}
-	telemetryService.On("Subscribe", agentName, bytes.NewReader(reqBody), reqHeaders).Return([]byte(``), http.StatusOK, map[string][]string{}, apiError)
-	telemetryService.On("RecordCounterMetric", clientErrMetric, 1)
+	logsSubscriptionAPI := &mockLogsSubscriptionAPI{}
+	logsSubscriptionAPI.On("Subscribe", agentName, bytes.NewReader(reqBody), reqHeaders).Return([]byte(``), http.StatusOK, map[string][]string{}, apiError)
+	logsSubscriptionAPI.On("RecordCounterMetric", clientErrMetric, 1)
 
-	handler := NewRuntimeLogsHandler(registrationService, telemetryService)
+	handler := NewRuntimeLogsHandler(registrationService, logsSubscriptionAPI)
 	request := httptest.NewRequest("PUT", "/", bytes.NewBuffer(reqBody))
 	for k, vals := range reqHeaders {
 		for _, v := range vals {
@@ -207,5 +207,5 @@ func TestRenderLogsSubscriptionClosed(t *testing.T) {
 	assert.Equal(t, http.StatusForbidden, responseRecorder.Code)
 	assert.Equal(t, expectedErrorBody, string(recordedBody))
 	assert.Equal(t, expectedHeaders, responseRecorder.Header())
-	telemetryService.AssertCalled(t, "RecordCounterMetric", clientErrMetric, 1)
+	logsSubscriptionAPI.AssertCalled(t, "RecordCounterMetric", clientErrMetric, 1)
 }

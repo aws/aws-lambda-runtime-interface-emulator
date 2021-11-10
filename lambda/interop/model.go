@@ -41,6 +41,7 @@ type Invoke struct {
 	ReservationToken      string
 	VersionID             string
 	InvokeReceivedTime    int64
+	ResyncState           Resync
 }
 
 type Token struct {
@@ -53,11 +54,21 @@ type Token struct {
 	LambdaSegmentID  string
 	InvokeMetadata   string
 	NeedDebugLogs    bool
+	ResyncState      Resync
+}
+
+type Resync struct {
+	IsResyncReceived bool
+	AwsKey           string
+	AwsSecret        string
+	AwsSession       string
+	ReceivedTime     time.Time
 }
 
 type ErrorResponse struct {
 	// Payload sent via shared memory.
-	Payload []byte `json:"Payload,omitempty"`
+	Payload     []byte `json:"Payload,omitempty"`
+	ContentType string `json:"-"`
 
 	// When error response body (Payload) is not provided, e.g.
 	// not retrievable, error type and error message will be
@@ -89,9 +100,9 @@ type Start struct {
 	AwsSecret         string
 	AwsSession        string
 	SuppressInit      bool
-	XRayDaemonAddress string // only in standalone; not used by slicer
-	FunctionName      string // only in standalone; not used by slicer
-	FunctionVersion   string // only in standalone; not used by slicer
+	XRayDaemonAddress string // only in standalone
+	FunctionName      string // only in standalone
+	FunctionVersion   string // only in standalone
 	CorrelationID     string // internal use only
 	// TODO: define new Init type that has the Start fields as well as env vars below.
 	// In standalone mode, these env vars come from test/init but from environment otherwise.
@@ -127,6 +138,7 @@ type LogsAPIMetrics map[string]int
 type DoneMetadata struct {
 	NumActiveExtensions int
 	ExtensionsResetMs   int64
+	ExtensionNames      string
 	RuntimeRelease      string
 	// Metrics for response status of LogsAPI `/subscribe` calls
 	LogsAPIMetrics          LogsAPIMetrics
@@ -134,6 +146,7 @@ type DoneMetadata struct {
 	InvokeRequestSizeBytes  int64
 	InvokeCompletionTimeNs  int64
 	InvokeReceivedTime      int64
+	RuntimeReadyTime        int64
 }
 
 type Done struct {
@@ -173,6 +186,11 @@ type ErrorResponseTooLarge struct {
 	ResponseSize    int
 }
 
+// ErrorResponseTooLargeDI is used to reproduce ErrorResponseTooLarge behavior for Direct Invoke mode
+type ErrorResponseTooLargeDI struct {
+	ErrorResponseTooLarge
+}
+
 // ErrorResponseTooLarge is returned when response provided by Runtime does not fit into shared memory buffer
 func (s *ErrorResponseTooLarge) Error() string {
 	return fmt.Sprintf("Response payload size (%d bytes) exceeded maximum allowed payload size (%d bytes).", s.ResponseSize, s.MaxResponseSize)
@@ -189,6 +207,7 @@ func (s *ErrorResponseTooLarge) AsInteropError() *ErrorResponse {
 		panic("Failed to marshal interop.ErrorResponse")
 	}
 	resp.Payload = respJSON
+	resp.ContentType = "application/json"
 	return &resp
 }
 
@@ -202,7 +221,7 @@ type Server interface {
 	//   ErrInvalidInvokeID - validation error indicating that provided invokeID doesn't match current invokeID
 	//   ErrResponseSent    - validation error indicating that response with given invokeID was already sent
 	//   Non-nil error      - non-nil error indicating transport failure
-	SendResponse(invokeID string, response io.Reader) error
+	SendResponse(invokeID string, contentType string, response io.Reader) error
 
 	// SendErrorResponse sends error response.
 	// Errors returned:
