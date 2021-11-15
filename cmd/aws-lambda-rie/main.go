@@ -21,7 +21,8 @@ const (
 )
 
 type options struct {
-	LogLevel string `long:"log-level" default:"info" description:"log level"`
+	LogLevel           string `long:"log-level" default:"info" description:"log level"`
+	InitCachingEnabled bool   `long:"enable-init-caching" description:"Enable support for Init Caching"`
 }
 
 func main() {
@@ -32,7 +33,11 @@ func main() {
 	rapidcore.SetLogLevel(opts.LogLevel)
 
 	bootstrap, handler := getBootstrap(args, opts)
-	sandbox := rapidcore.NewSandboxBuilder(bootstrap).AddShutdownFunc(context.CancelFunc(func() { os.Exit(0) })).SetExtensionsFlag(true)
+	sandbox := rapidcore.
+		NewSandboxBuilder(bootstrap).
+		AddShutdownFunc(context.CancelFunc(func() { os.Exit(0) })).
+		SetExtensionsFlag(true).
+		SetInitCachingFlag(opts.InitCachingEnabled)
 
 	if len(handler) > 0 {
 		sandbox.SetHandler(handler)
@@ -72,7 +77,7 @@ func getBootstrap(args []string, opts options) (*rapidcore.Bootstrap, string) {
 			fmt.Sprintf("%s/bootstrap", currentWorkingDir),
 		}
 
-		if !isBootstrapFileExist(bootstrapLookupCmd[0])  {
+		if !isBootstrapFileExist(bootstrapLookupCmd[0]) {
 			var bootstrapCmdCandidates = []string{
 				optBootstrap,
 				runtimeBootstrap,

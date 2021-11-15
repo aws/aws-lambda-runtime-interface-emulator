@@ -43,6 +43,7 @@ func Execute(w http.ResponseWriter, r *http.Request, sandbox rapidcore.Sandbox) 
 
 		// DONE failures:
 		case rapidcore.ErrTerminated, rapidcore.ErrInitDoneFailed, rapidcore.ErrInvokeDoneFailed:
+			copyHeaders(invokeResp, w)
 			w.WriteHeader(DoneFailedHTTPCode)
 			w.Write(invokeResp.Body)
 			return
@@ -54,8 +55,15 @@ func Execute(w http.ResponseWriter, r *http.Request, sandbox rapidcore.Sandbox) 
 		return
 	}
 
+	copyHeaders(invokeResp, w)
 	if invokeResp.StatusCode != 0 {
 		w.WriteHeader(invokeResp.StatusCode)
 	}
 	w.Write(invokeResp.Body)
+}
+
+func copyHeaders(proxyWriter, writer http.ResponseWriter) {
+	for key, val := range proxyWriter.Header() {
+		writer.Header().Set(key, val[0])
+	}
 }

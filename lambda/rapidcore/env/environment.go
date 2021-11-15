@@ -4,6 +4,7 @@
 package env
 
 import (
+	"fmt"
 	"os"
 	"strconv"
 	"strings"
@@ -103,10 +104,22 @@ func (e *Environment) SetExecutionEnv(executionEnv string) {
 // StoreEnvironmentVariablesFromInit sets the environment variables
 // for credentials & _HANDLER which are received in the START message
 func (e *Environment) StoreEnvironmentVariablesFromInit(customerEnv map[string]string, handler, awsKey, awsSecret, awsSession, funcName, funcVer string) {
+
 	e.Credentials["AWS_ACCESS_KEY_ID"] = awsKey
 	e.Credentials["AWS_SECRET_ACCESS_KEY"] = awsSecret
 	e.Credentials["AWS_SESSION_TOKEN"] = awsSession
 
+	e.storeNonCredentialEnvironmentVariablesFromInit(customerEnv, handler, funcName, funcVer)
+}
+
+func (e *Environment) StoreEnvironmentVariablesFromInitForInitCaching(host string, port int, customerEnv map[string]string, handler, funcName, funcVer, token string) {
+	e.Credentials["AWS_CONTAINER_CREDENTIALS_FULL_URI"] = fmt.Sprintf("http://%s:%d/2021-04-23/credentials", host, port)
+	e.Credentials["AWS_CONTAINER_AUTHORIZATION_TOKEN"] = token
+
+	e.storeNonCredentialEnvironmentVariablesFromInit(customerEnv, handler, funcName, funcVer)
+}
+
+func (e *Environment) storeNonCredentialEnvironmentVariablesFromInit(customerEnv map[string]string, handler, funcName, funcVer string) {
 	if handler != "" {
 		e.SetHandler(handler)
 	}

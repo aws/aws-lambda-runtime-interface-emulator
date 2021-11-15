@@ -94,10 +94,11 @@ func TestResponseAccepted(t *testing.T) {
 	flowTest.ConfigureForInvoke(context.Background(), invoke)
 
 	// Invocation response submitted by runtime.
-	var responseBody = make([]byte, interop.MaxPayloadSize)
+	var responseBody = []byte("{'foo': 'bar'}")
 
 	request := httptest.NewRequest("", "/", bytes.NewReader(responseBody))
 	request = addInvocationID(request, invoke.ID)
+	request.Header.Set(contentTypeOverrideHeaderName, "application/json")
 	handler.ServeHTTP(responseRecorder, appctx.RequestWithAppCtx(request, appCtx))
 
 	// Assertions
@@ -112,6 +113,7 @@ func TestResponseAccepted(t *testing.T) {
 	response := flowTest.InteropServer.Response
 	assert.NotNil(t, response)
 	assert.Nil(t, flowTest.InteropServer.ErrorResponse)
+	assert.Equal(t, "application/json", flowTest.InteropServer.ResponseContentType)
 	assert.Equal(t, responseBody, response,
 		"Persisted response data in app context must match the submitted.")
 }

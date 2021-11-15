@@ -21,7 +21,7 @@ import (
 
 type runtimeLogsHandler struct {
 	registrationService core.RegistrationService
-	telemetryService    telemetry.LogsAPIService
+	logsSubscriptionAPI telemetry.LogsSubscriptionAPI
 }
 
 func (h *runtimeLogsHandler) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
@@ -31,10 +31,10 @@ func (h *runtimeLogsHandler) ServeHTTP(writer http.ResponseWriter, request *http
 		switch err := err.(type) {
 		case *ErrAgentIdentifierUnknown:
 			rendering.RenderForbiddenWithTypeMsg(writer, request, errAgentIdentifierUnknown, "Unknown extension "+err.agentID.String())
-			h.telemetryService.RecordCounterMetric(logsapi.SubscribeClientErr, 1)
+			h.logsSubscriptionAPI.RecordCounterMetric(logsapi.SubscribeClientErr, 1)
 		default:
 			rendering.RenderInternalServerError(writer, request)
-			h.telemetryService.RecordCounterMetric(logsapi.SubscribeServerErr, 1)
+			h.logsSubscriptionAPI.RecordCounterMetric(logsapi.SubscribeServerErr, 1)
 		}
 		return
 	}
@@ -45,21 +45,21 @@ func (h *runtimeLogsHandler) ServeHTTP(writer http.ResponseWriter, request *http
 	if err != nil {
 		log.Error(err)
 		rendering.RenderInternalServerError(writer, request)
-		h.telemetryService.RecordCounterMetric(logsapi.SubscribeServerErr, 1)
+		h.logsSubscriptionAPI.RecordCounterMetric(logsapi.SubscribeServerErr, 1)
 		return
 	}
 
-	respBody, status, headers, err := h.telemetryService.Subscribe(agentName, bytes.NewReader(body), request.Header)
+	respBody, status, headers, err := h.logsSubscriptionAPI.Subscribe(agentName, bytes.NewReader(body), request.Header)
 	if err != nil {
 		log.Errorf("Telemetry API error: %s", err)
 		switch err {
 		case logsapi.ErrTelemetryServiceOff:
 			rendering.RenderForbiddenWithTypeMsg(writer, request,
 				errLogsSubscriptionClosed, "Logs API subscription is closed already")
-			h.telemetryService.RecordCounterMetric(logsapi.SubscribeClientErr, 1)
+			h.logsSubscriptionAPI.RecordCounterMetric(logsapi.SubscribeClientErr, 1)
 		default:
 			rendering.RenderInternalServerError(writer, request)
-			h.telemetryService.RecordCounterMetric(logsapi.SubscribeServerErr, 1)
+			h.logsSubscriptionAPI.RecordCounterMetric(logsapi.SubscribeServerErr, 1)
 		}
 		return
 	}
@@ -67,11 +67,11 @@ func (h *runtimeLogsHandler) ServeHTTP(writer http.ResponseWriter, request *http
 	rendering.RenderRuntimeLogsResponse(writer, respBody, status, headers)
 	switch status / 100 {
 	case 2: // 2xx
-		h.telemetryService.RecordCounterMetric(logsapi.SubscribeSuccess, 1)
+		h.logsSubscriptionAPI.RecordCounterMetric(logsapi.SubscribeSuccess, 1)
 	case 4: // 4xx
-		h.telemetryService.RecordCounterMetric(logsapi.SubscribeClientErr, 1)
+		h.logsSubscriptionAPI.RecordCounterMetric(logsapi.SubscribeClientErr, 1)
 	case 5: // 5xx
-		h.telemetryService.RecordCounterMetric(logsapi.SubscribeServerErr, 1)
+		h.logsSubscriptionAPI.RecordCounterMetric(logsapi.SubscribeServerErr, 1)
 	}
 }
 
@@ -124,9 +124,9 @@ func (h *runtimeLogsHandler) getBody(writer http.ResponseWriter, request *http.R
 
 // NewRuntimeLogsHandler returns a new instance of http handler
 // for serving /runtime/logs
-func NewRuntimeLogsHandler(registrationService core.RegistrationService, telemetryService telemetry.LogsAPIService) http.Handler {
+func NewRuntimeLogsHandler(registrationService core.RegistrationService, logsSubscriptionAPI telemetry.LogsSubscriptionAPI) http.Handler {
 	return &runtimeLogsHandler{
 		registrationService: registrationService,
-		telemetryService:    telemetryService,
+		logsSubscriptionAPI: logsSubscriptionAPI,
 	}
 }

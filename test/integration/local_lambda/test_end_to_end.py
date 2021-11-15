@@ -48,6 +48,9 @@ class TestEndToEnd(TestCase):
             "customname",
             "timeout",
             "exception",
+            "remaining_time_in_three_seconds",
+            "remaining_time_in_ten_seconds",
+            "remaining_time_in_default_deadline",
             "pre-runtime-api",
             "assert-overwritten",
         ]
@@ -65,11 +68,11 @@ class TestEndToEnd(TestCase):
     def tagged_name(self, name, architecture):
         tag = self.get_tag(architecture)
         return (name + tag, "aws-lambda-rie" + tag, self.image_name + tag)
-        
+
     def get_tag(self, architecture):
         return "" if architecture == "" else str(f"-{architecture}")
 
-    @parameterized.expand([("x86_64", "8000"), ("arm64", "9001"), ("", "9003")])
+    @parameterized.expand([("x86_64", "8000"), ("arm64", "9000"), ("", "9050")])
     def test_env_var_with_equal_sign(self, arch, port):
         image, rie, image_name = self.tagged_name("envvarcheck", arch)
 
@@ -84,7 +87,7 @@ class TestEndToEnd(TestCase):
         )
         self.assertEqual(b'"4=4"', r.content)
 
-    @parameterized.expand([("x86_64", "8001"), ("arm64", "9002"), ("", "9005")])
+    @parameterized.expand([("x86_64", "8001"), ("arm64", "9001"), ("", "9051")])
     def test_two_invokes(self, arch, port):
         image, rie, image_name = self.tagged_name("twoinvokes", arch)
 
@@ -106,10 +109,10 @@ class TestEndToEnd(TestCase):
         )
         self.assertEqual(b'"My lambda ran succesfully"', r.content)
 
-    @parameterized.expand([("x86_64", "8002"), ("arm64", "9004"), ("", "9007")])
+    @parameterized.expand([("x86_64", "8002"), ("arm64", "9002"), ("", "9052")])
     def test_lambda_function_arn_exists(self, arch, port):
         image, rie, image_name = self.tagged_name("arnexists", arch)
-        
+
         cmd = f"docker run --name {image} -d -v {self.path_to_binary}:/local-lambda-runtime-server -p {port}:8080 --entrypoint /local-lambda-runtime-server/{rie} {image_name} {DEFAULT_1P_ENTRYPOINT} main.assert_lambda_arn_in_context"
 
         Popen(cmd.split(" ")).communicate()
@@ -122,10 +125,10 @@ class TestEndToEnd(TestCase):
         )
         self.assertEqual(b'"My lambda ran succesfully"', r.content)
 
-    @parameterized.expand([("x86_64", "8003"), ("arm64", "9006"), ("", "9009")])
+    @parameterized.expand([("x86_64", "8003"), ("arm64", "9003"), ("", "9053")])
     def test_lambda_function_arn_exists_with_defining_custom_name(self, arch, port):
         image, rie, image_name = self.tagged_name("customname", arch)
-        
+
         cmd = f"docker run --name {image} --env AWS_LAMBDA_FUNCTION_NAME=MyCoolName -d -v {self.path_to_binary}:/local-lambda-runtime-server -p {port}:8080 --entrypoint /local-lambda-runtime-server/{rie} {image_name} {DEFAULT_1P_ENTRYPOINT} main.assert_lambda_arn_in_context"
         Popen(cmd.split(" ")).communicate()
 
@@ -137,10 +140,10 @@ class TestEndToEnd(TestCase):
         )
         self.assertEqual(b'"My lambda ran succesfully"', r.content)
 
-    @parameterized.expand([("x86_64", "8004"), ("arm64", "9008"), ("", "9011")])
+    @parameterized.expand([("x86_64", "8004"), ("arm64", "9004"), ("", "9054")])
     def test_timeout_invoke(self, arch, port):
         image, rie, image_name = self.tagged_name("timeout", arch)
-        
+
         cmd = f"docker run --name {image} -d --env AWS_LAMBDA_FUNCTION_TIMEOUT=1 -v {self.path_to_binary}:/local-lambda-runtime-server -p {port}:8080 --entrypoint /local-lambda-runtime-server/{rie} {image_name} {DEFAULT_1P_ENTRYPOINT} main.sleep_handler"
 
         Popen(cmd.split(" ")).communicate()
@@ -153,10 +156,10 @@ class TestEndToEnd(TestCase):
         )
         self.assertEqual(b"Task timed out after 1.00 seconds", r.content)
 
-    @parameterized.expand([("x86_64", "8005"), ("arm64", "9010"), ("", "9013")])
+    @parameterized.expand([("x86_64", "8005"), ("arm64", "9005"), ("", "9055")])
     def test_exception_returned(self, arch, port):
         image, rie, image_name = self.tagged_name("exception", arch)
-        
+
         cmd = f"docker run --name {image} -d -v {self.path_to_binary}:/local-lambda-runtime-server -p {port}:8080 --entrypoint /local-lambda-runtime-server/{rie} {image_name} {DEFAULT_1P_ENTRYPOINT} main.exception_handler"
 
         Popen(cmd.split(" ")).communicate()
@@ -172,10 +175,67 @@ class TestEndToEnd(TestCase):
             r.content,
         )
 
-    @parameterized.expand([("x86_64", "8006"), ("arm64", "9012"), ("", "9015")])
+    @parameterized.expand([("x86_64", "8006"), ("arm64", "9006"), ("", "9056")])
+    def test_context_get_remaining_time_in_three_seconds(self, arch, port):
+        image, rie, image_name = self.tagged_name("remaining_time_in_three_seconds", arch)
+
+        cmd = f"docker run --name {image} -d --env AWS_LAMBDA_FUNCTION_TIMEOUT=3 -v {self.path_to_binary}:/local-lambda-runtime-server -p {port}:8080 --entrypoint /local-lambda-runtime-server/{rie} {image_name} {DEFAULT_1P_ENTRYPOINT} main.check_remaining_time_handler"
+
+        Popen(cmd.split(' ')).communicate()
+
+        # sleep 1s to give enough time for the endpoint to be up to curl
+        time.sleep(SLEEP_TIME)
+
+        r = requests.post(
+            f"http://localhost:{port}/2015-03-31/functions/function/invocations", json={}
+        )
+
+        # Execution time is not decided, 1.0s ~ 3.0s is a good estimation
+        self.assertLess(int(r.content), 3000)
+        self.assertGreater(int(r.content), 1000)
+
+    @parameterized.expand([("x86_64", "8007"), ("arm64", "9007"), ("", "9057")])
+    def test_context_get_remaining_time_in_ten_seconds(self, arch, port):
+        image, rie, image_name = self.tagged_name("remaining_time_in_ten_seconds", arch)
+
+        cmd = f"docker run --name {image} -d --env AWS_LAMBDA_FUNCTION_TIMEOUT=10 -v {self.path_to_binary}:/local-lambda-runtime-server -p {port}:8080 --entrypoint /local-lambda-runtime-server/{rie} {image_name} {DEFAULT_1P_ENTRYPOINT} main.check_remaining_time_handler"
+
+        Popen(cmd.split(' ')).communicate()
+
+        # sleep 1s to give enough time for the endpoint to be up to curl
+        time.sleep(SLEEP_TIME)
+
+        r = requests.post(
+            f"http://localhost:{port}/2015-03-31/functions/function/invocations", json={}
+        )
+
+        # Execution time is not decided, 8.0s ~ 10.0s is a good estimation
+        self.assertLess(int(r.content), 10000)
+        self.assertGreater(int(r.content), 8000)
+
+    @parameterized.expand([("x86_64", "8008"), ("arm64", "9008"), ("", "9058")])
+    def test_context_get_remaining_time_in_default_deadline(self, arch, port):
+        image, rie, image_name = self.tagged_name("remaining_time_in_default_deadline", arch)
+
+        cmd = f"docker run --name {image} -d -v {self.path_to_binary}:/local-lambda-runtime-server -p {port}:8080 --entrypoint /local-lambda-runtime-server/{rie} {image_name} {DEFAULT_1P_ENTRYPOINT} main.check_remaining_time_handler"
+
+        Popen(cmd.split(' ')).communicate()
+
+        # sleep 1s to give enough time for the endpoint to be up to curl
+        time.sleep(SLEEP_TIME)
+
+        r = requests.post(
+            f"http://localhost:{port}/2015-03-31/functions/function/invocations", json={}
+        )
+
+        # Executation time is not decided, 298.0s ~ 300.0s is a good estimation
+        self.assertLess(int(r.content), 300000)
+        self.assertGreater(int(r.content), 298000)
+
+    @parameterized.expand([("x86_64", "8009"), ("arm64", "9009"), ("", "9059")])
     def test_invoke_with_pre_runtime_api_runtime(self, arch, port):
         image, rie, image_name = self.tagged_name("pre-runtime-api", arch)
-        
+
         cmd = f"docker run --name {image} -d -v {self.path_to_binary}:/local-lambda-runtime-server -p {port}:8080 --entrypoint /local-lambda-runtime-server/{rie} {image_name} {DEFAULT_1P_ENTRYPOINT} main.success_handler"
 
         Popen(cmd.split(" ")).communicate()
@@ -188,10 +248,10 @@ class TestEndToEnd(TestCase):
         )
         self.assertEqual(b'"My lambda ran succesfully"', r.content)
 
-    @parameterized.expand([("x86_64", "8007"), ("arm64", "9014"), ("", "9016")])
+    @parameterized.expand([("x86_64", "8010"), ("arm64", "9010"), ("", "9060")])
     def test_function_name_is_overriden(self, arch, port):
         image, rie, image_name = self.tagged_name("assert-overwritten", arch)
-        
+
         cmd = f"docker run --name {image} -d --env AWS_LAMBDA_FUNCTION_NAME=MyCoolName -v {self.path_to_binary}:/local-lambda-runtime-server -p {port}:8080 --entrypoint /local-lambda-runtime-server/{rie} {image_name} {DEFAULT_1P_ENTRYPOINT} main.assert_env_var_is_overwritten"
 
         Popen(cmd.split(" ")).communicate()

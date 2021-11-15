@@ -4,6 +4,7 @@
 package handler
 
 import (
+	"encoding/json"
 	"io/ioutil"
 	"net/http"
 
@@ -44,8 +45,9 @@ func (h *initErrorHandler) ServeHTTP(writer http.ResponseWriter, request *http.R
 	}
 
 	response := &interop.ErrorResponse{
-		ErrorType: errorType,
-		Payload:   errorBody,
+		ErrorType:   errorType,
+		Payload:     errorBody,
+		ContentType: determineJSONContentType(errorBody),
 	}
 
 	if err := server.SendErrorResponse(server.GetCurrentInvokeID(), response); err != nil {
@@ -64,4 +66,11 @@ func NewInitErrorHandler(registrationService core.RegistrationService) http.Hand
 	return &initErrorHandler{
 		registrationService: registrationService,
 	}
+}
+
+func determineJSONContentType(body []byte) string {
+	if json.Valid(body) {
+		return "application/json"
+	}
+	return "application/octet-stream"
 }

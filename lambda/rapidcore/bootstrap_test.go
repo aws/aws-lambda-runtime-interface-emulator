@@ -216,3 +216,10 @@ func TestDefaultWorkeringDirectory(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "/", cwd)
 }
+
+func TestBootstrapSingleCmdDefaultWorkingDir(t *testing.T) {
+	b := NewBootstrapSingleCmd([]string{}, "")
+	bCwd, err := b.Cwd()
+	assert.NoError(t, err)
+	assert.Equal(t, "/", bCwd)
+}

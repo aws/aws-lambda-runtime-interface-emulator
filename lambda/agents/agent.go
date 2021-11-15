@@ -25,13 +25,12 @@ type ExternalAgentProcess struct {
 }
 
 // NewExternalAgentProcess returns a new external agent process
-func NewExternalAgentProcess(path string, env []string, logWriter io.Writer) ExternalAgentProcess {
+func NewExternalAgentProcess(path string, env []string, stdoutWriter io.Writer, stderrWriter io.Writer) ExternalAgentProcess {
 	command := exec.Command(path)
 	command.Env = env
 
-	w := NewNewlineSplitWriter(logWriter)
-	command.Stdout = w
-	command.Stderr = w
+	command.Stdout = NewNewlineSplitWriter(stdoutWriter)
+	command.Stderr = NewNewlineSplitWriter(stderrWriter)
 	command.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
 	return ExternalAgentProcess{

@@ -143,8 +143,7 @@ func TestInternalAgentShutdownSubscription(t *testing.T) {
 	_, found := registrationService.FindInternalAgentByName(agentName)
 	require.False(t, found)
 
-	subscribers := registrationService.GetSubscribedInternalAgents(core.ShutdownEvent)
-	require.Equal(t, 0, len(subscribers))
+	require.Equal(t, 0, registrationService.CountAgents())
 }
 
 func TestInternalAgentInvalidEventType(t *testing.T) {
@@ -170,8 +169,7 @@ func TestInternalAgentInvalidEventType(t *testing.T) {
 		_, found := registrationService.FindInternalAgentByName(agentName)
 		require.False(t, found)
 
-		subscribers := registrationService.GetSubscribedInternalAgents(core.ShutdownEvent)
-		require.Equal(t, 0, len(subscribers))
+		require.Equal(t, 0, registrationService.CountAgents())
 	}
 }
 
@@ -199,8 +197,13 @@ func TestExternalAgentInvalidEventType(t *testing.T) {
 		_, found := registrationService.FindExternalAgentByName(agentName)
 		require.True(t, found)
 
-		subscribers := registrationService.GetSubscribedExternalAgents(core.ShutdownEvent)
-		require.Equal(t, 0, len(subscribers))
+		shutdownSubscribers := registrationService.GetSubscribedExternalAgents(core.ShutdownEvent)
+		require.Equal(t, 0, len(shutdownSubscribers))
+
+		invokeSubscribers := registrationService.GetSubscribedExternalAgents(core.InvokeEvent)
+		require.Equal(t, 0, len(invokeSubscribers))
+
+		require.Equal(t, 1, registrationService.CountAgents())
 	}
 }
 

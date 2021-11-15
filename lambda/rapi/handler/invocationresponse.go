@@ -15,6 +15,8 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+const contentTypeOverrideHeaderName = "Content-Type"
+
 type invocationResponseHandler struct {
 	registrationService core.RegistrationService
 }
@@ -37,7 +39,9 @@ func (h *invocationResponseHandler) ServeHTTP(writer http.ResponseWriter, reques
 
 	invokeID := chi.URLParam(request, "awsrequestid")
 
-	if err := server.SendResponse(invokeID, request.Body); err != nil {
+	responseContentType := request.Header.Get(contentTypeOverrideHeaderName)
+
+	if err := server.SendResponse(invokeID, responseContentType, request.Body); err != nil {
 		switch err := err.(type) {
 		case *interop.ErrorResponseTooLarge:
 			if server.SendErrorResponse(invokeID, err.AsInteropError()) != nil {
@@ -47,6 +51,15 @@ func (h *invocationResponseHandler) ServeHTTP(writer http.ResponseWriter, reques
 
 			appctx.StoreErrorResponse(appCtx, err.AsInteropError())
 
+			if err := runtime.ResponseSent(); err != nil {
+				log.Panic(err)
+			}
+
+			rendering.RenderRequestEntityTooLarge(writer, request)
+			return
+
+		case *interop.ErrorResponseTooLargeDI:
+			// in DirectInvoke case, the (truncated) response is already sent back to the caller
 			if err := runtime.ResponseSent(); err != nil {
 				log.Panic(err)
 			}

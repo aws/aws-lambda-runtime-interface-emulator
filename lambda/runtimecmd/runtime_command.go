@@ -19,12 +19,12 @@ type CustomRuntimeCmd struct {
 }
 
 // NewCustomRuntimeCmd returns a new CustomRuntimeCmd
-func NewCustomRuntimeCmd(ctx context.Context, bootstrapCmd []string, dir string, env []string, runtimeLogWriter io.Writer, extraFiles []*os.File) *CustomRuntimeCmd {
+func NewCustomRuntimeCmd(ctx context.Context, bootstrapCmd []string, dir string, env []string, stdoutWriter io.Writer, stderrWriter io.Writer, extraFiles []*os.File) *CustomRuntimeCmd {
 	cmd := exec.CommandContext(ctx, bootstrapCmd[0], bootstrapCmd[1:]...)
 	cmd.Dir = dir
 
-	cmd.Stdout = runtimeLogWriter
-	cmd.Stderr = runtimeLogWriter
+	cmd.Stdout = stdoutWriter
+	cmd.Stderr = stderrWriter
 
 	cmd.Env = env
 

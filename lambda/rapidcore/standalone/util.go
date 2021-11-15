@@ -34,10 +34,14 @@ func (t ErrorType) String() string {
 type ResponseWriterProxy struct {
 	Body       []byte
 	StatusCode int
+	header     http.Header
 }
 
 func (w *ResponseWriterProxy) Header() http.Header {
-	return http.Header{}
+	if w.header == nil {
+		w.header = http.Header{}
+	}
+	return w.header
 }
 
 func (w *ResponseWriterProxy) Write(b []byte) (int, error) {

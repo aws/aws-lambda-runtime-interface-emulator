@@ -19,16 +19,17 @@ import (
 )
 
 type MockInteropServer struct {
-	Response       []byte
-	ErrorResponse  *interop.ErrorResponse
-	ActiveInvokeID string
+	Response            []byte
+	ErrorResponse       *interop.ErrorResponse
+	ResponseContentType string
+	ActiveInvokeID      string
 }
 
 // StartAcceptingDirectInvokes
 func (i *MockInteropServer) StartAcceptingDirectInvokes() error { return nil }
 
 // SendResponse writes response to a shared memory.
-func (i *MockInteropServer) SendResponse(invokeID string, reader io.Reader) error {
+func (i *MockInteropServer) SendResponse(invokeID string, contentType string, reader io.Reader) error {
 	bytes, err := ioutil.ReadAll(reader)
 	if err != nil {
 		return err
@@ -40,12 +41,14 @@ func (i *MockInteropServer) SendResponse(invokeID string, reader io.Reader) erro
 		}
 	}
 	i.Response = bytes
+	i.ResponseContentType = contentType
 	return nil
 }
 
 // SendErrorResponse writes error response to a shared memory and sends GIRD FAULT.
 func (i *MockInteropServer) SendErrorResponse(invokeID string, response *interop.ErrorResponse) error {
 	i.ErrorResponse = response
+	i.ResponseContentType = response.ContentType
 	return nil
 }
 
@@ -93,7 +96,9 @@ func (m *MockInteropServer) Init(i *interop.Start, invokeTimeoutMs int64) {}
 
 func (m *MockInteropServer) Invoke(w http.ResponseWriter, i *interop.Invoke) error { return nil }
 
-func (m *MockInteropServer) Shutdown(shutdown *interop.Shutdown) *statejson.InternalStateDescription { return nil }
+func (m *MockInteropServer) Shutdown(shutdown *interop.Shutdown) *statejson.InternalStateDescription {
+	return nil
+}
 
 // FlowTest provides configuration for tests that involve synchronization flows.
 type FlowTest struct {
@@ -104,7 +109,8 @@ type FlowTest struct {
 	RenderingService    *rendering.EventRenderingService
 	Runtime             *core.Runtime
 	InteropServer       *MockInteropServer
-	TelemetryService    *MockNoOpTelemetryService
+	LogsSubscriptionAPI *telemetry.NoOpLogsSubscriptionAPI
+	CredentialsService  core.CredentialsService
 }
 
 // ConfigureForInit initialize synchronization gates and states for init.
@@ -119,28 +125,13 @@ func (s *FlowTest) ConfigureForInvoke(ctx context.Context, invoke *interop.Invok
 	s.RenderingService.SetRenderer(rendering.NewInvokeRenderer(ctx, invoke, telemetry.GetCustomerTracingHeader))
 }
 
-// MockNoOpTelemetryService is a no-op telemetry API used in tests where it does not matter
-type MockNoOpTelemetryService struct{}
-
-// Subscribe writes response to a shared memory
-func (m *MockNoOpTelemetryService) Subscribe(agentName string, body io.Reader, headers map[string][]string) ([]byte, int, map[string][]string, error) {
-	return []byte(`{}`), http.StatusOK, map[string][]string{}, nil
+func (s *FlowTest) ConfigureForInitCaching(token, awsKey, awsSecret, awsSession string) {
+	s.CredentialsService.SetCredentials(token, awsKey, awsSecret, awsSession)
 }
 
-func (s *MockNoOpTelemetryService) RecordCounterMetric(metricName string, count int) {
-	// NOOP
-}
-
-func (s *MockNoOpTelemetryService) FlushMetrics() interop.LogsAPIMetrics {
-	return interop.LogsAPIMetrics(map[string]int{})
-}
-
-func (m *MockNoOpTelemetryService) Clear() {
-	// NOOP
-}
-
-func (m *MockNoOpTelemetryService) TurnOff() {
-	// NOOP
+func (s *FlowTest) ConfigureForBlockedInitCaching(token, awsKey, awsSecret, awsSession string) {
+	s.CredentialsService.SetCredentials(token, awsKey, awsSecret, awsSession)
+	s.CredentialsService.BlockService()
 }
 
 // NewFlowTest returns new FlowTest configuration.
@@ -150,6 +141,7 @@ func NewFlowTest() *FlowTest {
 	invokeFlow := core.NewInvokeFlowSynchronization()
 	registrationService := core.NewRegistrationService(initFlow, invokeFlow)
 	renderingService := rendering.NewRenderingService()
+	credentialsService := core.NewCredentialsService()
 	runtime := core.NewRuntime(initFlow, invokeFlow)
 	runtime.ManagedThread = &mockthread.MockManagedThread{}
 	interopServer := &MockInteropServer{}
@@ -160,8 +152,9 @@ func NewFlowTest() *FlowTest {
 		InvokeFlow:          invokeFlow,
 		RegistrationService: registrationService,
 		RenderingService:    renderingService,
-		TelemetryService:    &MockNoOpTelemetryService{},
+		LogsSubscriptionAPI: &telemetry.NoOpLogsSubscriptionAPI{},
 		Runtime:             runtime,
 		InteropServer:       interopServer,
+		CredentialsService:  credentialsService,
 	}
 }

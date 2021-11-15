@@ -52,6 +52,11 @@ func NewBootstrap(cmdCandidates [][]string, currentWorkingDir string) *Bootstrap
 }
 
 func NewBootstrapSingleCmd(cmd []string, currentWorkingDir string) *Bootstrap {
+	if currentWorkingDir == "" {
+		// use the root directory as the default working directory
+		currentWorkingDir = "/"
+	}
+
 	// a single candidate command makes it automatically valid
 	return &Bootstrap{
 		validCmd:   cmd,

@@ -129,7 +129,7 @@ func TestInvokeSuccess(t *testing.T) {
 		require.NoError(t, srv.SendDone(&interop.Done{CorrelationID: "initCorrelationID"}))
 
 		<-srv.InvokeChan()
-		require.NoError(t, srv.SendResponse(srv.GetCurrentInvokeID(), bytes.NewReader([]byte("response"))))
+		require.NoError(t, srv.SendResponse(srv.GetCurrentInvokeID(), "application/json", bytes.NewReader([]byte("response"))))
 		require.NoError(t, srv.SendRuntimeReady())
 		require.NoError(t, srv.SendDone(&interop.Done{CorrelationID: "invokeCorrelationID"}))
 	}()
@@ -146,6 +146,7 @@ func TestInvokeSuccess(t *testing.T) {
 	invokeErr := srv.FastInvoke(responseRecorder, &interop.Invoke{CorrelationID: "invokeCorrelationID"}, false)
 	require.NoError(t, invokeErr)
 	require.Equal(t, "response", responseRecorder.Body.String())
+	require.Equal(t, "application/json", responseRecorder.Result().Header.Get("Content-Type"))
 
 	_, err = srv.AwaitRelease()
 	require.NoError(t, err)
@@ -163,7 +164,7 @@ func TestInvokeError(t *testing.T) {
 
 		<-srv.InvokeChan()
 
-		require.NoError(t, srv.SendErrorResponse(srv.GetCurrentInvokeID(), &interop.ErrorResponse{Payload: []byte("{ 'errorType': 'A.B' }")}))
+		require.NoError(t, srv.SendErrorResponse(srv.GetCurrentInvokeID(), &interop.ErrorResponse{Payload: []byte("{ 'errorType': 'A.B' }"), ContentType: "application/json"}))
 		require.NoError(t, srv.SendRuntimeReady())
 		require.NoError(t, srv.SendDone(&interop.Done{CorrelationID: "invokeCorrelationID"}))
 	}()
@@ -180,6 +181,7 @@ func TestInvokeError(t *testing.T) {
 	invokeErr := srv.FastInvoke(responseRecorder, &interop.Invoke{CorrelationID: "invokeCorrelationID"}, false)
 	require.NoError(t, invokeErr)
 	require.Equal(t, "{ 'errorType': 'A.B' }", responseRecorder.Body.String())
+	require.Equal(t, "application/json", responseRecorder.Result().Header.Get("Content-Type"))
 
 	_, err = srv.AwaitRelease()
 	require.NoError(t, err)
@@ -212,7 +214,7 @@ func TestInvokeWithSuppressedInitSuccess(t *testing.T) {
 		require.NoError(t, srv.SendDone(&interop.Done{CorrelationID: "resetCorrelationID"}))
 
 		<-srv.InvokeChan() // run only after FastInvoke is called
-		require.NoError(t, srv.SendResponse(srv.GetCurrentInvokeID(), bytes.NewReader([]byte("response"))))
+		require.NoError(t, srv.SendResponse(srv.GetCurrentInvokeID(), "", bytes.NewReader([]byte("response"))))
 		require.NoError(t, srv.SendDone(&interop.Done{CorrelationID: "invokeCorrelationID"}))
 	}()
 
@@ -276,7 +278,6 @@ func TestInvokeWithSuppressedInitErrorDueToInitError(t *testing.T) {
 	}()
 
 	srv.Init(&interop.Start{CorrelationID: "initCorrelationID"}, int64(1*time.Second*time.Millisecond))
-	require.Equal(t, phaseInitializing, srv.getRapidPhase())
 
 	_, err := srv.Reserve("", "", "")
 	require.EqualError(t, err, ErrInitError.Error())
@@ -366,7 +367,7 @@ func TestMultipleInvokeSuccess(t *testing.T) {
 
 	invokeFunc := func(i int) {
 		<-srv.InvokeChan()
-		require.NoError(t, srv.SendResponse(srv.GetCurrentInvokeID(), bytes.NewReader([]byte("response-"+fmt.Sprint(i)))))
+		require.NoError(t, srv.SendResponse(srv.GetCurrentInvokeID(), "", bytes.NewReader([]byte("response-"+fmt.Sprint(i)))))
 		require.NoError(t, srv.SendRuntimeReady())
 		require.NoError(t, srv.SendDone(&interop.Done{CorrelationID: "invokeCorrelationID"}))
 	}

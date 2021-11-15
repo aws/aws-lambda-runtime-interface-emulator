@@ -109,6 +109,12 @@ func SendDirectInvokeResponse(additionalHeaders map[string]string, payload io.Re
 		w.Header().Set(EndOfResponseTrailer, EndOfResponseTruncated)
 	} else if n == MaxDirectResponseSize+1 {
 		w.Header().Set(EndOfResponseTrailer, EndOfResponseOversized)
+		err = &interop.ErrorResponseTooLargeDI{
+			ErrorResponseTooLarge: interop.ErrorResponseTooLarge{
+				ResponseSize:    int(n),
+				MaxResponseSize: int(MaxDirectResponseSize),
+			},
+		}
 	} else {
 		w.Header().Set(EndOfResponseTrailer, EndOfResponseComplete)
 	}
