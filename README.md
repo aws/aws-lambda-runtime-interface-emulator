@@ -1,5 +1,9 @@
 ## AWS Lambda Runtime Interface Emulator
 
+[![Go Report Card](https://goreportcard.com/badge/github.com/aws/aws-lambda-runtime-interface-emulator)](https://goreportcard.com/report/github.com/aws/aws-lambda-runtime-interface-emulator)
+[![GoDoc](https://pkg.go.dev/badge/github.com/aws/aws-lambda-runtime-interface-emulator?status.svg)](https://pkg.go.dev/github.com/aws/aws-lambda-runtime-interface-emulator?tab=doc)
+![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/aws/aws-lambda-runtime-interface-emulator)
+![GitHub release (latest by date)](https://img.shields.io/github/v/release/aws/aws-lambda-runtime-interface-emulator)
 ![Apache-2.0](https://img.shields.io/npm/l/aws-sam-local.svg)
 
 The Lambda Runtime Interface Emulator is a proxy for Lambda’s Runtime and Extensions APIs, which allows customers to
