@@ -23,7 +23,7 @@ const (
 type options struct {
 	LogLevel           string `long:"log-level" default:"info" description:"log level"`
 	InitCachingEnabled bool   `long:"enable-init-caching" description:"Enable support for Init Caching"`
-	ListenAddress      string `short:"l" long:"listen" description:"IP address and port to listen on. Defaults to '0.0.0.0:8080'"`
+	ListenAddress      string `short:"l" long:"listen" default:"0.0.0.0:8080" description:"IP address and port to listen on."`
 }
 
 func main() {
@@ -46,15 +46,7 @@ func main() {
 
 	go sandbox.Create()
 
-	var testAPIipport string
-
-	if opts.ListenAddress == "" {
-		testAPIipport = "0.0.0.0:8080"
-	} else {
-		testAPIipport = opts.ListenAddress
-	}
-
-	startHTTPServer(testAPIipport, sandbox)
+	startHTTPServer(opts.ListenAddress, sandbox)
 }
 
 func getCLIArgs() (options, []string) {
