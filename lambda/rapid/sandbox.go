@@ -46,6 +46,7 @@ type Sandbox struct {
 	SignalCtx           context.Context
 	EventsAPI           telemetry.EventsAPI
 	InitCachingEnabled  bool
+	RapidPort           int
 }
 
 // Start is a public version of start() that exports only configurable parameters
@@ -60,7 +61,7 @@ func Start(s *Sandbox) {
 	if s.StandaloneMode {
 		s.InteropServer.SetInternalStateGetter(registrationService.GetInternalStateDescriptor(appCtx))
 	}
-	server := rapi.NewServer(RuntimeAPIHost, RuntimeAPIPort, appCtx, registrationService, renderingService, s.EnableTelemetryAPI, s.LogsSubscriptionAPI, s.InitCachingEnabled, credentialsService)
+	server := rapi.NewServer(RuntimeAPIHost, s.RapidPort, appCtx, registrationService, renderingService, s.EnableTelemetryAPI, s.LogsSubscriptionAPI, s.InitCachingEnabled, credentialsService)
 
 	postLoadTimeNs := metering.Monotime()
 

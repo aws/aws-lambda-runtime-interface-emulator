@@ -64,7 +64,7 @@ const (
 	ExtensionLogSink
 )
 
-func NewSandboxBuilder(bootstrap *Bootstrap) *SandboxBuilder {
+func NewSandboxBuilder(bootstrap *Bootstrap, port int) *SandboxBuilder {
 	defaultInteropServer := NewServer(context.Background())
 	signalCtx, cancelSignalCtx := context.WithCancel(context.Background())
 	logsEgressAPI := &telemetry.NoOpLogsEgressAPI{}
@@ -84,6 +84,7 @@ func NewSandboxBuilder(bootstrap *Bootstrap) *SandboxBuilder {
 			SignalCtx:           signalCtx,
 			EventsAPI:           &telemetry.NoOpEventsAPI{},
 			InitCachingEnabled:  false,
+			RapidPort:           port,
 		},
 		defaultInteropServer: defaultInteropServer,
 		shutdownFuncs:        []context.CancelFunc{},

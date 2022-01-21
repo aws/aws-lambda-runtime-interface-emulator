@@ -24,6 +24,7 @@ type options struct {
 	LogLevel           string `long:"log-level" default:"info" description:"log level"`
 	InitCachingEnabled bool   `long:"enable-init-caching" description:"Enable support for Init Caching"`
 	ListenAddress      string `short:"l" long:"listen" default:"0.0.0.0:8080" description:"IP address and port to listen on."`
+	RapidPort          int    `long:"rapid-port" default:"9001" description:"Port for the Rapid backend server"`
 }
 
 func main() {
@@ -35,7 +36,7 @@ func main() {
 
 	bootstrap, handler := getBootstrap(args, opts)
 	sandbox := rapidcore.
-		NewSandboxBuilder(bootstrap).
+		NewSandboxBuilder(bootstrap, opts.RapidPort).
 		AddShutdownFunc(context.CancelFunc(func() { os.Exit(0) })).
 		SetExtensionsFlag(true).
 		SetInitCachingFlag(opts.InitCachingEnabled)
