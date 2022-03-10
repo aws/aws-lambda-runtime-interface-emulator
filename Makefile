@@ -6,22 +6,18 @@
 
 BINARY_NAME=aws-lambda-rie
 ARCH=x86_64
-GO_ARCH_old := amd64
 GO_ARCH_x86_64 := amd64
 GO_ARCH_arm64 := arm64
-DESTINATION_old:= bin/${BINARY_NAME}
 DESTINATION_x86_64 := bin/${BINARY_NAME}-x86_64
 DESTINATION_arm64 := bin/${BINARY_NAME}-arm64
 
 compile-with-docker-all:
 	make ARCH=x86_64 compile-with-docker
 	make ARCH=arm64 compile-with-docker
-	make ARCH=old compile-with-docker
 
 compile-lambda-linux-all:
 	make ARCH=x86_64 compile-lambda-linux
 	make ARCH=arm64 compile-lambda-linux
-	make ARCH=old compile-lambda-linux
 
 compile-with-docker:
 	docker run --env GOPROXY=direct -v $(shell pwd):/LambdaRuntimeLocal -w /LambdaRuntimeLocal golang:1.18 make ARCH=${ARCH} compile-lambda-linux
