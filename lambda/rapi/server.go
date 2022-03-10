@@ -1,11 +1,14 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 
+// LOCALSTACK CHANGES 2022-03-10: Chi logger middleware added
+
 package rapi
 
 import (
 	"context"
 	"fmt"
+	"github.com/go-chi/chi/middleware"
 	"net"
 	"net/http"
 
@@ -49,6 +52,7 @@ func NewServer(host string, port int, appCtx appctx.ApplicationContext,
 	exitErrors := make(chan error, 1)
 
 	router := chi.NewRouter()
+	router.Use(middleware.Logger)
 	router.Mount(version20180601, NewRouter(appCtx, registrationService, renderingService))
 	router.Mount(version20200101, ExtensionsRouter(appCtx, registrationService, renderingService))
 
