@@ -1,4 +1,5 @@
 # LOCALSTACK CHANGES 2022-03-10: remove linker flags and add gc flags for delve debugger
+# LOCALSTACK CHANGES 2022-03-28: change compile src folder
 
 # RELEASE_BUILD_LINKER_FLAGS disables DWARF and symbol table generation to reduce binary size
 #RELEASE_BUILD_LINKER_FLAGS=-s -w
@@ -23,7 +24,7 @@ compile-with-docker:
 	docker run --env GOPROXY=direct -v $(shell pwd):/LambdaRuntimeLocal -w /LambdaRuntimeLocal golang:1.18 make ARCH=${ARCH} compile-lambda-linux
 
 compile-lambda-linux:
-	CGO_ENABLED=0 GOOS=linux GOARCH=${GO_ARCH_${ARCH}} go build -ldflags "${RELEASE_BUILD_LINKER_FLAGS}" -gcflags="all=-N -l" -o ${DESTINATION_${ARCH}} ./cmd/aws-lambda-rie
+	CGO_ENABLED=0 GOOS=linux GOARCH=${GO_ARCH_${ARCH}} go build -ldflags "${RELEASE_BUILD_LINKER_FLAGS}" -gcflags="all=-N -l" -o ${DESTINATION_${ARCH}} ./cmd/localstack
 
 tests:
 	go test ./...
