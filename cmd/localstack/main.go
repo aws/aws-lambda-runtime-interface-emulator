@@ -28,10 +28,11 @@ func GetEnvOrDie(env string) string {
 
 func InitLsOpts() *LsOpts {
 	return &LsOpts{
-		InteropPort:     GetEnvOrDie("LOCALSTACK_INTEROP_PORT"),
 		RuntimeEndpoint: GetEnvOrDie("LOCALSTACK_RUNTIME_ENDPOINT"),
 		RuntimeId:       GetEnvOrDie("LOCALSTACK_RUNTIME_ID"),
-		InitTracingPort: GetEnvOrDie("LOCALSTACK_RUNTIME_TRACING_PORT"),
+		// optional with default
+		InteropPort:     GetenvWithDefault("LOCALSTACK_INTEROP_PORT", "9563"),
+		InitTracingPort: GetenvWithDefault("LOCALSTACK_RUNTIME_TRACING_PORT", "9564"),
 	}
 }
 
