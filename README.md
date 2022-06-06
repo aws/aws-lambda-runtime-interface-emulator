@@ -59,10 +59,11 @@ You can build RIE into a base image. Download the RIE from GitHub to your local 
 
 1. Create a script and save it in your project directory. Set execution permissions for the script file.
 
-The script checks for the presence of the `AWS_LAMBDA_RUNTIME_API` environment variable, which indicates the presence of the runtime API. If the runtime API is present, the script runs [the runtime interface client](https://docs.aws.amazon.com/lambda/latest/dg/runtimes-images.html#runtimes-api-client). Otherwise, the script runs the runtime interface emulator.
+    The script checks for the presence of the `AWS_LAMBDA_RUNTIME_API` environment variable, which indicates the presence of the runtime API. If the runtime API is present, the script runs [the runtime interface client](https://docs.aws.amazon.com/lambda/latest/dg/runtimes-images.html#runtimes-api-client). Otherwise, the script runs the runtime interface emulator.
 
-The following example shows a typical script for a Node.js function.
-    ```
+    The following example shows a typical script for a Node.js function.
+
+    ```sh
     #!/bin/sh
     if [ -z "${AWS_LAMBDA_RUNTIME_API}" ]; then
       exec /usr/local/bin/aws-lambda-rie /usr/bin/npx aws-lambda-ric
@@ -75,25 +76,25 @@ The following example shows a typical script for a Node.js function.
 
 3. Install the emulator package and change `ENTRYPOINT` to run the new script by adding the following lines to your Dockerfile:
 
-To use the default x86\_64 architecture
-    ```
+    To use the default x86\_64 architecture
+    ```dockerfile
     ADD aws-lambda-rie /usr/local/bin/aws-lambda-rie
     ENTRYPOINT [ "/entry_script.sh" ]
     ```
 
-To use the arm64 architecture:
-    ```
+    To use the arm64 architecture:
+    ```dockerfile
     ADD aws-lambda-rie-arm64 /usr/local/bin/aws-lambda-rie
     ENTRYPOINT [ "/entry_script.sh" ]
     ```
 
 4. Build your image locally using the docker build command.
-    ```
+    ```sh
     docker build -t myfunction:latest .
     ```
 
 5. Run your image locally using the docker run command.
-    ```
+    ```sh
     docker run -p 9000:8080 myfunction:latest
     ```
 
@@ -104,19 +105,19 @@ You install the runtime interface emulator to your local machine. When you run t
 
 1. From your project directory, run the following command to download the RIE (x86-64 architecture) from GitHub and install it on your local machine.
 
-    ```
+    ```sh
     mkdir -p ~/.aws-lambda-rie && curl -Lo ~/.aws-lambda-rie/aws-lambda-rie \
     https://github.com/aws/aws-lambda-runtime-interface-emulator/releases/latest/download/aws-lambda-rie \
     && chmod +x ~/.aws-lambda-rie/aws-lambda-rie
     ```      
 
-To download the RIE for arm64 architecture, use the previous command with a different GitHub download url.
+    To download the RIE for arm64 architecture, use the previous command with a different GitHub download url.
     ```
     https://github.com/aws/aws-lambda-runtime-interface-emulator/releases/latest/download/aws-lambda-rie-arm64 \
     ```
 
 2. Run your Lambda image function using the docker run command. 
-    ```
+    ```sh
     docker run -d -v ~/.aws-lambda-rie:/aws-lambda -p 9000:8080 myfunction:latest 
         --entrypoint /aws-lambda/aws-lambda-rie  <image entrypoint> <(optional) image command>`
     ```
