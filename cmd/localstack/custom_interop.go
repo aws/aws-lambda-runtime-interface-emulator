@@ -45,8 +45,16 @@ func (l *LocalStackAdapter) SendStatus(status LocalStackStatus) error {
 }
 
 type InvokeRequest struct {
-	InvokeId string `json:"invoke-id"`
-	Payload  string `json:"payload"`
+	InvokeId           string `json:"invoke-id"`
+	InvokedFunctionArn string `json:"invoked-function-arn"`
+	Payload            string `json:"payload"`
+}
+
+type ErrorResponse struct {
+	ErrorMessage string   `json:"errorMessage"`
+	ErrorType    string   `json:"errorType"`
+	RequestId    string   `json:"requestId"`
+	StackTrace   []string `json:"stackTrace"`
 }
 
 func NewCustomInteropServer(lsOpts *LsOpts, delegate rapidcore.InteropServer, logCollector *LogCollector) (server *CustomInteropServer) {
@@ -84,25 +92,35 @@ func NewCustomInteropServer(lsOpts *LsOpts, delegate rapidcore.InteropServer, lo
 
 				invokeStart := time.Now()
 				err = server.Invoke(invokeResp, &interop.Invoke{
-					ID:              invokeR.InvokeId,
-					TraceID:         "TraceID",                          // r.Header.Get("X-Amzn-Trace-Id"),
-					LambdaSegmentID: "LambdaSegmentID",                  // r.Header.Get("X-Amzn-Segment-Id"),
-					Payload:         strings.NewReader(invokeR.Payload), // r.Body,
-					CorrelationID:   "invokeCorrelationID",
-					NeedDebugLogs:   true,
+					ID:                 invokeR.InvokeId,
+					TraceID:            "TraceID",                          // r.Header.Get("X-Amzn-Trace-Id"),
+					LambdaSegmentID:    "LambdaSegmentID",                  // r.Header.Get("X-Amzn-Segment-Id"),
+					Payload:            strings.NewReader(invokeR.Payload), // r.Body,
+					CorrelationID:      "invokeCorrelationID",
+					NeedDebugLogs:      true,
+					InvokedFunctionArn: invokeR.InvokedFunctionArn,
 				})
 				inv := GetEnvOrDie("AWS_LAMBDA_FUNCTION_TIMEOUT")
 				timeoutDuration, _ := time.ParseDuration(inv + "s")
 				memorySize := GetEnvOrDie("AWS_LAMBDA_FUNCTION_MEMORY_SIZE")
 				PrintEndReports(invokeR.InvokeId, "", memorySize, invokeStart, timeoutDuration, logCollector)
 
-				serializedResponse, err := json.Marshal(logCollector.getLogs())
-				if err == nil {
-					_, err = http.Post(server.upstreamEndpoint+"/invocations/"+invokeR.InvokeId+"/logs", "application/json", bytes.NewReader(serializedResponse))
+				serializedLogs, err2 := json.Marshal(logCollector.getLogs())
+				if err2 == nil {
+					_, err2 = http.Post(server.upstreamEndpoint+"/invocations/"+invokeR.InvokeId+"/logs", "application/json", bytes.NewReader(serializedLogs))
+					// TODO: handle err
 				}
 
-				if err != nil {
+				callErr := false
+				var errR ErrorResponse
+				err := json.Unmarshal(invokeResp.Body, &errR)
+				if err == nil {
+					callErr = true
+				} else {
 					log.Error(err)
+				}
+
+				if callErr {
 					_, err = http.Post(server.upstreamEndpoint+"/invocations/"+invokeR.InvokeId+"/error", "application/json", bytes.NewReader(invokeResp.Body))
 					if err != nil {
 						log.Error(err)
