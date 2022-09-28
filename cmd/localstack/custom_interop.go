@@ -100,6 +100,9 @@ func NewCustomInteropServer(lsOpts *LsOpts, delegate rapidcore.InteropServer, lo
 					NeedDebugLogs:      true,
 					InvokedFunctionArn: invokeR.InvokedFunctionArn,
 				})
+				if err != nil {
+					log.Fatalln(err)
+				}
 				inv := GetEnvOrDie("AWS_LAMBDA_FUNCTION_TIMEOUT")
 				timeoutDuration, _ := time.ParseDuration(inv + "s")
 				memorySize := GetEnvOrDie("AWS_LAMBDA_FUNCTION_MEMORY_SIZE")
@@ -111,21 +114,23 @@ func NewCustomInteropServer(lsOpts *LsOpts, delegate rapidcore.InteropServer, lo
 					// TODO: handle err
 				}
 
-				callErr := false
-				var errR ErrorResponse
-				err := json.Unmarshal(invokeResp.Body, &errR)
-				if err == nil {
-					callErr = true
-				} else {
-					log.Error(err)
+				var errR map[string]any
+				marshalErr := json.Unmarshal(invokeResp.Body, &errR)
+
+				if marshalErr != nil {
+					log.Fatalln(marshalErr)
 				}
 
-				if callErr {
+				_, isErr := errR["errorType"]
+
+				if isErr {
+					log.Infoln("Sending to /error")
 					_, err = http.Post(server.upstreamEndpoint+"/invocations/"+invokeR.InvokeId+"/error", "application/json", bytes.NewReader(invokeResp.Body))
 					if err != nil {
 						log.Error(err)
 					}
 				} else {
+					log.Infoln("Sending to /response")
 					_, err = http.Post(server.upstreamEndpoint+"/invocations/"+invokeR.InvokeId+"/response", "application/json", bytes.NewReader(invokeResp.Body))
 					if err != nil {
 						log.Error(err)

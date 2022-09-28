@@ -69,7 +69,7 @@ func main() {
 	go sandbox.Create()
 
 	// start runtime init
-	go InitHandler(sandbox, "$LATEST", 30) // TODO: replace this with a custom init
+	go InitHandler(sandbox, GetEnvOrDie("AWS_LAMBDA_FUNCTION_VERSION"), 30) // TODO: replace this with a custom init
 
 	// TODO: make the tracing server optional
 	// start blocking with the tracing server
