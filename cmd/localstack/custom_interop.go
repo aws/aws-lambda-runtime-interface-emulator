@@ -117,11 +117,10 @@ func NewCustomInteropServer(lsOpts *LsOpts, delegate rapidcore.InteropServer, lo
 				var errR map[string]any
 				marshalErr := json.Unmarshal(invokeResp.Body, &errR)
 
-				if marshalErr != nil {
-					log.Fatalln(marshalErr)
+				isErr := false
+				if marshalErr == nil {
+					_, isErr = errR["errorType"]
 				}
-
-				_, isErr := errR["errorType"]
 
 				if isErr {
 					log.Infoln("Sending to /error")
