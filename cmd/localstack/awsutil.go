@@ -6,6 +6,7 @@
 package main
 
 import (
+	"archive/zip"
 	"fmt"
 	"github.com/jessevdk/go-flags"
 	log "github.com/sirupsen/logrus"
@@ -15,6 +16,8 @@ import (
 	"math"
 	"net/http"
 	"os"
+	"path"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -22,6 +25,7 @@ import (
 const (
 	optBootstrap     = "/opt/bootstrap"
 	runtimeBootstrap = "/var/runtime/bootstrap"
+	taskFolder       = "/var/task"
 )
 
 type options struct {
@@ -126,6 +130,70 @@ func GetenvWithDefault(key string, defaultValue string) string {
 	}
 
 	return envValue
+}
+
+func DownloadCodeArchive(url string) {
+	// download and unzip code archive, if url is given
+	if url == "" {
+		return
+	}
+	log.Infoln("Downloading code archive")
+	// create tmp directory
+	tmpDir := os.TempDir()
+	// download code archive into tmp directory
+	res, err := http.Get(url)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer res.Body.Close()
+	tmp_file_path := path.Join(tmpDir, "code-archive.zip")
+	tmp_file, err := os.OpenFile(tmp_file_path, os.O_WRONLY|os.O_CREATE, os.ModePerm)
+	if err != nil {
+		log.Fatal(err)
+	}
+	_, err = io.Copy(tmp_file, res.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = tmp_file.Close()
+	if err != nil {
+		log.Fatal(err)
+	}
+	// unzip into /var/task
+	log.Infoln("Unzipping code archive")
+	r, err := zip.OpenReader(tmp_file_path)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer r.Close()
+	for _, f := range r.File {
+		rc, err := f.Open()
+		if err != nil {
+			log.Fatal(err)
+		}
+		target_file_name := path.Join(taskFolder, f.Name)
+		if f.FileInfo().IsDir() {
+			err = os.MkdirAll(target_file_name, os.ModePerm)
+			if err != nil {
+				log.Fatal(err)
+			}
+			continue
+		}
+		if err := os.MkdirAll(filepath.Dir(target_file_name), os.ModePerm); err != nil {
+			panic(err)
+		}
+		target_file, err := os.OpenFile(target_file_name, os.O_WRONLY|os.O_CREATE, os.ModePerm)
+		if err != nil {
+			log.Fatal(err)
+		}
+		_, err = io.Copy(target_file, rc)
+		if err != nil {
+			log.Fatal(err)
+		}
+		target_file.Close()
+		rc.Close()
+	}
+
 }
 
 func InitHandler(sandbox Sandbox, functionVersion string, timeout int64) (time.Time, time.Time) {

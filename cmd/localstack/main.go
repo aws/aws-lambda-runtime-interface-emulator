@@ -16,6 +16,7 @@ type LsOpts struct {
 	RuntimeEndpoint string
 	RuntimeId       string
 	InitTracingPort string
+	CodeDownloadUrl string
 }
 
 func GetEnvOrDie(env string) string {
@@ -33,6 +34,8 @@ func InitLsOpts() *LsOpts {
 		// optional with default
 		InteropPort:     GetenvWithDefault("LOCALSTACK_INTEROP_PORT", "9563"),
 		InitTracingPort: GetenvWithDefault("LOCALSTACK_RUNTIME_TRACING_PORT", "9564"),
+		// optional or empty
+		CodeDownloadUrl: os.Getenv("LOCALSTACK_CODE_ARCHIVE_DOWNLOAD_URL"),
 	}
 }
 
@@ -47,7 +50,8 @@ func main() {
 	//log.SetLevel(log.TraceLevel)
 	log.SetLevel(log.DebugLevel)
 	log.SetReportCaller(true)
-
+	// download code archive if env variable is set
+	DownloadCodeArchive(lsOpts.CodeDownloadUrl)
 	// parse CLI args
 	opts, args := getCLIArgs()
 	bootstrap, handler := getBootstrap(args, opts)
