@@ -12,6 +12,7 @@ import (
 	"go.amzn.com/lambda/rapidcore/standalone"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -87,6 +88,12 @@ func NewCustomInteropServer(lsOpts *LsOpts, delegate rapidcore.InteropServer, lo
 				}
 
 				invokeResp := &standalone.ResponseWriterProxy{}
+				invokeTimeoutEnv := GetEnvOrDie("AWS_LAMBDA_FUNCTION_TIMEOUT")
+				invokeTimeoutSeconds, err := strconv.Atoi(invokeTimeoutEnv)
+				if err != nil {
+					log.Fatalln(err)
+				}
+				invokeTimeout := time.Second * time.Duration(invokeTimeoutSeconds)
 				functionVersion := GetEnvOrDie("AWS_LAMBDA_FUNCTION_VERSION") // default $LATEST
 				_, _ = fmt.Fprintf(logCollector, "START RequestId: %s Version: %s\n", invokeR.InvokeId, functionVersion)
 
@@ -99,12 +106,12 @@ func NewCustomInteropServer(lsOpts *LsOpts, delegate rapidcore.InteropServer, lo
 					CorrelationID:      "invokeCorrelationID",
 					NeedDebugLogs:      true,
 					InvokedFunctionArn: invokeR.InvokedFunctionArn,
+					DeadlineNs:         strconv.FormatInt(invokeTimeout.Nanoseconds(), 10),
 				})
 				if err != nil {
 					log.Fatalln(err)
 				}
-				inv := GetEnvOrDie("AWS_LAMBDA_FUNCTION_TIMEOUT")
-				timeoutDuration, _ := time.ParseDuration(inv + "s")
+				timeoutDuration, _ := time.ParseDuration(invokeTimeoutEnv + "s")
 				memorySize := GetEnvOrDie("AWS_LAMBDA_FUNCTION_MEMORY_SIZE")
 				PrintEndReports(invokeR.InvokeId, "", memorySize, invokeStart, timeoutDuration, logCollector)
 
