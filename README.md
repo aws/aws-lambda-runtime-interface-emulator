@@ -26,26 +26,26 @@ Instructions for installing AWS Lambda Runtime Interface Emulator for your platf
 
 ## Getting started
 
-There are a few ways you use the Runtime Interface Emulator (RIE) to locally test your function depending on the base image used. 
+There are a few ways you use the Runtime Interface Emulator (RIE) to locally test your function depending on the base image used.
 
 
 ### Test an image with RIE included in the image
 
-The AWS base images for Lambda include the runtime interface emulator. You can also follow these steps if you built the RIE into your alternative base image. 
+The AWS base images for Lambda include the runtime interface emulator. You can also follow these steps if you built the RIE into your alternative base image.
 
 #### To test your Lambda function with the emulator
 
-1. Build your image locally using the docker build command. 
+1. Build your image locally using the docker build command.
 
     `docker build -t myfunction:latest .`
 
-2. Run your container image locally using the docker run command. 
+2. Run your container image locally using the docker run command.
 
     `docker run -p 9000:8080  myfunction:latest`
 
-    This command runs the image as a container and starts up an endpoint locally at `localhost:9000/2015-03-31/functions/function/invocations`. 
+    This command runs the image as a container and starts up an endpoint locally at `localhost:9000/2015-03-31/functions/function/invocations`.
 
-3. Post an event to the following endpoint using a curl command: 
+3. Post an event to the following endpoint using a curl command:
 
     `curl -XPOST "http://localhost:9000/2015-03-31/functions/function/invocations" -d '{}'`
 
@@ -71,7 +71,7 @@ The following example shows a typical script for a Node.js function.
     fi
     ```
 
-2. Download the [runtime interface emulator](https://github.com/aws/aws-lambda-runtime-interface-emulator/releases/latest) for your target architecture (`aws-lambda-rie` for x86\_64 or `aws-lambda-rie-arm64` for arm64) from GitHub into your project directory. 
+2. Download the [runtime interface emulator](https://github.com/aws/aws-lambda-runtime-interface-emulator/releases/latest) for your target architecture (`aws-lambda-rie` for x86\_64 or `aws-lambda-rie-arm64` for arm64) from GitHub into your project directory.
 
 3. Install the emulator package and change `ENTRYPOINT` to run the new script by adding the following lines to your Dockerfile:
 
@@ -108,30 +108,30 @@ You install the runtime interface emulator to your local machine. When you run t
     mkdir -p ~/.aws-lambda-rie && curl -Lo ~/.aws-lambda-rie/aws-lambda-rie \
     https://github.com/aws/aws-lambda-runtime-interface-emulator/releases/latest/download/aws-lambda-rie \
     && chmod +x ~/.aws-lambda-rie/aws-lambda-rie
-    ```      
+    ```
 
 To download the RIE for arm64 architecture, use the previous command with a different GitHub download url.
     ```
     https://github.com/aws/aws-lambda-runtime-interface-emulator/releases/latest/download/aws-lambda-rie-arm64 \
     ```
 
-2. Run your Lambda image function using the docker run command. 
+2. Run your Lambda image function using the docker run command.
     ```
-    docker run -d -v ~/.aws-lambda-rie:/aws-lambda -p 9000:8080 myfunction:latest 
+    docker run -d -v ~/.aws-lambda-rie:/aws-lambda -p 9000:8080 myfunction:latest
         --entrypoint /aws-lambda/aws-lambda-rie  <image entrypoint> <(optional) image command>`
     ```
 
-    This runs the image as a container and starts up an endpoint locally at `localhost:9000/2015-03-31/functions/function/invocations`. 
+    This runs the image as a container and starts up an endpoint locally at `localhost:9000/2015-03-31/functions/function/invocations`.
 
-3. Post an event to the following endpoint using a curl command: 
+3. Post an event to the following endpoint using a curl command:
 
     `curl -XPOST "http://localhost:9000/2015-03-31/functions/function/invocations" -d '{}'`
 
     This command invokes the function running in the container image and returns a response.
 
-## How to configure 
+## How to configure
 
-`aws-lambda-rie` can be configured through Environment Variables within the local running Image. 
+`aws-lambda-rie` can be configured through Environment Variables within the local running Image.
 You can configure your credentials by setting:
 * `AWS_ACCESS_KEY_ID`
 * `AWS_SECRET_ACCESS_KEY`
@@ -147,17 +147,17 @@ The rest of these Environment Variables can be set to match AWS Lambda's environ
 
 ## Level of support
 
-You can use the emulator to test if your function code is compatible with the Lambda environment, executes successfully 
-and provides the expected output. For example, you can mock test events from different event sources. You can also use 
-it to test extensions and agents built into the container image against the Lambda Extensions API. This component 
-does *not *emulate* *the orchestration behavior of AWS Lambda. For example, Lambda has a network and security 
-configurations that will not be emulated by this component. 
+You can use the emulator to test if your function code is compatible with the Lambda environment, executes successfully
+and provides the expected output. For example, you can mock test events from different event sources. You can also use
+it to test extensions and agents built into the container image against the Lambda Extensions API. This component
+does *not *emulate* *the orchestration behavior of AWS Lambda. For example, Lambda has a network and security
+configurations that will not be emulated by this component.
 
 
 * You can use the emulator to test if your function code is compatible with the Lambda environment, runs successfully and provides the expected output.
 * You can also use it to test extensions and agents built into the container image against the Lambda Extensions API.
-* This component does _not_ emulate Lambda’s orchestration, or security and authentication configurations. 
-* The component does _not_ support X-ray and other Lambda integrations locally. 
+* This component does _not_ emulate Lambda’s orchestration, or security and authentication configurations.
+* The component does _not_ support X-ray and other Lambda integrations locally.
 * The component supports only Linux, for x86-64 and arm64 architectures.
 
 ## Security
