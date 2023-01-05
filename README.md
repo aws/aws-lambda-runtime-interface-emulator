@@ -37,17 +37,23 @@ The AWS base images for Lambda include the runtime interface emulator. You can a
 
 1. Build your image locally using the docker build command.
 
-    `docker build -t myfunction:latest .`
+    ```
+	docker build -t myfunction:latest .
+	```
 
 2. Run your container image locally using the docker run command.
 
-    `docker run -p 9000:8080  myfunction:latest`
+    ```
+	docker run -p 9000:8080  myfunction:latest
+	```
 
     This command runs the image as a container and starts up an endpoint locally at `localhost:9000/2015-03-31/functions/function/invocations`.
 
 3. Post an event to the following endpoint using a curl command:
 
-    `curl -XPOST "http://localhost:9000/2015-03-31/functions/function/invocations" -d '{}'`
+    ```
+	curl -XPOST "http://localhost:9000/2015-03-31/functions/function/invocations" -d '{}'
+	```
 
     This command invokes the function running in the container image and returns a response.
 
@@ -125,7 +131,9 @@ To download the RIE for arm64 architecture, use the previous command with a diff
 
 3. Post an event to the following endpoint using a curl command:
 
-    `curl -XPOST "http://localhost:9000/2015-03-31/functions/function/invocations" -d '{}'`
+    ```
+	curl -XPOST "http://localhost:9000/2015-03-31/functions/function/invocations" -d '{}'
+	```
 
     This command invokes the function running in the container image and returns a response.
 
