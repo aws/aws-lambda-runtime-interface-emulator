@@ -14,6 +14,20 @@ requests instead of the JSON events required for deployment to Lambda. This comp
 Lambda’s orchestrator, or security and authentication configurations. You can get started by downloading and installing it on your local machine. When the Lambda Runtime API emulator is executed, a `/2015-03-31/functions/function/invocations` endpoint will be stood up within the container that you post data to it in order to invoke your function for testing.
 
 
+## Content
+* [Installing](#installing)
+* [Getting started](#getting-started)
+  * [Test an image with RIE included in the image](#test-an-image-with-rie-included-in-the-image)
+    * [To test your Lambda function with the emulator](#to-test-your-lambda-function-with-the-emulator)
+  * [Build RIE into your base image](#build-rie-into-your-base-image)
+    * [To build the emulator into your image](#to-build-the-emulator-into-your-image)
+  * [Test an image without adding RIE to the image](#test-an-image-without-adding-rie-to-the-image)
+* [How to configure](#how-to-configure)
+* [Level of support](#level-of-support)
+* [Security](#security)
+* [License](#license)
+
+
 ## Installing
 
 Instructions for installing AWS Lambda Runtime Interface Emulator for your platform
