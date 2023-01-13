@@ -65,7 +65,16 @@ func InvokeHandler(w http.ResponseWriter, r *http.Request, sandbox Sandbox) {
 		w.WriteHeader(500)
 		return
 	}
-
+	if origin := r.Header.Get("Origin"); origin != "" {
+		w.Header().Set("Access-Control-Allow-Origin", GetenvWithDefault("ACCESS_CONTROL_ALLOW_ORIGIN", origin))
+		w.Header().Set("Access-Control-Allow-Methods", GetenvWithDefault("ACCESS_CONTROL_ALLOW_METHODS", "POST, OPTIONS"))
+		w.Header().Set("Access-Control-Allow-Headers", GetenvWithDefault("ACCESS_CONTROL_ALLOW_HEADERS", "*"))
+		w.Header().Set("Access-Control-Allow-Credentials", GetenvWithDefault("ACCESS_CONTROL_ALLOW_CREDENTIALS", "true"))
+	}
+	if r.Method == "OPTIONS" {
+		w.WriteHeader(200)
+		return
+	}
 	initDuration := ""
 	inv := GetenvWithDefault("AWS_LAMBDA_FUNCTION_TIMEOUT", "300")
 	timeoutDuration, _ := time.ParseDuration(inv + "s")
