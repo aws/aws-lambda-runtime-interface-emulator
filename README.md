@@ -121,7 +121,8 @@ You can build RIE into a base image. Download the RIE from GitHub to your local 
 ### Test an image without adding RIE to the image
 
 You install the runtime interface emulator to your local machine. When you run the container image, you set the entry point to be the emulator.
-*To test an image without adding RIE to the image *
+
+#### To test an image without adding RIE to the image
 
 1. From your project directory, run the following command to download the RIE (x86-64 architecture) from GitHub and install it on your local machine.
 
