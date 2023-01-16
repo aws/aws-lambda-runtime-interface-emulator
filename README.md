@@ -140,7 +140,7 @@ You install the runtime interface emulator to your local machine. When you run t
 2. Run your Lambda image function using the docker run command.
 
     ```
-    docker run -d -v ~/.aws-lambda-rie:/aws-lambda -p 9000:8080 myfunction:latest
+    docker run -d -v ~/.aws-lambda-rie:/aws-lambda -p 9000:8080 myfunction:latest \
         --entrypoint /aws-lambda/aws-lambda-rie  <image entrypoint> <(optional) image command>`
     ```
 
