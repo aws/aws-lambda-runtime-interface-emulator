@@ -175,7 +175,7 @@ The rest of these Environment Variables can be set to match AWS Lambda's environ
 You can use the emulator to test if your function code is compatible with the Lambda environment, executes successfully
 and provides the expected output. For example, you can mock test events from different event sources. You can also use
 it to test extensions and agents built into the container image against the Lambda Extensions API. This component
-does *not *emulate* *the orchestration behavior of AWS Lambda. For example, Lambda has a network and security
+does _not_ emulate the orchestration behavior of AWS Lambda. For example, Lambda has a network and security
 configurations that will not be emulated by this component.
 
 * You can use the emulator to test if your function code is compatible with the Lambda environment, runs successfully and provides the expected output.
