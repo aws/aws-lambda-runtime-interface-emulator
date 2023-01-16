@@ -22,6 +22,7 @@ Lambda’s orchestrator, or security and authentication configurations. You can 
   * [Build RIE into your base image](#build-rie-into-your-base-image)
     * [To build the emulator into your image](#to-build-the-emulator-into-your-image)
   * [Test an image without adding RIE to the image](#test-an-image-without-adding-rie-to-the-image)
+    * [To test an image without adding RIE to the image](#to-test-an-image-without-adding-rie-to-the-image)
 * [How to configure](#how-to-configure)
 * [Level of support](#level-of-support)
 * [Security](#security)
