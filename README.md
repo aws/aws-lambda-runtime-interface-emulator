@@ -148,7 +148,9 @@ You install the runtime interface emulator to your local machine. When you run t
 
 3. Post an event to the following endpoint using a curl command:
 
-    `curl -XPOST "http://localhost:9000/2015-03-31/functions/function/invocations" -d '{}'`
+    ```
+    curl -XPOST "http://localhost:9000/2015-03-31/functions/function/invocations" -d '{}'
+    ```
 
     This command invokes the function running in the container image and returns a response.
 
