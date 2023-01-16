@@ -178,7 +178,6 @@ it to test extensions and agents built into the container image against the Lamb
 does *not *emulate* *the orchestration behavior of AWS Lambda. For example, Lambda has a network and security
 configurations that will not be emulated by this component.
 
-
 * You can use the emulator to test if your function code is compatible with the Lambda environment, runs successfully and provides the expected output.
 * You can also use it to test extensions and agents built into the container image against the Lambda Extensions API.
 * This component does _not_ emulate Lambda’s orchestration, or security and authentication configurations.
