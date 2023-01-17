@@ -22,6 +22,7 @@ Lambda’s orchestrator, or security and authentication configurations. You can 
   * [Build RIE into your base image](#build-rie-into-your-base-image)
     * [To build the emulator into your image](#to-build-the-emulator-into-your-image)
   * [Test an image without adding RIE to the image](#test-an-image-without-adding-rie-to-the-image)
+    * [To test an image without adding RIE to the image](#to-test-an-image-without-adding-rie-to-the-image)
 * [How to configure](#how-to-configure)
 * [Level of support](#level-of-support)
 * [Security](#security)
@@ -79,7 +80,7 @@ You can build RIE into a base image. Download the RIE from GitHub to your local 
 
     The following example shows a typical script for a Node.js function.
 
-    ```
+    ```sh
     #!/bin/sh
     if [ -z "${AWS_LAMBDA_RUNTIME_API}" ]; then
       exec /usr/local/bin/aws-lambda-rie /usr/bin/npx aws-lambda-ric
@@ -94,38 +95,39 @@ You can build RIE into a base image. Download the RIE from GitHub to your local 
 
     To use the default x86\_64 architecture
 
-    ```
+    ```dockerfile
     ADD aws-lambda-rie /usr/local/bin/aws-lambda-rie
     ENTRYPOINT [ "/entry_script.sh" ]
     ```
 
     To use the arm64 architecture:
 
-    ```
+    ```dockerfile
     ADD aws-lambda-rie-arm64 /usr/local/bin/aws-lambda-rie
     ENTRYPOINT [ "/entry_script.sh" ]
     ```
 
 4. Build your image locally using the docker build command.
 
-    ```
+    ```sh
     docker build -t myfunction:latest .
     ```
 
 5. Run your image locally using the docker run command.
 
-    ```
+    ```sh
     docker run -p 9000:8080 myfunction:latest
     ```
 
 ### Test an image without adding RIE to the image
 
 You install the runtime interface emulator to your local machine. When you run the container image, you set the entry point to be the emulator.
-*To test an image without adding RIE to the image *
+
+#### To test an image without adding RIE to the image
 
 1. From your project directory, run the following command to download the RIE (x86-64 architecture) from GitHub and install it on your local machine.
 
-    ```
+    ```sh
     mkdir -p ~/.aws-lambda-rie && curl -Lo ~/.aws-lambda-rie/aws-lambda-rie \
     https://github.com/aws/aws-lambda-runtime-interface-emulator/releases/latest/download/aws-lambda-rie \
     && chmod +x ~/.aws-lambda-rie/aws-lambda-rie
@@ -139,16 +141,18 @@ You install the runtime interface emulator to your local machine. When you run t
 
 2. Run your Lambda image function using the docker run command.
 
-    ```
-    docker run -d -v ~/.aws-lambda-rie:/aws-lambda -p 9000:8080 myfunction:latest
-        --entrypoint /aws-lambda/aws-lambda-rie  <image entrypoint> <(optional) image command>`
+    ```sh
+    docker run -d -v ~/.aws-lambda-rie:/aws-lambda -p 9000:8080 myfunction:latest \
+        --entrypoint /aws-lambda/aws-lambda-rie  <image entrypoint> <(optional) image command>
     ```
 
     This runs the image as a container and starts up an endpoint locally at `localhost:9000/2015-03-31/functions/function/invocations`.
 
 3. Post an event to the following endpoint using a curl command:
 
-    `curl -XPOST "http://localhost:9000/2015-03-31/functions/function/invocations" -d '{}'`
+    ```sh
+    curl -XPOST "http://localhost:9000/2015-03-31/functions/function/invocations" -d '{}'
+    ```
 
     This command invokes the function running in the container image and returns a response.
 
@@ -173,9 +177,8 @@ The rest of these Environment Variables can be set to match AWS Lambda's environ
 You can use the emulator to test if your function code is compatible with the Lambda environment, executes successfully
 and provides the expected output. For example, you can mock test events from different event sources. You can also use
 it to test extensions and agents built into the container image against the Lambda Extensions API. This component
-does *not *emulate* *the orchestration behavior of AWS Lambda. For example, Lambda has a network and security
+does _not_ emulate the orchestration behavior of AWS Lambda. For example, Lambda has a network and security
 configurations that will not be emulated by this component.
-
 
 * You can use the emulator to test if your function code is compatible with the Lambda environment, runs successfully and provides the expected output.
 * You can also use it to test extensions and agents built into the container image against the Lambda Extensions API.
