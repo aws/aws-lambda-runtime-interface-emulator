@@ -9,15 +9,21 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func startHTTPServer(ipport string, sandbox Sandbox) {
+func startHTTPServer(ipport string, sandbox Sandbox, funcName string) {
 	srv := &http.Server{
 		Addr: ipport,
 	}
 
-	// Pass a channel
-	http.HandleFunc("/2015-03-31/functions/function/invocations", func(w http.ResponseWriter, r *http.Request) {
-		InvokeHandler(w, r, sandbox)
-	})
+	var functions = []string{funcName}
+	if funcName != "function" {
+		functions = []string{"function", funcName}
+	}
+	for _, funcName := range functions {
+		// Pass a channel
+		http.HandleFunc("/2015-03-31/functions/"+funcName+"/invocations", func(w http.ResponseWriter, r *http.Request) {
+			InvokeHandler(w, r, sandbox)
+		})
+	}
 
 	// go routine (main thread waits)
 	if err := srv.ListenAndServe(); err != nil {

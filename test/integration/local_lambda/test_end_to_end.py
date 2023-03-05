@@ -53,6 +53,8 @@ class TestEndToEnd(TestCase):
             "remaining_time_in_default_deadline",
             "pre-runtime-api",
             "assert-overwritten",
+            "assert-overwritten-consistent",
+            "arnexists-consistent",
         ]
 
         for image in images_to_delete:
@@ -60,7 +62,7 @@ class TestEndToEnd(TestCase):
                 arch_tag = "" if arch == "" else f"-{arch}"
                 cmd = f"docker rm -f {image}{arch_tag}"
                 Popen(cmd.split(" ")).communicate()
-            
+
         for arch in ARCHS:
             arch_tag = "" if arch == "" else f"-{arch}"
             Popen(f"docker rmi {cls.image_name}{arch_tag}".split(" ")).communicate()
@@ -264,6 +266,37 @@ class TestEndToEnd(TestCase):
         )
         self.assertEqual(b'"My lambda ran succesfully"', r.content)
 
+    @parameterized.expand([("x86_64", "8011"), ("arm64", "9011"), ("", "9061")])
+    def test_function_name_is_overriden_consistent(self, arch, port):
+        image, rie, image_name = self.tagged_name("assert-overwritten-consistent", arch)
+
+        cmd = f"docker run --name {image} -d --env AWS_LAMBDA_FUNCTION_NAME=MyCoolName --env AWS_LAMBDA_RIE_INCONSISTENT_BEHAVIOUR=FALSE -v {self.path_to_binary}:/local-lambda-runtime-server -p {port}:8080 --entrypoint /local-lambda-runtime-server/{rie} {image_name} {DEFAULT_1P_ENTRYPOINT} main.assert_env_var_is_overwritten"
+
+        Popen(cmd.split(" ")).communicate()
+
+        # sleep 1s to give enough time for the endpoint to be up to curl
+        time.sleep(SLEEP_TIME)
+
+        r = requests.post(
+            f"http://localhost:{port}/2015-03-31/functions/MyCoolName/invocations", json={}
+        )
+        self.assertEqual(b'"My lambda ran succesfully"', r.content)
+
+    @parameterized.expand([("x86_64", "8012"), ("arm64", "9012"), ("", "9062")])
+    def test_lambda_function_arn_exists(self, arch, port):
+        image, rie, image_name = self.tagged_name("arnexists-consistent", arch)
+
+        cmd = f"docker run --name {image} -d --env AWS_LAMBDA_FUNCTION_NAME=MyCoolName --env AWS_LAMBDA_RIE_INCONSISTENT_BEHAVIOUR=FALSE -v {self.path_to_binary}:/local-lambda-runtime-server -p {port}:8080 --entrypoint /local-lambda-runtime-server/{rie} {image_name} {DEFAULT_1P_ENTRYPOINT} main.assert_lambda_arn_in_context"
+
+        Popen(cmd.split(" ")).communicate()
+
+        # sleep 1s to give enough time for the endpoint to be up to curl
+        time.sleep(SLEEP_TIME)
+
+        r = requests.post(
+            f"http://localhost:{port}/2015-03-31/functions/MyCoolName/invocations", json={}
+        )
+        self.assertEqual(b'"My lambda ran succesfully"', r.content)
 
 if __name__ == "__main__":
     main()
