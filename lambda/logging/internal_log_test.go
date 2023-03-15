@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
-	"io/ioutil"
+	"io"
 	"log"
 	"testing"
 )
@@ -67,14 +67,14 @@ func TestInternalFormatter(t *testing.T) {
 }
 
 func BenchmarkLogPrint(b *testing.B) {
-	SetOutput(ioutil.Discard)
+	SetOutput(io.Discard)
 	for n := 0; n < b.N; n++ {
 		log.Print(1, "two", true)
 	}
 }
 
 func BenchmarkLogrusPrint(b *testing.B) {
-	SetOutput(ioutil.Discard)
+	SetOutput(io.Discard)
 	for n := 0; n < b.N; n++ {
 		logrus.Print(1, "two", true)
 	}
@@ -83,21 +83,21 @@ func BenchmarkLogrusPrint(b *testing.B) {
 func BenchmarkLogrusPrintInternalFormatter(b *testing.B) {
 	var l = logrus.New()
 	l.SetFormatter(&InternalFormatter{})
-	l.SetOutput(ioutil.Discard)
+	l.SetOutput(io.Discard)
 	for n := 0; n < b.N; n++ {
 		l.Print(1, "two", true)
 	}
 }
 
 func BenchmarkLogPrintf(b *testing.B) {
-	SetOutput(ioutil.Discard)
+	SetOutput(io.Discard)
 	for n := 0; n < b.N; n++ {
 		log.Printf("field:%v,field:%v,field:%v", 1, "two", true)
 	}
 }
 
 func BenchmarkLogrusPrintf(b *testing.B) {
-	SetOutput(ioutil.Discard)
+	SetOutput(io.Discard)
 	for n := 0; n < b.N; n++ {
 		logrus.Printf("field:%v,field:%v,field:%v", 1, "two", true)
 	}
@@ -106,14 +106,14 @@ func BenchmarkLogrusPrintf(b *testing.B) {
 func BenchmarkLogrusPrintfInternalFormatter(b *testing.B) {
 	var l = logrus.New()
 	l.SetFormatter(&InternalFormatter{})
-	l.SetOutput(ioutil.Discard)
+	l.SetOutput(io.Discard)
 	for n := 0; n < b.N; n++ {
 		l.Printf("field:%v,field:%v,field:%v", 1, "two", true)
 	}
 }
 
 func BenchmarkLogrusDebugLogLevelDisabled(b *testing.B) {
-	SetOutput(ioutil.Discard)
+	SetOutput(io.Discard)
 	logrus.SetLevel(logrus.InfoLevel)
 	for n := 0; n < b.N; n++ {
 		logrus.Debug(1, "two", true)
@@ -122,7 +122,7 @@ func BenchmarkLogrusDebugLogLevelDisabled(b *testing.B) {
 
 func BenchmarkLogrusDebugLogLevelDisabledInternalFormatter(b *testing.B) {
 	var l = logrus.New()
-	l.SetOutput(ioutil.Discard)
+	l.SetOutput(io.Discard)
 	l.SetLevel(logrus.InfoLevel)
 	for n := 0; n < b.N; n++ {
 		l.Debug(1, "two", true)
@@ -130,7 +130,7 @@ func BenchmarkLogrusDebugLogLevelDisabledInternalFormatter(b *testing.B) {
 }
 
 func BenchmarkLogrusDebugLogLevelEnabled(b *testing.B) {
-	SetOutput(ioutil.Discard)
+	SetOutput(io.Discard)
 	logrus.SetLevel(logrus.DebugLevel)
 	for n := 0; n < b.N; n++ {
 		logrus.Debug(1, "two", true)
@@ -140,7 +140,7 @@ func BenchmarkLogrusDebugLogLevelEnabled(b *testing.B) {
 func BenchmarkLogrusDebugLogLevelEnabledInternalFormatter(b *testing.B) {
 	var l = logrus.New()
 	l.SetFormatter(&InternalFormatter{})
-	l.SetOutput(ioutil.Discard)
+	l.SetOutput(io.Discard)
 	l.SetLevel(logrus.DebugLevel)
 	for n := 0; n < b.N; n++ {
 		l.Debug(1, "two", true)
@@ -148,7 +148,7 @@ func BenchmarkLogrusDebugLogLevelEnabledInternalFormatter(b *testing.B) {
 }
 
 func BenchmarkLogrusDebugWithFieldLogLevelDisabled(b *testing.B) {
-	SetOutput(ioutil.Discard)
+	SetOutput(io.Discard)
 	logrus.SetLevel(logrus.InfoLevel)
 	for n := 0; n < b.N; n++ {
 		logrus.WithField("field", "value").Debug(1, "two", true)
@@ -158,7 +158,7 @@ func BenchmarkLogrusDebugWithFieldLogLevelDisabled(b *testing.B) {
 func BenchmarkLogrusDebugWithFieldLogLevelDisabledInternalFormatter(b *testing.B) {
 	var l = logrus.New()
 	l.SetFormatter(&InternalFormatter{})
-	l.SetOutput(ioutil.Discard)
+	l.SetOutput(io.Discard)
 	l.SetLevel(logrus.InfoLevel)
 	for n := 0; n < b.N; n++ {
 		l.WithField("field", "value").Debug(1, "two", true)

@@ -77,7 +77,7 @@ func runTestInvocationErrorHandler(t *testing.T) {
 	assert.Equal(t, http.StatusAccepted, responseRecorder.Code, "Handler returned wrong status code: got %v expected %v",
 		responseRecorder.Code, http.StatusAccepted)
 	assert.JSONEq(t, fmt.Sprintf("{\"status\":\"%s\"}\n", "OK"), responseRecorder.Body.String())
-	assert.Equal(t, "application/json; charset=utf-8", responseRecorder.Header().Get("Content-Type"))
+	assert.Equal(t, "application/json", responseRecorder.Header().Get("Content-Type"))
 
 	errorResponse := flowTest.InteropServer.ErrorResponse
 	assert.NotNil(t, errorResponse)
@@ -268,7 +268,8 @@ func TestInvocationResponsePayloadIsDefaultErrorMessageWhenRequestParsingFailsFo
 	invoke := &interop.Invoke{TraceID: "Root=TraceID;Parent=ParentID;Sampled=1", ID: "InvokeID"}
 	request := httptest.NewRequest("POST", "/", bytes.NewReader(invalidRequestBody))
 	request = addInvocationID(request, invoke.ID)
-	request.Header.Set("Content-Type", errorWithCauseContentType)
+	request.Header.Set(contentTypeHeader, errorWithCauseContentType)
+	request.Header.Set(functionResponseModeHeader, "function-response-mode")
 
 	// Corresponding invoke must be placed into appCtx.
 	flowTest.ConfigureForInvoke(context.Background(), invoke)
@@ -280,6 +281,7 @@ func TestInvocationResponsePayloadIsDefaultErrorMessageWhenRequestParsingFailsFo
 	assert.NotNil(t, errorResponse)
 	assert.Nil(t, flowTest.InteropServer.Response)
 	assert.Equal(t, "application/octet-stream", flowTest.InteropServer.ResponseContentType)
+	assert.Equal(t, "function-response-mode", flowTest.InteropServer.FunctionResponseMode)
 
 	invokeResponsePayload := errorResponse.Payload
 

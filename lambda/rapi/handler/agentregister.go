@@ -6,10 +6,9 @@ package handler
 import (
 	"encoding/json"
 	"errors"
-	"io/ioutil"
+	"io"
 	"net/http"
 
-	"github.com/go-chi/render"
 	log "github.com/sirupsen/logrus"
 	"go.amzn.com/lambda/core"
 	"go.amzn.com/lambda/rapi/model"
@@ -26,7 +25,7 @@ type RegisterRequest struct {
 }
 
 func parseRegister(request *http.Request) (*RegisterRequest, error) {
-	body, err := ioutil.ReadAll(request.Body)
+	body, err := io.ReadAll(request.Body)
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +69,6 @@ func (h *agentRegisterHandler) ServeHTTP(writer http.ResponseWriter, request *ht
 }
 
 func (h *agentRegisterHandler) renderResponse(agentID string, writer http.ResponseWriter, request *http.Request) {
-	render.Status(request, http.StatusOK)
 	writer.Header().Set(LambdaAgentIdentifier, agentID)
 
 	metadata := h.registrationService.GetFunctionMetadata()
@@ -81,7 +79,10 @@ func (h *agentRegisterHandler) renderResponse(agentID string, writer http.Respon
 		Handler:         metadata.Handler,
 	}
 
-	render.JSON(writer, request, resp)
+	if err := rendering.RenderJSON(http.StatusOK, writer, request, resp); err != nil {
+		log.WithError(err).Warn("Error while rendering response")
+		http.Error(writer, err.Error(), http.StatusInternalServerError)
+	}
 }
 
 func (h *agentRegisterHandler) registerExternalAgent(agent *core.ExternalAgent, registerRequest *RegisterRequest, writer http.ResponseWriter, request *http.Request) {

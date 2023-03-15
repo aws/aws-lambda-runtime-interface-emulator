@@ -10,6 +10,8 @@ import (
 // A Key type is used as a key for storing values in the application context.
 type Key int
 
+type InitType int
+
 const (
 	// AppCtxInvokeErrorResponseKey is used for storing deferred invoke error response.
 	// Only used by xray. TODO refactor xray interface so it doesn't use appctx
@@ -23,6 +25,18 @@ const (
 
 	// AppCtxFirstFatalErrorKey is used to store first unrecoverable error message encountered to propagate it to slicer with DONE(errortype) or DONEFAIL(errortype)
 	AppCtxFirstFatalErrorKey
+
+	// AppCtxInitType is used to store the init type (init caching or plain INIT)
+	AppCtxInitType
+
+	// AppCtxSandbox type is used to store the sandbox type (SandboxClassic or SandboxPreWarmed)
+	AppCtxSandboxType
+)
+
+// Possible values for AppCtxInitType key
+const (
+	Init InitType = iota
+	InitCaching
 )
 
 // ApplicationContext is an application scope context.

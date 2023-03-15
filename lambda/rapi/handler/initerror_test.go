@@ -27,7 +27,7 @@ func runTestInitErrorHandler(t *testing.T) {
 	flowTest := testdata.NewFlowTest()
 	flowTest.ConfigureForInit()
 
-	handler := NewInitErrorHandler(flowTest.RegistrationService)
+	handler := NewInitErrorHandler(flowTest.RegistrationService, flowTest.EventsAPI)
 	responseRecorder := httptest.NewRecorder()
 	appCtx := flowTest.AppCtx
 
@@ -49,7 +49,7 @@ func runTestInitErrorHandler(t *testing.T) {
 	require.Equal(t, http.StatusAccepted, responseRecorder.Code, "Handler returned wrong status code: got %v expected %v",
 		responseRecorder.Code, http.StatusAccepted)
 	require.JSONEq(t, fmt.Sprintf("{\"status\":\"%s\"}\n", "OK"), responseRecorder.Body.String())
-	require.Equal(t, "application/json; charset=utf-8", responseRecorder.Header().Get("Content-Type"))
+	require.Equal(t, "application/json", responseRecorder.Header().Get("Content-Type"))
 
 	// Validate init error persisted in the application context.
 	errorResponse := flowTest.InteropServer.ErrorResponse

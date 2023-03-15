@@ -10,28 +10,37 @@ import (
 	"go.amzn.com/lambda/interop"
 )
 
-// LogsSubscriptionAPI represents interface that implementations of Telemetry API have to satisfy to be RAPID-compatible
-type LogsSubscriptionAPI interface {
+// SubscriptionAPI represents interface that implementations of Telemetry API have to satisfy to be RAPID-compatible
+type SubscriptionAPI interface {
 	Subscribe(agentName string, body io.Reader, headers map[string][]string) (resp []byte, status int, respHeaders map[string][]string, err error)
 	RecordCounterMetric(metricName string, count int)
-	FlushMetrics() interop.LogsAPIMetrics
+	FlushMetrics() interop.TelemetrySubscriptionMetrics
 	Clear()
 	TurnOff()
+	GetEndpointURL() string
+	GetServiceClosedErrorMessage() string
+	GetServiceClosedErrorType() string
 }
 
-type NoOpLogsSubscriptionAPI struct{}
+type NoOpSubscriptionAPI struct{}
 
 // Subscribe writes response to a shared memory
-func (m *NoOpLogsSubscriptionAPI) Subscribe(agentName string, body io.Reader, headers map[string][]string) ([]byte, int, map[string][]string, error) {
+func (m *NoOpSubscriptionAPI) Subscribe(agentName string, body io.Reader, headers map[string][]string) ([]byte, int, map[string][]string, error) {
 	return []byte(`{}`), http.StatusOK, map[string][]string{}, nil
 }
 
-func (m *NoOpLogsSubscriptionAPI) RecordCounterMetric(metricName string, count int) {}
+func (m *NoOpSubscriptionAPI) RecordCounterMetric(metricName string, count int) {}
 
-func (m *NoOpLogsSubscriptionAPI) FlushMetrics() interop.LogsAPIMetrics {
-	return interop.LogsAPIMetrics(map[string]int{})
+func (m *NoOpSubscriptionAPI) FlushMetrics() interop.TelemetrySubscriptionMetrics {
+	return interop.TelemetrySubscriptionMetrics(map[string]int{})
 }
 
-func (m *NoOpLogsSubscriptionAPI) Clear() {}
+func (m *NoOpSubscriptionAPI) Clear() {}
 
-func (m *NoOpLogsSubscriptionAPI) TurnOff() {}
+func (m *NoOpSubscriptionAPI) TurnOff() {}
+
+func (m *NoOpSubscriptionAPI) GetEndpointURL() string { return "" }
+
+func (m *NoOpSubscriptionAPI) GetServiceClosedErrorMessage() string { return "" }
+
+func (m *NoOpSubscriptionAPI) GetServiceClosedErrorType() string { return "" }

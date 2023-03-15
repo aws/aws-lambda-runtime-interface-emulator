@@ -10,8 +10,11 @@ import (
 
 	"go.amzn.com/lambda/appctx"
 	"go.amzn.com/lambda/core/statejson"
+	"go.amzn.com/lambda/interop"
 
 	"github.com/google/uuid"
+
+	log "github.com/sirupsen/logrus"
 )
 
 type registrationServiceState int
@@ -70,6 +73,7 @@ type FunctionMetadata struct {
 	FunctionName    string
 	FunctionVersion string
 	Handler         string
+	RuntimeInfo     interop.RuntimeInfo
 }
 
 // RegistrationService keeps track of registered parties, including external agents, threads, and runtime.
@@ -94,6 +98,7 @@ type RegistrationService interface {
 	CountAgents() int
 	Clear()
 	AgentsInfo() []AgentInfo
+	CancelFlows(err error)
 }
 
 type registrationServiceImpl struct {
@@ -105,6 +110,7 @@ type registrationServiceImpl struct {
 	initFlow         InitFlowSynchronization
 	invokeFlow       InvokeFlowSynchronization
 	functionMetadata FunctionMetadata
+	cancelOnce       sync.Once
 }
 
 func (s *registrationServiceImpl) Clear() {
@@ -115,6 +121,7 @@ func (s *registrationServiceImpl) Clear() {
 	s.internalAgents.Clear()
 	s.externalAgents.Clear()
 	s.state = registrationServiceOn
+	s.cancelOnce = sync.Once{}
 }
 
 func (s *registrationServiceImpl) InitFlow() InitFlowSynchronization {
@@ -373,6 +380,19 @@ func (s *registrationServiceImpl) TurnOff() {
 	s.state = registrationServiceOff
 }
 
+// CancelFlows cancels init and invoke flows with error.
+func (s *registrationServiceImpl) CancelFlows(err error) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	// The following block protects us from overwriting the error
+	// which was first used to cancel flows.
+	s.cancelOnce.Do(func() {
+		log.Debugf("Canceling flows: %s", err)
+		s.initFlow.CancelWithError(err)
+		s.invokeFlow.CancelWithError(err)
+	})
+}
+
 // NewRegistrationService returns new RegistrationService instance.
 func NewRegistrationService(initFlow InitFlowSynchronization, invokeFlow InvokeFlowSynchronization) RegistrationService {
 	return &registrationServiceImpl{
@@ -382,5 +402,6 @@ func NewRegistrationService(initFlow InitFlowSynchronization, invokeFlow InvokeF
 		externalAgents: NewExternalAgentsMap(),
 		initFlow:       initFlow,
 		invokeFlow:     invokeFlow,
+		cancelOnce:     sync.Once{},
 	}
 }

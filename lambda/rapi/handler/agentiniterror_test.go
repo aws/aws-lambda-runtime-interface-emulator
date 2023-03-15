@@ -6,7 +6,7 @@ package handler
 import (
 	"context"
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -60,7 +60,7 @@ func TestAgentInitErrorMissingErrorHeader(t *testing.T) {
 	assert.Equal(t, http.StatusForbidden, responseRecorder.Code)
 
 	var errorResponse model.ErrorResponse
-	respBody, _ := ioutil.ReadAll(responseRecorder.Body)
+	respBody, _ := io.ReadAll(responseRecorder.Body)
 	json.Unmarshal(respBody, &errorResponse)
 	assert.Equal(t, errAgentMissingHeader, errorResponse.ErrorType)
 }
@@ -77,7 +77,7 @@ func TestAgentInitErrorUnknownAgent(t *testing.T) {
 	assert.Equal(t, http.StatusForbidden, responseRecorder.Code)
 
 	var errorResponse model.ErrorResponse
-	respBody, _ := ioutil.ReadAll(responseRecorder.Body)
+	respBody, _ := io.ReadAll(responseRecorder.Body)
 	json.Unmarshal(respBody, &errorResponse)
 	assert.Equal(t, errAgentIdentifierUnknown, errorResponse.ErrorType)
 }
@@ -97,7 +97,7 @@ func TestAgentInitErrorAgentInvalidState(t *testing.T) {
 	assert.Equal(t, http.StatusForbidden, responseRecorder.Code)
 
 	var errorResponse model.ErrorResponse
-	respBody, _ := ioutil.ReadAll(responseRecorder.Body)
+	respBody, _ := io.ReadAll(responseRecorder.Body)
 	json.Unmarshal(respBody, &errorResponse)
 	assert.Equal(t, errAgentInvalidState, errorResponse.ErrorType)
 }
@@ -118,7 +118,7 @@ func TestAgentInitErrorRequestAccepted(t *testing.T) {
 	assert.Equal(t, http.StatusAccepted, responseRecorder.Code)
 
 	var response model.StatusResponse
-	respBody, _ := ioutil.ReadAll(responseRecorder.Body)
+	respBody, _ := io.ReadAll(responseRecorder.Body)
 	json.Unmarshal(respBody, &response)
 	assert.Equal(t, "OK", response.Status)
 

@@ -4,8 +4,10 @@
 package rapidcore
 
 import (
-	"io/ioutil"
 	"os"
+	"path"
+	"path/filepath"
+	"reflect"
 	"testing"
 
 	"go.amzn.com/lambda/rapidcore/env"
@@ -14,11 +16,11 @@ import (
 )
 
 func TestBootstrap(t *testing.T) {
-	tmpDir, err := ioutil.TempDir("", "lcis-test-invalid-bootstrap")
+	tmpDir, err := os.MkdirTemp("", "lcis-test-invalid-bootstrap")
 	assert.NoError(t, err)
 	defer os.RemoveAll(tmpDir)
 
-	tmpFile, err := ioutil.TempFile("", "lcis-test-bootstrap")
+	tmpFile, err := os.CreateTemp("", "lcis-test-bootstrap")
 	assert.NoError(t, err)
 	defer os.Remove(tmpFile.Name())
 
@@ -38,11 +40,57 @@ func TestBootstrap(t *testing.T) {
 	environment.StoreEnvironmentVariablesFromInit(map[string]string{}, "", "", "", "", "", "")
 
 	// Test
-	b := NewBootstrap(cmdCandidates, cwd)
+	b := NewBootstrap(cmdCandidates, cwd, "")
 	bCwd, err := b.Cwd()
 	assert.NoError(t, err)
 	assert.Equal(t, cwd, bCwd)
-	assert.ElementsMatch(t, environment.RuntimeExecEnv(), b.Env(environment))
+	assert.True(t, reflect.DeepEqual(environment.RuntimeExecEnv(), b.Env(environment)))
+
+	cmd, err := b.Cmd()
+	assert.NoError(t, err)
+	assert.Equal(t, file, cmd)
+}
+
+// When running bootstraps in separate mount namespaces
+// we want to verify and discover paths relative to
+// a root different from "/"
+func TestBootstrapChroot(t *testing.T) {
+	tmpRoot, err := os.MkdirTemp(os.TempDir(), "domain-root")
+	assert.NoError(t, err)
+	defer os.RemoveAll(tmpRoot)
+	tmpDir, err := os.MkdirTemp(tmpRoot, "lcis-test-invalid-bootstrap")
+	assert.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	tmpFile, err := os.CreateTemp(tmpRoot, "lcis-test-bootstrap")
+	assert.NoError(t, err)
+	defer os.Remove(tmpFile.Name())
+
+	// Setup cmd candidates
+	nonExistent := []string{"/foo/bar/baz"}
+	baseName := filepath.Base(tmpDir)
+	dir := []string{"/" + baseName, "--arg1", "foo"}
+	baseName = filepath.Base(tmpFile.Name())
+	file := []string{"/" + baseName, "--arg1 s", "foo"}
+	cmdCandidates := [][]string{nonExistent, dir, file}
+
+	// Setup working dir
+	cwd, err := os.MkdirTemp(tmpRoot, "cwd")
+	assert.NoError(t, err)
+	defer os.RemoveAll(cwd)
+
+	// Setup environment
+	environment := env.NewEnvironment()
+	environment.StoreRuntimeAPIEnvironmentVariable("host:port")
+	environment.StoreEnvironmentVariablesFromInit(map[string]string{}, "", "", "", "", "", "")
+
+	// Test
+	baseName = filepath.Base(cwd)
+	b := NewBootstrap(cmdCandidates, "/"+baseName, tmpRoot)
+	bCwd, err := b.Cwd()
+	assert.NoError(t, err)
+	assert.Equal(t, cwd, path.Join(tmpRoot, bCwd))
+	assert.True(t, reflect.DeepEqual(environment.RuntimeExecEnv(), b.Env(environment)))
 
 	cmd, err := b.Cmd()
 	assert.NoError(t, err)
@@ -53,17 +101,24 @@ func TestBootstrapEmptyCandidate(t *testing.T) {
 	// we expect newBootstrap to succeed and bootstrap.Cmd() to fail.
 	// We want to postpone the failure to be able to propagate error description to slicer and write it to customer log
 	invalidBootstrapCandidate := []string{}
-	bs := NewBootstrap([][]string{invalidBootstrapCandidate}, "/")
+	bs := NewBootstrap([][]string{invalidBootstrapCandidate}, "/", "")
+	_, err := bs.Cmd()
+	assert.Error(t, err)
+}
+
+func TestBootstrapChrootNonExistingRoot(t *testing.T) {
+	invalidBootstrapCandidate := []string{"/bin/bash", "-c"}
+	bs := NewBootstrap([][]string{invalidBootstrapCandidate}, "/", "/does_not_exist")
 	_, err := bs.Cmd()
 	assert.Error(t, err)
 }
 
 func TestBootstrapSingleCmd(t *testing.T) {
-	tmpDir, err := ioutil.TempDir("", "lcis-test-invalid-bootstrap")
+	tmpDir, err := os.MkdirTemp("", "lcis-test-invalid-bootstrap")
 	assert.NoError(t, err)
 	defer os.RemoveAll(tmpDir)
 
-	tmpFile, err := ioutil.TempFile("", "lcis-test-bootstrap")
+	tmpFile, err := os.CreateTemp("", "lcis-test-bootstrap")
 	assert.NoError(t, err)
 	defer os.Remove(tmpFile.Name())
 
@@ -81,11 +136,11 @@ func TestBootstrapSingleCmd(t *testing.T) {
 	environment.StoreEnvironmentVariablesFromInit(map[string]string{}, "", "", "", "", "", "")
 
 	// Test
-	b := NewBootstrapSingleCmd(cmdCandidate, cwd)
+	b := NewBootstrapSingleCmd(cmdCandidate, cwd, "")
 	bCwd, err := b.Cwd()
 	assert.NoError(t, err)
 	assert.Equal(t, cwd, bCwd)
-	assert.ElementsMatch(t, environment.RuntimeExecEnv(), b.Env(environment))
+	assert.True(t, reflect.DeepEqual(environment.RuntimeExecEnv(), b.Env(environment)))
 
 	cmd, err := b.Cmd()
 	assert.NoError(t, err)
@@ -93,7 +148,7 @@ func TestBootstrapSingleCmd(t *testing.T) {
 }
 
 func TestBootstrapSingleCmdNonExistingCandidate(t *testing.T) {
-	tmpDir, err := ioutil.TempDir("", "lcis-test-invalid-bootstrap")
+	tmpDir, err := os.MkdirTemp("", "lcis-test-invalid-bootstrap")
 	assert.NoError(t, err)
 	defer os.RemoveAll(tmpDir)
 
@@ -111,11 +166,11 @@ func TestBootstrapSingleCmdNonExistingCandidate(t *testing.T) {
 	environment.StoreEnvironmentVariablesFromInit(map[string]string{}, "", "", "", "", "", "")
 
 	// Test
-	b := NewBootstrapSingleCmd(cmdCandidate, cwd)
+	b := NewBootstrapSingleCmd(cmdCandidate, cwd, "")
 	bCwd, err := b.Cwd()
 	assert.NoError(t, err)
 	assert.Equal(t, cwd, bCwd)
-	assert.ElementsMatch(t, environment.RuntimeExecEnv(), b.Env(environment))
+	assert.True(t, reflect.DeepEqual(environment.RuntimeExecEnv(), b.Env(environment)))
 
 	// No validations run against single candidates
 	cmd, err := b.Cmd()
@@ -125,100 +180,100 @@ func TestBootstrapSingleCmdNonExistingCandidate(t *testing.T) {
 
 // Test our ability to locate bootstrap files in the file system
 func TestFindCustomRuntimeIfExists(t *testing.T) {
-	tmpFile, err := ioutil.TempFile(os.TempDir(), "tmp-")
+	tmpFile, err := os.CreateTemp(os.TempDir(), "tmp-")
 	if err != nil {
 		t.Fatal("Cannot create temporary file", err)
 	}
 	defer os.Remove(tmpFile.Name())
 
-	tmpFile2, err := ioutil.TempFile(os.TempDir(), "tmp-")
+	tmpFile2, err := os.CreateTemp(os.TempDir(), "tmp-")
 	if err != nil {
 		t.Fatal("Cannot create temporary file", err)
 	}
 	defer os.Remove(tmpFile2.Name())
 
 	// one bootstrap argument was given and it exists
-	bootstrap := NewBootstrap([][]string{[]string{tmpFile.Name()}}, "/")
+	bootstrap := NewBootstrap([][]string{{tmpFile.Name()}}, "/", "")
 	cmd, err := bootstrap.Cmd()
 	assert.NoError(t, err)
 	assert.Equal(t, []string{tmpFile.Name()}, cmd)
 	assert.Nil(t, err)
 
 	// two bootstrap arguments given, both exist but first one is returned
-	bootstrap = NewBootstrap([][]string{[]string{tmpFile.Name()}, []string{tmpFile2.Name()}}, "/")
+	bootstrap = NewBootstrap([][]string{{tmpFile.Name()}, {tmpFile2.Name()}}, "/", "")
 	cmd, err = bootstrap.Cmd()
 	assert.NoError(t, err)
 	assert.Equal(t, []string{tmpFile.Name()}, cmd)
 	assert.Nil(t, err)
 
 	// two bootstrap arguments given, first one does not exist, second exists and is returned
-	bootstrap = NewBootstrap([][]string{[]string{"mk"}, []string{tmpFile2.Name()}}, "/")
+	bootstrap = NewBootstrap([][]string{{"mk"}, {tmpFile2.Name()}}, "/", "")
 	cmd, err = bootstrap.Cmd()
 	assert.NoError(t, err)
 	assert.Equal(t, []string{tmpFile2.Name()}, cmd)
 	assert.Nil(t, err)
 
 	// two bootstrap arguments given, none exists
-	bootstrap = NewBootstrap([][]string{[]string{"mk"}, []string{"mk2"}}, "/")
+	bootstrap = NewBootstrap([][]string{{"mk"}, {"mk2"}}, "/", "")
 	cmd, err = bootstrap.Cmd()
 	assert.EqualError(t, err, "Couldn't find valid bootstrap(s): [mk mk2]")
 	assert.Equal(t, []string{}, cmd)
 }
 
 func TestCwdIsAbsolute(t *testing.T) {
-	tmpFile, err := ioutil.TempFile(os.TempDir(), "tmp-")
+	tmpFile, err := os.CreateTemp(os.TempDir(), "tmp-")
 	if err != nil {
 		t.Fatal("Cannot create temporary file", err)
 	}
 	defer os.Remove(tmpFile.Name())
 
-	cmdCandidates := [][]string{[]string{tmpFile.Name()}}
+	cmdCandidates := [][]string{{tmpFile.Name()}}
 
 	// no errors when currentWorkingDir is absolute
-	bootstrap := NewBootstrap(cmdCandidates, "/tmp")
+	bootstrap := NewBootstrap(cmdCandidates, "/tmp", "")
 	cwd, err := bootstrap.Cwd()
 	assert.Nil(t, err)
 	assert.Equal(t, "/tmp", cwd)
 
-	bootstrap = NewBootstrap(cmdCandidates, "tmp")
+	bootstrap = NewBootstrap(cmdCandidates, "tmp", "")
 	_, err = bootstrap.Cwd()
 	assert.EqualError(t, err, "the working directory 'tmp' is invalid, it needs to be an absolute path")
 
-	bootstrap = NewBootstrap(cmdCandidates, "./")
+	bootstrap = NewBootstrap(cmdCandidates, "./", "")
 	_, err = bootstrap.Cwd()
 	assert.EqualError(t, err, "the working directory './' is invalid, it needs to be an absolute path")
 }
 
 func TestBootstrapMissingWorkingDirectory(t *testing.T) {
-	tmpFile, err := ioutil.TempFile(os.TempDir(), "cwd-test-bootstrap")
+	tmpFile, err := os.CreateTemp(os.TempDir(), "cwd-test-bootstrap")
 	assert.NoError(t, err)
 	defer os.Remove(tmpFile.Name())
 
-	tmpDir, err := ioutil.TempDir("", "cwd-test")
+	tmpDir, err := os.MkdirTemp("", "cwd-test")
 	assert.NoError(t, err)
 	defer os.RemoveAll(tmpDir)
 
 	// cwd argument exists
-	bootstrap := NewBootstrap([][]string{[]string{tmpFile.Name()}}, tmpDir)
+	bootstrap := NewBootstrap([][]string{{tmpFile.Name()}}, tmpDir, "")
 	cwd, err := bootstrap.Cwd()
 	assert.Equal(t, cwd, tmpDir)
 	assert.NoError(t, err)
 
 	// cwd argument doesn't exist
-	bootstrap = NewBootstrap([][]string{[]string{tmpFile.Name()}}, "/foo")
+	bootstrap = NewBootstrap([][]string{{tmpFile.Name()}}, "/foo", "")
 	_, err = bootstrap.Cwd()
 	assert.EqualError(t, err, "the working directory doesn't exist: /foo")
 }
 
 func TestDefaultWorkeringDirectory(t *testing.T) {
-	bootstrap := NewBootstrap([][]string{[]string{}}, "")
+	bootstrap := NewBootstrap([][]string{{}}, "", "")
 	cwd, err := bootstrap.Cwd()
 	assert.NoError(t, err)
 	assert.Equal(t, "/", cwd)
 }
 
 func TestBootstrapSingleCmdDefaultWorkingDir(t *testing.T) {
-	b := NewBootstrapSingleCmd([]string{}, "")
+	b := NewBootstrapSingleCmd([]string{}, "", "")
 	bCwd, err := b.Cwd()
 	assert.NoError(t, err)
 	assert.Equal(t, "/", bCwd)

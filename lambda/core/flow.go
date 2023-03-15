@@ -19,6 +19,9 @@ type InitFlowSynchronization interface {
 
 	CancelWithError(error)
 
+	RuntimeRestoreReady() error
+	AwaitRuntimeRestoreReady() error
+
 	Clear()
 }
 
@@ -26,6 +29,7 @@ type initFlowSynchronizationImpl struct {
 	externalAgentsRegisteredGate Gate
 	runtimeReadyGate             Gate
 	agentReadyGate               Gate
+	runtimeRestoreReadyGate      Gate
 }
 
 // SetExternalAgentsRegisterCount notifies init flow that N /extension/register calls should be done in future by external agents
@@ -43,6 +47,11 @@ func (s *initFlowSynchronizationImpl) AwaitRuntimeReady() error {
 	return s.runtimeReadyGate.AwaitGateCondition()
 }
 
+// AwaitRuntimeRestoreReady awaits runtime restore ready state (/restore/next is called by runtime)
+func (s *initFlowSynchronizationImpl) AwaitRuntimeRestoreReady() error {
+	return s.runtimeRestoreReadyGate.AwaitGateCondition()
+}
+
 // AwaitExternalAgentsRegistered awaits for all subscribed agents to report registered
 func (s *initFlowSynchronizationImpl) AwaitExternalAgentsRegistered() error {
 	return s.externalAgentsRegisteredGate.AwaitGateCondition()
@@ -56,6 +65,11 @@ func (s *initFlowSynchronizationImpl) AwaitAgentsReady() error {
 // Ready called by runtime when initialized
 func (s *initFlowSynchronizationImpl) RuntimeReady() error {
 	return s.runtimeReadyGate.WalkThrough()
+}
+
+// Ready called by runtime when restore is completed (i.e. /next is called after /restore/next)
+func (s *initFlowSynchronizationImpl) RuntimeRestoreReady() error {
+	return s.runtimeRestoreReadyGate.WalkThrough()
 }
 
 // Ready called by agent when initialized
@@ -73,6 +87,7 @@ func (s *initFlowSynchronizationImpl) CancelWithError(err error) {
 	s.externalAgentsRegisteredGate.CancelWithError(err)
 	s.runtimeReadyGate.CancelWithError(err)
 	s.agentReadyGate.CancelWithError(err)
+	s.runtimeRestoreReadyGate.CancelWithError(err)
 }
 
 // Clear gates state
@@ -80,6 +95,7 @@ func (s *initFlowSynchronizationImpl) Clear() {
 	s.externalAgentsRegisteredGate.Clear()
 	s.runtimeReadyGate.Clear()
 	s.agentReadyGate.Clear()
+	s.runtimeRestoreReadyGate.Clear()
 }
 
 // NewInitFlowSynchronization returns new InitFlowSynchronization instance.
@@ -88,6 +104,7 @@ func NewInitFlowSynchronization() InitFlowSynchronization {
 		runtimeReadyGate:             NewGate(1),
 		externalAgentsRegisteredGate: NewGate(0),
 		agentReadyGate:               NewGate(maxAgentsLimit),
+		runtimeRestoreReadyGate:      NewGate(1),
 	}
 	return initFlow
 }

@@ -19,7 +19,8 @@ const (
 func TestGetSetCredentialsHappy(t *testing.T) {
 	credentialsService := NewCredentialsService()
 
-	credentialsService.SetCredentials(Token, AwsKey, AwsSecret, AwsSession)
+	credentialsExpiration := time.Now().Add(15 * time.Minute)
+	credentialsService.SetCredentials(Token, AwsKey, AwsSecret, AwsSession, credentialsExpiration)
 
 	credentials, err := credentialsService.GetCredentials(Token)
 
@@ -40,8 +41,12 @@ func TestGetCredentialsFail(t *testing.T) {
 func TestUpdateCredentialsHappy(t *testing.T) {
 	credentialsService := NewCredentialsService()
 
-	credentialsService.SetCredentials(Token, AwsKey, AwsSecret, AwsSession)
-	err := credentialsService.UpdateCredentials("sampleKey1", "sampleSecret1", "sampleSession1")
+	credentialsExpiration := time.Now().Add(15 * time.Minute)
+	credentialsService.SetCredentials(Token, AwsKey, AwsSecret, AwsSession, credentialsExpiration)
+
+	restoreCredentialsExpiration := time.Now().Add(10 * time.Hour)
+
+	err := credentialsService.UpdateCredentials("sampleKey1", "sampleSecret1", "sampleSession1", restoreCredentialsExpiration)
 	assert.NoError(t, err)
 
 	credentials, err := credentialsService.GetCredentials(Token)
@@ -50,49 +55,16 @@ func TestUpdateCredentialsHappy(t *testing.T) {
 	assert.Equal(t, "sampleKey1", credentials.AwsKey)
 	assert.Equal(t, "sampleSecret1", credentials.AwsSecret)
 	assert.Equal(t, "sampleSession1", credentials.AwsSession)
+
+	nineHoursLater := time.Now().Add(9 * time.Hour)
+
+	assert.True(t, nineHoursLater.Before(credentials.Expiration))
 }
 
 func TestUpdateCredentialsFail(t *testing.T) {
 	credentialsService := NewCredentialsService()
 
-	err := credentialsService.UpdateCredentials("unknownKey", "unknownSecret", "unknownSession")
+	err := credentialsService.UpdateCredentials("unknownKey", "unknownSecret", "unknownSession", time.Now())
 
 	assert.Error(t, err)
-}
-
-func TestUpdateCredentialsOfBlockedService(t *testing.T) {
-	credentialsService := NewCredentialsService()
-	credentialsService.BlockService()
-	credentialsService.SetCredentials(Token, AwsKey, AwsSecret, AwsSession)
-	err := credentialsService.UpdateCredentials("sampleKey1", "sampleSecret1", "sampleSession1")
-	assert.NoError(t, err)
-}
-
-func TestConsecutiveBlockService(t *testing.T) {
-	credentialsService := NewCredentialsService()
-
-	timeout := time.After(1 * time.Second)
-	done := make(chan bool)
-
-	go func() {
-		for i := 0; i < 10; i++ {
-			credentialsService.BlockService()
-		}
-		done <- true
-	}()
-
-	select {
-	case <-timeout:
-		t.Fatal("BlockService should not block the calling thread.")
-	case <-done:
-	}
-}
-
-// unlocking a mutex twice causes panic
-// the assertion here is basically not having panic
-func TestConsecutiveUnblockService(t *testing.T) {
-	credentialsService := NewCredentialsService()
-
-	credentialsService.UnblockService()
-	credentialsService.UnblockService()
 }

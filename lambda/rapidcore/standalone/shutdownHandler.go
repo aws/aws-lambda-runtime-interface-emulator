@@ -9,14 +9,13 @@ import (
 
 	"go.amzn.com/lambda/interop"
 	"go.amzn.com/lambda/metering"
-	"go.amzn.com/lambda/rapidcore"
 )
 
 type shutdownAPIRequest struct {
 	TimeoutMs int64 `json:"timeoutMs"`
 }
 
-func ShutdownHandler(w http.ResponseWriter, r *http.Request, s rapidcore.InteropServer, shutdownFunc context.CancelFunc) {
+func ShutdownHandler(w http.ResponseWriter, r *http.Request, s InteropServer, shutdownFunc context.CancelFunc) {
 	shutdown := shutdownAPIRequest{}
 	if lerr := readBodyAndUnmarshalJSON(r, &shutdown); lerr != nil {
 		lerr.Send(w, r)
@@ -24,8 +23,7 @@ func ShutdownHandler(w http.ResponseWriter, r *http.Request, s rapidcore.Interop
 	}
 
 	internalState := s.Shutdown(&interop.Shutdown{
-		DeadlineNs:    metering.Monotime() + int64(shutdown.TimeoutMs*1000*1000),
-		CorrelationID: "shutdownCorrelationID",
+		DeadlineNs: metering.Monotime() + int64(shutdown.TimeoutMs*1000*1000),
 	})
 
 	w.Write(internalState.AsJSON())

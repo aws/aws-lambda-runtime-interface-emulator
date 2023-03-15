@@ -39,10 +39,7 @@ func TestRuntimeInitErrorAfterReady(t *testing.T) {
 }
 
 func TestRuntimeStateTransitionsFromStartedState(t *testing.T) {
-	initFlow := &mockInitFlowSynchronization{}
-	invokeFlow := &mockInvokeFlowSynchronization{}
-	runtime := NewRuntime(initFlow, invokeFlow)
-	runtime.ManagedThread = &mockthread.MockManagedThread{}
+	runtime := newRuntime()
 	// Started
 	assert.Equal(t, runtime.RuntimeStartedState, runtime.GetState())
 	// Started -> InitError
@@ -53,6 +50,10 @@ func TestRuntimeStateTransitionsFromStartedState(t *testing.T) {
 	runtime.SetState(runtime.RuntimeStartedState)
 	assert.NoError(t, runtime.Ready())
 	assert.Equal(t, runtime.RuntimeRunningState, runtime.GetState())
+	// Started -> RestoreReady
+	runtime.SetState(runtime.RuntimeStartedState)
+	assert.NoError(t, runtime.RestoreReady())
+	assert.Equal(t, runtime.RuntimeRestoringState, runtime.GetState())
 	// Started -> ResponseSent
 	runtime.SetState(runtime.RuntimeStartedState)
 	assert.Equal(t, ErrNotAllowed, runtime.ResponseSent())
@@ -68,10 +69,7 @@ func TestRuntimeStateTransitionsFromStartedState(t *testing.T) {
 }
 
 func TestRuntimeStateTransitionsFromInitErrorState(t *testing.T) {
-	initFlow := &mockInitFlowSynchronization{}
-	invokeFlow := &mockInvokeFlowSynchronization{}
-	runtime := NewRuntime(initFlow, invokeFlow)
-	runtime.ManagedThread = &mockthread.MockManagedThread{}
+	runtime := newRuntime()
 	// InitError -> InitError
 	runtime.SetState(runtime.RuntimeInitErrorState)
 	assert.Equal(t, ErrNotAllowed, runtime.InitError())
@@ -79,6 +77,10 @@ func TestRuntimeStateTransitionsFromInitErrorState(t *testing.T) {
 	// InitError -> Ready
 	runtime.SetState(runtime.RuntimeInitErrorState)
 	assert.Equal(t, ErrNotAllowed, runtime.Ready())
+	assert.Equal(t, runtime.RuntimeInitErrorState, runtime.GetState())
+	// InitError -> RestoreReady
+	runtime.SetState(runtime.RuntimeInitErrorState)
+	assert.Equal(t, ErrNotAllowed, runtime.RestoreReady())
 	assert.Equal(t, runtime.RuntimeInitErrorState, runtime.GetState())
 	// InitError -> ResponseSent
 	runtime.SetState(runtime.RuntimeInitErrorState)
@@ -95,10 +97,7 @@ func TestRuntimeStateTransitionsFromInitErrorState(t *testing.T) {
 }
 
 func TestRuntimeStateTransitionsFromReadyState(t *testing.T) {
-	initFlow := &mockInitFlowSynchronization{}
-	invokeFlow := &mockInvokeFlowSynchronization{}
-	runtime := NewRuntime(initFlow, invokeFlow)
-	runtime.ManagedThread = &mockthread.MockManagedThread{}
+	runtime := newRuntime()
 	// Ready -> InitError
 	runtime.SetState(runtime.RuntimeReadyState)
 	assert.Equal(t, ErrNotAllowed, runtime.InitError())
@@ -107,6 +106,10 @@ func TestRuntimeStateTransitionsFromReadyState(t *testing.T) {
 	runtime.SetState(runtime.RuntimeReadyState)
 	assert.NoError(t, runtime.Ready())
 	assert.Equal(t, runtime.RuntimeRunningState, runtime.GetState())
+	// Ready -> RestoreReady
+	runtime.SetState(runtime.RuntimeReadyState)
+	assert.Equal(t, ErrNotAllowed, runtime.RestoreReady())
+	assert.Equal(t, runtime.RuntimeReadyState, runtime.GetState())
 	// Ready -> ResponseSent
 	runtime.SetState(runtime.RuntimeReadyState)
 	assert.Equal(t, ErrNotAllowed, runtime.ResponseSent())
@@ -122,10 +125,7 @@ func TestRuntimeStateTransitionsFromReadyState(t *testing.T) {
 }
 
 func TestRuntimeStateTransitionsFromRunningState(t *testing.T) {
-	initFlow := &mockInitFlowSynchronization{}
-	invokeFlow := &mockInvokeFlowSynchronization{}
-	runtime := NewRuntime(initFlow, invokeFlow)
-	runtime.ManagedThread = &mockthread.MockManagedThread{}
+	runtime := newRuntime()
 	// Running -> InitError
 	runtime.SetState(runtime.RuntimeRunningState)
 	assert.Equal(t, ErrNotAllowed, runtime.InitError())
@@ -133,6 +133,10 @@ func TestRuntimeStateTransitionsFromRunningState(t *testing.T) {
 	// Running -> Ready
 	runtime.SetState(runtime.RuntimeRunningState)
 	assert.NoError(t, runtime.Ready())
+	assert.Equal(t, runtime.RuntimeRunningState, runtime.GetState())
+	// Running -> RestoreReady
+	runtime.SetState(runtime.RuntimeRunningState)
+	assert.Equal(t, ErrNotAllowed, runtime.RestoreReady())
 	assert.Equal(t, runtime.RuntimeRunningState, runtime.GetState())
 	// Running -> ResponseSent
 	runtime.SetState(runtime.RuntimeRunningState)
@@ -149,10 +153,7 @@ func TestRuntimeStateTransitionsFromRunningState(t *testing.T) {
 }
 
 func TestRuntimeStateTransitionsFromInvocationResponseState(t *testing.T) {
-	initFlow := &mockInitFlowSynchronization{}
-	invokeFlow := &mockInvokeFlowSynchronization{}
-	runtime := NewRuntime(initFlow, invokeFlow)
-	runtime.ManagedThread = &mockthread.MockManagedThread{}
+	runtime := newRuntime()
 	// InvocationResponse -> InitError
 	runtime.SetState(runtime.RuntimeInvocationResponseState)
 	assert.Equal(t, ErrNotAllowed, runtime.InitError())
@@ -160,6 +161,10 @@ func TestRuntimeStateTransitionsFromInvocationResponseState(t *testing.T) {
 	// InvocationResponse -> Ready
 	runtime.SetState(runtime.RuntimeInvocationResponseState)
 	assert.Equal(t, ErrNotAllowed, runtime.Ready())
+	assert.Equal(t, runtime.RuntimeInvocationResponseState, runtime.GetState())
+	// InvocationResponse -> RestoreReady
+	runtime.SetState(runtime.RuntimeInvocationResponseState)
+	assert.Equal(t, ErrNotAllowed, runtime.RestoreReady())
 	assert.Equal(t, runtime.RuntimeInvocationResponseState, runtime.GetState())
 	// InvocationResponse -> ResponseSent
 	runtime.SetState(runtime.RuntimeInvocationResponseState)
@@ -177,15 +182,16 @@ func TestRuntimeStateTransitionsFromInvocationResponseState(t *testing.T) {
 }
 
 func TestRuntimeStateTransitionsFromInvocationErrorResponseState(t *testing.T) {
-	initFlow := &mockInitFlowSynchronization{}
-	invokeFlow := &mockInvokeFlowSynchronization{}
-	runtime := NewRuntime(initFlow, invokeFlow)
-	runtime.ManagedThread = &mockthread.MockManagedThread{}
+	runtime := newRuntime()
 	// InvocationErrorResponse -> InitError
 	runtime.SetState(runtime.RuntimeInvocationErrorResponseState)
 	assert.Equal(t, ErrNotAllowed, runtime.InitError())
 	assert.Equal(t, runtime.RuntimeInvocationErrorResponseState, runtime.GetState())
 	// InvocationErrorResponse -> Ready
+	runtime.SetState(runtime.RuntimeInvocationErrorResponseState)
+	assert.Equal(t, ErrNotAllowed, runtime.Ready())
+	assert.Equal(t, runtime.RuntimeInvocationErrorResponseState, runtime.GetState())
+	// InvocationErrorResponse -> RestoreReady
 	runtime.SetState(runtime.RuntimeInvocationErrorResponseState)
 	assert.Equal(t, ErrNotAllowed, runtime.Ready())
 	assert.Equal(t, runtime.RuntimeInvocationErrorResponseState, runtime.GetState())
@@ -204,10 +210,7 @@ func TestRuntimeStateTransitionsFromInvocationErrorResponseState(t *testing.T) {
 }
 
 func TestRuntimeStateTransitionsFromResponseSentState(t *testing.T) {
-	initFlow := &mockInitFlowSynchronization{}
-	invokeFlow := &mockInvokeFlowSynchronization{}
-	runtime := NewRuntime(initFlow, invokeFlow)
-	runtime.ManagedThread = &mockthread.MockManagedThread{}
+	runtime := newRuntime()
 	// ResponseSent -> InitError
 	runtime.SetState(runtime.RuntimeResponseSentState)
 	assert.Equal(t, ErrNotAllowed, runtime.InitError())
@@ -216,6 +219,10 @@ func TestRuntimeStateTransitionsFromResponseSentState(t *testing.T) {
 	runtime.SetState(runtime.RuntimeResponseSentState)
 	assert.NoError(t, runtime.Ready())
 	assert.Equal(t, runtime.RuntimeRunningState, runtime.GetState())
+	// ResponseSent -> RestoreReady
+	runtime.SetState(runtime.RuntimeResponseSentState)
+	assert.Equal(t, ErrNotAllowed, runtime.RestoreReady())
+	assert.Equal(t, runtime.RuntimeResponseSentState, runtime.GetState())
 	// ResponseSent -> ResponseSent
 	runtime.SetState(runtime.RuntimeResponseSentState)
 	assert.Equal(t, ErrNotAllowed, runtime.ResponseSent())
@@ -228,6 +235,71 @@ func TestRuntimeStateTransitionsFromResponseSentState(t *testing.T) {
 	runtime.SetState(runtime.RuntimeResponseSentState)
 	assert.Equal(t, ErrNotAllowed, runtime.InvocationErrorResponse())
 	assert.Equal(t, runtime.RuntimeResponseSentState, runtime.GetState())
+}
+
+func TestRuntimeStateTransitionsFromRestoreReadyState(t *testing.T) {
+	runtime := newRuntime()
+	// RestoreReady -> InitError
+	runtime.SetState(runtime.RuntimeRestoreReadyState)
+	assert.Equal(t, ErrNotAllowed, runtime.InitError())
+	assert.Equal(t, runtime.RuntimeRestoreReadyState, runtime.GetState())
+	// RestoreReady -> Ready
+	runtime.SetState(runtime.RuntimeRestoreReadyState)
+	assert.Equal(t, ErrNotAllowed, runtime.Ready())
+	assert.Equal(t, runtime.RuntimeRestoreReadyState, runtime.GetState())
+	// RestoreReady -> RestoreReady()
+	runtime.SetState(runtime.RuntimeRestoreReadyState)
+	assert.Equal(t, ErrNotAllowed, runtime.RestoreReady())
+	assert.Equal(t, runtime.RuntimeRestoreReadyState, runtime.GetState())
+	// RestoreReady -> ResponseSent
+	runtime.SetState(runtime.RuntimeRestoreReadyState)
+	assert.Equal(t, ErrNotAllowed, runtime.ResponseSent())
+	assert.Equal(t, runtime.RuntimeRestoreReadyState, runtime.GetState())
+	// RestoreReady -> InvocationResponse
+	runtime.SetState(runtime.RuntimeRestoreReadyState)
+	assert.Equal(t, ErrNotAllowed, runtime.InvocationResponse())
+	assert.Equal(t, runtime.RuntimeRestoreReadyState, runtime.GetState())
+	// RestoreReady -> InvocationErrorResponse
+	runtime.SetState(runtime.RuntimeRestoreReadyState)
+	assert.Equal(t, ErrNotAllowed, runtime.InvocationErrorResponse())
+	assert.Equal(t, runtime.RuntimeRestoreReadyState, runtime.GetState())
+}
+
+func TestRuntimeStateTransitionsFromRestoringState(t *testing.T) {
+	runtime := newRuntime()
+	// RestoreRunning -> InitError
+	runtime.SetState(runtime.RuntimeRestoringState)
+	assert.NoError(t, runtime.InitError())
+	assert.Equal(t, runtime.RuntimeInitErrorState, runtime.GetState())
+	// RestoreRunning -> Ready
+	runtime.SetState(runtime.RuntimeRestoringState)
+	assert.NoError(t, runtime.Ready())
+	assert.Equal(t, runtime.RuntimeRunningState, runtime.GetState())
+	// RestoreRunning -> RestoreReady
+	runtime.SetState(runtime.RuntimeRestoringState)
+	assert.Equal(t, ErrNotAllowed, runtime.RestoreReady())
+	assert.Equal(t, runtime.RuntimeRestoringState, runtime.GetState())
+	// RestoreRunning -> ResponseSent
+	runtime.SetState(runtime.RuntimeRestoringState)
+	assert.Equal(t, ErrNotAllowed, runtime.ResponseSent())
+	assert.Equal(t, runtime.RuntimeRestoringState, runtime.GetState())
+	// RestoreRunning -> InvocationResponse
+	runtime.SetState(runtime.RuntimeRestoringState)
+	assert.Equal(t, ErrNotAllowed, runtime.InvocationResponse())
+	assert.Equal(t, runtime.RuntimeRestoringState, runtime.GetState())
+	// RestoreRunning -> InvocationErrorResponse
+	runtime.SetState(runtime.RuntimeRestoringState)
+	assert.Equal(t, ErrNotAllowed, runtime.InvocationErrorResponse())
+	assert.Equal(t, runtime.RuntimeRestoringState, runtime.GetState())
+}
+
+func newRuntime() *Runtime {
+	initFlow := &mockInitFlowSynchronization{}
+	invokeFlow := &mockInvokeFlowSynchronization{}
+	runtime := NewRuntime(initFlow, invokeFlow)
+	runtime.ManagedThread = &mockthread.MockManagedThread{}
+
+	return runtime
 }
 
 type mockInitFlowSynchronization struct {
@@ -272,6 +344,12 @@ func (s *mockInitFlowSynchronization) CancelWithError(err error) {
 	s.Called(err)
 }
 func (s *mockInitFlowSynchronization) Clear() {}
+func (s *mockInitFlowSynchronization) RuntimeRestoreReady() error {
+	return nil
+}
+func (s *mockInitFlowSynchronization) AwaitRuntimeRestoreReady() error {
+	return nil
+}
 
 type mockInvokeFlowSynchronization struct{ mock.Mock }
 

@@ -7,18 +7,35 @@ import (
 	"context"
 	"net/http"
 
+	"go.amzn.com/lambda/core/statejson"
+	"go.amzn.com/lambda/interop"
 	"go.amzn.com/lambda/rapidcore"
 	"go.amzn.com/lambda/rapidcore/telemetry"
 
 	"github.com/go-chi/chi"
 )
 
-func NewHTTPRouter(sandbox rapidcore.Sandbox, eventLog *telemetry.EventLog, shutdownFunc context.CancelFunc) *chi.Mux {
-	ipcSrv := sandbox.InteropServer()
+type InteropServer interface {
+	Init(i *interop.Init, invokeTimeoutMs int64) error
+	AwaitInitialized() error
+	FastInvoke(w http.ResponseWriter, i *interop.Invoke, direct bool) error
+	Reserve(id string, traceID, lambdaSegmentID string) (*rapidcore.ReserveResponse, error)
+	Reset(reason string, timeoutMs int64) (*statejson.ResetDescription, error)
+	AwaitRelease() (*statejson.InternalStateDescription, error)
+	Shutdown(shutdown *interop.Shutdown) *statejson.InternalStateDescription
+	InternalState() (*statejson.InternalStateDescription, error)
+	CurrentToken() *interop.Token
+	Restore(restore *interop.Restore) error
+}
+
+func NewHTTPRouter(ipcSrv InteropServer, lambdaInvokeAPI rapidcore.LambdaInvokeAPI, eventLog *telemetry.EventLog, shutdownFunc context.CancelFunc, bs interop.Bootstrap) *chi.Mux {
 	r := chi.NewRouter()
 	r.Use(standaloneAccessLogDecorator)
-	r.Post("/2015-03-31/functions/*/invocations", func(w http.ResponseWriter, r *http.Request) { Execute(w, r, sandbox) })
-	r.Post("/test/init", func(w http.ResponseWriter, r *http.Request) { InitHandler(w, r, sandbox) })
+
+	r.Post("/2015-03-31/functions/*/invocations", func(w http.ResponseWriter, r *http.Request) { Execute(w, r, lambdaInvokeAPI) })
+	r.Get("/test/ping", func(w http.ResponseWriter, r *http.Request) { PingHandler(w, r) })
+	r.Post("/test/init", func(w http.ResponseWriter, r *http.Request) { InitHandler(w, r, ipcSrv, bs) })
+	r.Post("/test/waitUntilInitialized", func(w http.ResponseWriter, r *http.Request) { WaitUntilInitializedHandler(w, r, ipcSrv) })
 	r.Post("/test/reserve", func(w http.ResponseWriter, r *http.Request) { ReserveHandler(w, r, ipcSrv) })
 	r.Post("/test/invoke", func(w http.ResponseWriter, r *http.Request) { InvokeHandler(w, r, ipcSrv) })
 	r.Post("/test/waitUntilRelease", func(w http.ResponseWriter, r *http.Request) { WaitUntilReleaseHandler(w, r, ipcSrv) })
@@ -27,6 +44,6 @@ func NewHTTPRouter(sandbox rapidcore.Sandbox, eventLog *telemetry.EventLog, shut
 	r.Post("/test/directInvoke/{reservationtoken}", func(w http.ResponseWriter, r *http.Request) { DirectInvokeHandler(w, r, ipcSrv) })
 	r.Get("/test/internalState", func(w http.ResponseWriter, r *http.Request) { InternalStateHandler(w, r, ipcSrv) })
 	r.Get("/test/eventLog", func(w http.ResponseWriter, r *http.Request) { EventLogHandler(w, r, eventLog) })
-
+	r.Post("/test/restore", func(w http.ResponseWriter, r *http.Request) { RestoreHandler(w, r, ipcSrv) })
 	return r
 }

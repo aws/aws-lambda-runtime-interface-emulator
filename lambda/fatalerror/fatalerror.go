@@ -3,7 +3,7 @@
 
 package fatalerror
 
-// This package defines constant error types returned to slicer with DONE(failure)
+// This package defines constant error types returned to slicer with DONE(failure), and also sandbox errors
 // Separate package for namespacing
 
 // ErrorType is returned to slicer inside DONE
@@ -18,5 +18,8 @@ const (
 	InvalidEntrypoint ErrorType = "Runtime.InvalidEntrypoint"
 	InvalidWorkingDir ErrorType = "Runtime.InvalidWorkingDir"
 	InvalidTaskConfig ErrorType = "Runtime.InvalidTaskConfig"
+	TruncatedResponse ErrorType = "Runtime.TruncatedResponse"
+	SandboxFailure    ErrorType = "Sandbox.Failure"
+	SandboxTimeout    ErrorType = "Sandbox.Timeout"
 	Unknown           ErrorType = "Unknown"
 )

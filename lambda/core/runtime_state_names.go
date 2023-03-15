@@ -5,10 +5,14 @@ package core
 
 // String values of possibles runtime states
 const (
-	RuntimeStartedStateName                 = "Started"
-	RuntimeInitErrorStateName               = "InitError"
-	RuntimeReadyStateName                   = "Ready"
-	RuntimeRunningStateName                 = "Running"
+	RuntimeStartedStateName   = "Started"
+	RuntimeInitErrorStateName = "InitError"
+	RuntimeReadyStateName     = "Ready"
+	RuntimeRunningStateName   = "Running"
+	// RuntimeStartedState -> RuntimeRestoreReadyState
+	RuntimeRestoreReadyStateName = "RestoreReady"
+	// RuntimeRestoreReadyState -> RuntimeRestoringState
+	RuntimeRestoringStateName               = "Restoring"
 	RuntimeInvocationResponseStateName      = "InvocationResponse"
 	RuntimeInvocationErrorResponseStateName = "InvocationErrorResponse"
 	RuntimeResponseSentStateName            = "RuntimeResponseSentState"

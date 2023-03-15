@@ -6,7 +6,7 @@ package handler
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 
 	"go.amzn.com/lambda/interop"
@@ -24,6 +24,11 @@ import (
 const errorWithCauseContentType = "application/vnd.aws.lambda.error.cause+json"
 const xrayErrorCauseHeaderName = "Lambda-Runtime-Function-XRay-Error-Cause"
 const invalidErrorBodyMessage = "Invalid error body"
+
+const (
+	contentTypeHeader          = "Content-Type"
+	functionResponseModeHeader = "Lambda-Runtime-Function-Response-Mode"
+)
 
 type invocationErrorHandler struct {
 	registrationService core.RegistrationService
@@ -52,7 +57,7 @@ func (h *invocationErrorHandler) ServeHTTP(writer http.ResponseWriter, request *
 	var contentType string
 	var err error
 
-	switch request.Header.Get("Content-Type") {
+	switch request.Header.Get(contentTypeHeader) {
 	case errorWithCauseContentType:
 		errorBody, errorCause, err = h.getErrorBodyForErrorCauseContentType(request)
 		contentType = "application/json"
@@ -62,18 +67,20 @@ func (h *invocationErrorHandler) ServeHTTP(writer http.ResponseWriter, request *
 	default:
 		errorBody, err = h.getErrorBody(request)
 		errorCause = h.getValidatedErrorCause(request.Header)
-		contentType = request.Header.Get("Content-Type")
+		contentType = request.Header.Get(contentTypeHeader)
 	}
+	functionResponseMode := request.Header.Get(functionResponseModeHeader)
 
 	if err != nil {
 		log.WithError(err).Warn("Failed to parse error body")
 	}
 
 	response := &interop.ErrorResponse{
-		ErrorType:   errorType,
-		Payload:     errorBody,
-		ErrorCause:  errorCause,
-		ContentType: contentType,
+		ErrorType:            errorType,
+		Payload:              errorBody,
+		ErrorCause:           errorCause,
+		ContentType:          contentType,
+		FunctionResponseMode: functionResponseMode,
 	}
 
 	if err := server.SendErrorResponse(chi.URLParam(request, "awsrequestid"), response); err != nil {
@@ -95,7 +102,7 @@ func (h *invocationErrorHandler) getErrorType(headers http.Header) string {
 }
 
 func (h *invocationErrorHandler) getErrorBody(request *http.Request) ([]byte, error) {
-	errorBody, err := ioutil.ReadAll(request.Body)
+	errorBody, err := io.ReadAll(request.Body)
 	if err != nil {
 		return nil, fmt.Errorf("error reading request body: %s", err)
 	}
@@ -120,7 +127,7 @@ func (h *invocationErrorHandler) getValidatedErrorCause(headers http.Header) jso
 }
 
 func (h *invocationErrorHandler) getErrorBodyForErrorCauseContentType(request *http.Request) ([]byte, json.RawMessage, error) {
-	errorBody, err := ioutil.ReadAll(request.Body)
+	errorBody, err := io.ReadAll(request.Body)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error reading request body: %s", err)
 	}

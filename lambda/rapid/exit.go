@@ -5,8 +5,9 @@ package rapid
 
 import (
 	"fmt"
-	"os"
+	"time"
 
+	"go.amzn.com/lambda/appctx"
 	"go.amzn.com/lambda/extensions"
 	"go.amzn.com/lambda/fatalerror"
 	"go.amzn.com/lambda/interop"
@@ -15,102 +16,116 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func checkInteropError(format string, err error) {
-	if err == interop.ErrInvalidInvokeID || err == interop.ErrResponseSent {
-		log.Warnf(format, err)
-	} else {
-		log.Panicf(format, err)
-	}
-}
-
-func trySendDefaultErrorResponse(interopServer interop.Server, invokeID string, errorType fatalerror.ErrorType, err error) {
+func handleInvokeError(execCtx *rapidContext, invokeRequest *interop.Invoke, invokeMx *invokeMetrics, err error) *interop.InvokeFailure {
+	invokeFailure := newInvokeFailureMsg(execCtx, invokeRequest, invokeMx, err)
 	resp := model.ErrorResponse{
-		ErrorType:    string(errorType),
-		ErrorMessage: fmt.Sprintf("Error: %v", err),
+		ErrorType:    string(invokeFailure.ErrorType),
+		ErrorMessage: fmt.Sprintf("Error: %v", invokeFailure.ErrorMessage),
 	}
 
-	if invokeID != "" {
-		resp.ErrorMessage = fmt.Sprintf("RequestId: %s Error: %v", invokeID, err)
+	if invokeRequest.ID != "" {
+		resp.ErrorMessage = fmt.Sprintf("RequestId: %s Error: %v", invokeRequest.ID, invokeFailure.ErrorMessage)
 	}
 
-	if err := interopServer.SendErrorResponse(invokeID, resp.AsInteropError()); err != nil {
-		checkInteropError("Failed to send default error response: %s", err)
-	}
-}
-
-func reportErrorAndExit(doneFailMsg *interop.DoneFail, invokeID string, interopServer interop.Server, err error) {
-	// This function maintains compatibility of exit sequence behaviour
-	// with Sandbox Factory in the absence of extensions
-
-	// NOTE this check will prevent us from sending FAULT message in case
-	// response (positive or negative) has already been sent. This is done
-	// to maintain legacy behavior of RAPID.
-	// ALSO NOTE, this works in case of positive response because this will
-	// be followed by RAPID exit.
-	if !interopServer.IsResponseSent() {
-		trySendDefaultErrorResponse(interopServer, invokeID, doneFailMsg.ErrorType, err)
-	}
-
-	if err := interopServer.CommitResponse(); err != nil {
-		checkInteropError("Failed to commit error response: %s", err)
-	}
-
-	// old behavior: no DoneFails
-	doneMsg := &interop.Done{
-		WaitForExit:   true,
-		CorrelationID: doneFailMsg.CorrelationID, // required for standalone mode
-		Meta:          doneFailMsg.Meta,
-	}
-
-	if err := interopServer.SendDone(doneMsg); err != nil {
-		checkInteropError("Failed to send DONE during exit: %s", err)
-	}
-
-	os.Exit(1)
-}
-
-func reportErrorAndRequestReset(doneFailMsg *interop.DoneFail, invokeID string, interopServer interop.Server, err error) {
-	if err == errResetReceived {
-		// errResetReceived is returned when execution flow was interrupted by the Reset message,
-		// hence this error deserves special handling and we yield to main receive loop to handle it
-		return
-	}
-
-	trySendDefaultErrorResponse(interopServer, invokeID, doneFailMsg.ErrorType, err)
-
-	if err := interopServer.CommitResponse(); err != nil {
-		checkInteropError("Failed to commit error response: %s", err)
-	}
-
-	if err := interopServer.SendDoneFail(doneFailMsg); err != nil {
-		checkInteropError("Failed to send DONEFAIL: %s", err)
-	}
-}
-
-func handleInitError(doneFailMsg *interop.DoneFail, execCtx *rapidContext, invokeID string, interopServer interop.Server, err error) {
-	if execCtx.standaloneMode {
-		reportErrorAndRequestReset(doneFailMsg, invokeID, interopServer, err)
-		return
-	}
-
-	if !execCtx.HasActiveExtensions() {
-		// we don't expect Slicer to send RESET during INIT, that's why we Exit here
-		reportErrorAndExit(doneFailMsg, invokeID, interopServer, err)
-	}
-
-	reportErrorAndRequestReset(doneFailMsg, invokeID, interopServer, err)
-}
-
-func handleInvokeError(doneFailMsg *interop.DoneFail, execCtx *rapidContext, invokeID string, interopServer interop.Server, err error) {
-	if execCtx.standaloneMode {
-		reportErrorAndRequestReset(doneFailMsg, invokeID, interopServer, err)
-		return
-	}
+	// This is the default error response that gets sent back as the function response in failure cases
+	invokeFailure.DefaultErrorResponse = resp.AsInteropError()
 
 	// Invoke with extensions disabled maintains behaviour parity with pre-extensions rapid
 	if !extensions.AreEnabled() {
-		reportErrorAndExit(doneFailMsg, invokeID, interopServer, err)
+		invokeFailure.RequestReset = false
+		return invokeFailure
 	}
 
-	reportErrorAndRequestReset(doneFailMsg, invokeID, interopServer, err)
+	if err == errResetReceived {
+		// errResetReceived is returned when execution flow was interrupted by the Reset message,
+		// hence this error deserves special handling and we yield to main receive loop to handle it
+		invokeFailure.ResetReceived = true
+		return invokeFailure
+	}
+
+	invokeFailure.RequestReset = true
+	return invokeFailure
+}
+
+func newInvokeFailureMsg(execCtx *rapidContext, invokeRequest *interop.Invoke, invokeMx *invokeMetrics, err error) *interop.InvokeFailure {
+	errorType, found := appctx.LoadFirstFatalError(execCtx.appCtx)
+	if !found {
+		errorType = fatalerror.Unknown
+	}
+
+	invokeFailure := &interop.InvokeFailure{
+		ErrorType:           errorType,
+		ErrorMessage:        err,
+		RequestReset:        true,
+		ResetReceived:       false,
+		RuntimeRelease:      appctx.GetRuntimeRelease(execCtx.appCtx),
+		NumActiveExtensions: execCtx.registrationService.CountAgents(),
+		InvokeReceivedTime:  invokeRequest.InvokeReceivedTime,
+	}
+
+	if invokeRequest.InvokeResponseMetrics != nil && interop.IsResponseStreamingMetrics(invokeRequest.InvokeResponseMetrics) {
+		invokeFailure.ResponseMetrics.RuntimeTimeThrottledMs = invokeRequest.InvokeResponseMetrics.TimeShapedNs / int64(time.Millisecond)
+		invokeFailure.ResponseMetrics.RuntimeProducedBytes = invokeRequest.InvokeResponseMetrics.ProducedBytes
+		invokeFailure.ResponseMetrics.RuntimeOutboundThroughputBps = invokeRequest.InvokeResponseMetrics.OutboundThroughputBps
+	}
+
+	if invokeMx != nil {
+		invokeFailure.InvokeMetrics.InvokeRequestReadTimeNs = invokeMx.rendererMetrics.ReadTime.Nanoseconds()
+		invokeFailure.InvokeMetrics.InvokeRequestSizeBytes = int64(invokeMx.rendererMetrics.SizeBytes)
+		invokeFailure.InvokeMetrics.RuntimeReadyTime = int64(invokeMx.runtimeReadyTime)
+		invokeFailure.ExtensionNames = execCtx.GetExtensionNames()
+	}
+
+	if execCtx.telemetryAPIEnabled {
+		invokeFailure.LogsAPIMetrics = interop.MergeSubscriptionMetrics(execCtx.logsSubscriptionAPI.FlushMetrics(), execCtx.telemetrySubscriptionAPI.FlushMetrics())
+	}
+
+	return invokeFailure
+}
+
+func generateInitFailureMsg(execCtx *rapidContext, err error) interop.InitFailure {
+	errorType, found := appctx.LoadFirstFatalError(execCtx.appCtx)
+	if !found {
+		errorType = fatalerror.Unknown
+	}
+
+	initFailureMsg := interop.InitFailure{
+		RequestReset:        true,
+		ErrorType:           errorType,
+		ErrorMessage:        err,
+		RuntimeRelease:      appctx.GetRuntimeRelease(execCtx.appCtx),
+		NumActiveExtensions: execCtx.registrationService.CountAgents(),
+		Ack:                 make(chan struct{}),
+	}
+
+	if execCtx.telemetryAPIEnabled {
+		initFailureMsg.LogsAPIMetrics = interop.MergeSubscriptionMetrics(execCtx.logsSubscriptionAPI.FlushMetrics(), execCtx.telemetrySubscriptionAPI.FlushMetrics())
+	}
+
+	return initFailureMsg
+}
+
+func handleInitError(execCtx *rapidContext, invokeID string, err error, initFailureResponse chan<- interop.InitFailure) {
+	log.WithError(err).WithField("InvokeID", invokeID).Error("Init failed")
+	initFailureMsg := generateInitFailureMsg(execCtx, err)
+
+	if err == errResetReceived {
+		// errResetReceived is returned when execution flow was interrupted by the Reset message,
+		// hence this error deserves special handling and we yield to main receive loop to handle it
+		initFailureMsg.ResetReceived = true
+		initFailureResponse <- initFailureMsg
+		<-initFailureMsg.Ack
+		return
+	}
+
+	if !execCtx.HasActiveExtensions() && !execCtx.standaloneMode {
+		// different behaviour when no extensions are present,
+		// for compatibility with previous implementations
+		initFailureMsg.RequestReset = false
+	} else {
+		initFailureMsg.RequestReset = true
+	}
+
+	initFailureResponse <- initFailureMsg
+	<-initFailureMsg.Ack
 }

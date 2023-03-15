@@ -63,7 +63,7 @@ func TestRegistrationServiceHappyPathDuringInit(t *testing.T) {
 		assert.NoError(t, runtime.Ready())
 	}()
 
-	assert.NoError(t, initFlow.AwaitRuntimeReady())
+	assert.NoError(t, initFlow.AwaitRuntimeRestoreReady())
 	registrationService.TurnOff()
 
 	// Agents Ready

@@ -7,7 +7,7 @@ import (
 	"context"
 	"fmt"
 	"go.amzn.com/lambda/core"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -142,7 +142,7 @@ func TestListen(t *testing.T) {
 
 	ctx := context.Background()
 	telemetryAPIEnabled := true
-	server := rapi.NewServer("127.0.0.1", 0, flowTest.AppCtx, flowTest.RegistrationService, flowTest.RenderingService, telemetryAPIEnabled, flowTest.LogsSubscriptionAPI, false, flowTest.CredentialsService)
+	server := rapi.NewServer("127.0.0.1", 0, flowTest.AppCtx, flowTest.RegistrationService, flowTest.RenderingService, telemetryAPIEnabled, flowTest.TelemetrySubscription, flowTest.TelemetrySubscription, flowTest.CredentialsService, flowTest.EventsAPI)
 	err := server.Listen()
 	assert.NoError(t, err)
 
@@ -161,7 +161,7 @@ func TestListen(t *testing.T) {
 		resp, err1 := http.Get(fmt.Sprintf("http://%s:%d/2018-06-01/runtime/invocation/next", server.Host(), server.Port()))
 		assert.Nil(t, err1)
 
-		body, err2 := ioutil.ReadAll(resp.Body)
+		body, err2 := io.ReadAll(resp.Body)
 		assert.Nil(t, err2)
 
 		assert.Equal(t, "MyTest", string(body))
@@ -170,4 +170,32 @@ func TestListen(t *testing.T) {
 	}()
 
 	<-done
+}
+
+func TestInferSandboxInitTypeOnDemand(t *testing.T) {
+	initCachingEnabled := false
+	sandboxType := interop.SandboxClassic
+	initSource := interop.InferTelemetryInitSource(initCachingEnabled, sandboxType)
+	assert.Equal(t, "on-demand", initSource)
+}
+
+func TestInferSandboxInitTypeProvisionedConcurrency(t *testing.T) {
+	initCachingEnabled := false
+	sandboxType := interop.SandboxPreWarmed
+	initSource := interop.InferTelemetryInitSource(initCachingEnabled, sandboxType)
+	assert.Equal(t, "provisioned-concurrency", initSource)
+}
+
+func TestInferSandboxInitTypeInitCaching(t *testing.T) {
+	initCachingEnabled := true
+	sandboxType := interop.SandboxClassic
+	initSource := interop.InferTelemetryInitSource(initCachingEnabled, sandboxType)
+	assert.Equal(t, "snap-start", initSource)
+}
+
+func TestInferSandboxInitTypeInitCachingWithPC(t *testing.T) {
+	initCachingEnabled := true
+	sandboxType := interop.SandboxPreWarmed
+	initSource := interop.InferTelemetryInitSource(initCachingEnabled, sandboxType)
+	assert.Equal(t, "snap-start", initSource)
 }

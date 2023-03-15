@@ -20,7 +20,6 @@ const (
 	errAgentMissingHeader      string = "Extension.MissingHeader"
 	errTooManyExtensions       string = "Extension.TooManyExtensions"
 	errInvalidEventType        string = "Extension.InvalidEventType"
-	errLogsSubscriptionClosed  string = "Logs.SubscriptionClosed"
 	errInvalidRequestFormat    string = "InvalidRequestFormat"
 
 	StateTransitionFailedForExtensionMessageFormat string = "State transition from %s to %s failed for extension %s. Error: %s"
