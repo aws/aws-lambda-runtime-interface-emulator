@@ -72,6 +72,7 @@ var ErrConcurrentStateModification = errors.New("Concurrent state modification")
 type RuntimeState interface {
 	InitError() error
 	Ready() error
+	RestoreReady() error
 	InvocationResponse() error
 	InvocationErrorResponse() error
 	ResponseSent() error
@@ -82,6 +83,7 @@ type disallowEveryTransitionByDefault struct{}
 
 func (s *disallowEveryTransitionByDefault) InitError() error               { return ErrNotAllowed }
 func (s *disallowEveryTransitionByDefault) Ready() error                   { return ErrNotAllowed }
+func (s *disallowEveryTransitionByDefault) RestoreReady() error            { return ErrNotAllowed }
 func (s *disallowEveryTransitionByDefault) InvocationResponse() error      { return ErrNotAllowed }
 func (s *disallowEveryTransitionByDefault) InvocationErrorResponse() error { return ErrNotAllowed }
 func (s *disallowEveryTransitionByDefault) ResponseSent() error            { return ErrNotAllowed }
@@ -92,13 +94,14 @@ type Runtime struct {
 
 	currentState      RuntimeState
 	stateLastModified time.Time
-	Pid               int
 	responseTime      time.Time
 
 	RuntimeStartedState                 RuntimeState
 	RuntimeInitErrorState               RuntimeState
 	RuntimeReadyState                   RuntimeState
 	RuntimeRunningState                 RuntimeState
+	RuntimeRestoreReadyState            RuntimeState
+	RuntimeRestoringState               RuntimeState
 	RuntimeInvocationResponseState      RuntimeState
 	RuntimeInvocationErrorResponseState RuntimeState
 	RuntimeResponseSentState            RuntimeState
@@ -133,6 +136,12 @@ func (s *Runtime) Ready() error {
 	s.ManagedThread.Lock()
 	defer s.ManagedThread.Unlock()
 	return s.currentState.Ready()
+}
+
+func (s *Runtime) RestoreReady() error {
+	s.ManagedThread.Lock()
+	defer s.ManagedThread.Unlock()
+	return s.currentState.RestoreReady()
 }
 
 // InvocationResponse delegates to state implementation.
@@ -196,6 +205,8 @@ func NewRuntime(initFlow InitFlowSynchronization, invokeFlow InvokeFlowSynchroni
 	runtime.RuntimeInvocationResponseState = &RuntimeInvocationResponseState{runtime: runtime, invokeFlow: invokeFlow}
 	runtime.RuntimeInvocationErrorResponseState = &RuntimeInvocationErrorResponseState{runtime: runtime, invokeFlow: invokeFlow}
 	runtime.RuntimeResponseSentState = &RuntimeResponseSentState{runtime: runtime, invokeFlow: invokeFlow}
+	runtime.RuntimeRestoreReadyState = &RuntimeRestoreReadyState{}
+	runtime.RuntimeRestoringState = &RuntimeRestoringState{runtime: runtime, initFlow: initFlow}
 
 	runtime.setStateUnsafe(runtime.RuntimeStartedState)
 	return runtime
@@ -211,7 +222,14 @@ type RuntimeStartedState struct {
 // Ready call when runtime init done.
 func (s *RuntimeStartedState) Ready() error {
 	s.runtime.setStateUnsafe(s.runtime.RuntimeReadyState)
-	err := s.initFlow.RuntimeReady()
+	// runtime called /next without calling /restore/next
+	// that means it's not interested in restore phase
+	err := s.initFlow.RuntimeRestoreReady()
+	if err != nil {
+		return err
+	}
+
+	err = s.initFlow.RuntimeReady()
 	if err != nil {
 		return err
 	}
@@ -225,6 +243,22 @@ func (s *RuntimeStartedState) Ready() error {
 	return nil
 }
 
+func (s *RuntimeStartedState) RestoreReady() error {
+	s.runtime.setStateUnsafe(s.runtime.RuntimeRestoreReadyState)
+	err := s.initFlow.RuntimeRestoreReady()
+	if err != nil {
+		return err
+	}
+
+	s.runtime.ManagedThread.SuspendUnsafe()
+	if s.runtime.currentState != s.runtime.RuntimeRestoreReadyState && s.runtime.currentState != s.runtime.RuntimeRestoringState {
+		return ErrConcurrentStateModification
+	}
+
+	s.runtime.setStateUnsafe(s.runtime.RuntimeRestoringState)
+	return nil
+}
+
 // InitError move runtime to init error state.
 func (s *RuntimeStartedState) InitError() error {
 	s.runtime.setStateUnsafe(s.runtime.RuntimeInitErrorState)
@@ -234,6 +268,38 @@ func (s *RuntimeStartedState) InitError() error {
 // Name ...
 func (s *RuntimeStartedState) Name() string {
 	return RuntimeStartedStateName
+}
+
+type RuntimeRestoringState struct {
+	disallowEveryTransitionByDefault
+	runtime  *Runtime
+	initFlow InitFlowSynchronization
+}
+
+// Runtime is healthy after restore and called /next
+func (s *RuntimeRestoringState) Ready() error {
+	s.runtime.setStateUnsafe(s.runtime.RuntimeReadyState)
+	err := s.initFlow.RuntimeReady()
+	if err != nil {
+		return err
+	}
+	s.runtime.ManagedThread.SuspendUnsafe()
+	if s.runtime.currentState != s.runtime.RuntimeReadyState && s.runtime.currentState != s.runtime.RuntimeRunningState {
+		return ErrConcurrentStateModification
+	}
+
+	s.runtime.setStateUnsafe(s.runtime.RuntimeRunningState)
+	return nil
+}
+
+// Runtime has thrown an exception when executing restore hooks and called /init/error
+func (s *RuntimeRestoringState) InitError() error {
+	s.runtime.setStateUnsafe(s.runtime.RuntimeInitErrorState)
+	return nil
+}
+
+func (s *RuntimeRestoringState) Name() string {
+	return RuntimeRestoringStateName
 }
 
 // RuntimeInitErrorState runtime started state.
@@ -295,6 +361,14 @@ func (s *RuntimeRunningState) InvocationErrorResponse() error {
 // Name ...
 func (s *RuntimeRunningState) Name() string {
 	return RuntimeRunningStateName
+}
+
+type RuntimeRestoreReadyState struct {
+	disallowEveryTransitionByDefault
+}
+
+func (s *RuntimeRestoreReadyState) Name() string {
+	return RuntimeRestoreReadyStateName
 }
 
 // RuntimeInvocationResponseState runtime response is available.

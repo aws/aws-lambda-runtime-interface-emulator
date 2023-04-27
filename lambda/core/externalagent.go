@@ -22,7 +22,6 @@ type ExternalAgent struct {
 
 	currentState      ExternalAgentState
 	stateLastModified time.Time
-	Pid               int
 
 	StartedState        ExternalAgentState
 	RegisteredState     ExternalAgentState

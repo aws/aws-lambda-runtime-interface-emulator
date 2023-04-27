@@ -6,7 +6,7 @@ package standalone
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 
 	log "github.com/sirupsen/logrus"
@@ -58,7 +58,7 @@ func (w *ResponseWriterProxy) IsError() bool {
 }
 
 func readBodyAndUnmarshalJSON(r *http.Request, dst interface{}) *ErrorReply {
-	bodyBytes, err := ioutil.ReadAll(r.Body)
+	bodyBytes, err := io.ReadAll(r.Body)
 	if err != nil {
 		return newErrorReply(ClientInvalidRequest, fmt.Sprintf("Failed to read full body: %s", err))
 	}

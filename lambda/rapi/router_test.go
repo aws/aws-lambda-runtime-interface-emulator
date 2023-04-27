@@ -60,7 +60,7 @@ func assertResponseErrorType(t *testing.T, expectedErrorType string, response *h
 // rendered as JSON, regardless of the value provided
 // in "Accept" header.
 //
-// When using render.Render(...), chi rendering library
+// When using render.Render(...), rendering function
 // would attempt to render response using content type
 // specified in the "Accept" header.
 //
@@ -69,7 +69,7 @@ func assertResponseErrorType(t *testing.T, expectedErrorType string, response *h
 func TestAcceptXML(t *testing.T) {
 	flowTest := testdata.NewFlowTest()
 	flowTest.ConfigureForInit()
-	router := NewRouter(flowTest.AppCtx, flowTest.RegistrationService, flowTest.RenderingService)
+	router := NewRouter(flowTest.AppCtx, flowTest.RegistrationService, flowTest.RenderingService, flowTest.EventsAPI)
 	responseRecorder := httptest.NewRecorder()
 	request := httptest.NewRequest("POST", "/runtime/invocation/x-y-z/error", bytes.NewReader([]byte("")))
 	// Tell server that client side accepts "application/xml".
@@ -90,7 +90,7 @@ func TestAcceptXML(t *testing.T) {
 func Test404PageNotFound(t *testing.T) {
 	flowTest := testdata.NewFlowTest()
 	flowTest.ConfigureForInit()
-	router := NewRouter(flowTest.AppCtx, flowTest.RegistrationService, flowTest.RenderingService)
+	router := NewRouter(flowTest.AppCtx, flowTest.RegistrationService, flowTest.RenderingService, flowTest.EventsAPI)
 	responseRecorder := makeTestRequest(t, router, httptest.NewRequest("POST", "/runtime/unsupported", bytes.NewReader([]byte(""))))
 	assert.Equal(t, http.StatusNotFound, responseRecorder.Code)
 	assert.Equal(t, "404 page not found\n", responseRecorder.Body.String())
@@ -99,7 +99,7 @@ func Test404PageNotFound(t *testing.T) {
 func Test405MethodNotAllowed(t *testing.T) {
 	flowTest := testdata.NewFlowTest()
 	flowTest.ConfigureForInit()
-	router := NewRouter(flowTest.AppCtx, flowTest.RegistrationService, flowTest.RenderingService)
+	router := NewRouter(flowTest.AppCtx, flowTest.RegistrationService, flowTest.RenderingService, flowTest.EventsAPI)
 	responseRecorder := makeTestRequest(t, router, httptest.NewRequest("DELETE", "/runtime/invocation/ABC/error", bytes.NewReader([]byte(""))))
 	assert.Equal(t, http.StatusMethodNotAllowed, responseRecorder.Code)
 }
@@ -107,7 +107,7 @@ func Test405MethodNotAllowed(t *testing.T) {
 func TestInitErrorAccepted(t *testing.T) {
 	flowTest := testdata.NewFlowTest()
 	flowTest.ConfigureForInit()
-	router := NewRouter(flowTest.AppCtx, flowTest.RegistrationService, flowTest.RenderingService)
+	router := NewRouter(flowTest.AppCtx, flowTest.RegistrationService, flowTest.RenderingService, flowTest.EventsAPI)
 	responseRecorder := makeTestRequest(t, router, httptest.NewRequest("POST", "/runtime/init/error", bytes.NewReader([]byte("{}"))))
 	assert.Equal(t, http.StatusAccepted, responseRecorder.Code)
 }
@@ -115,7 +115,7 @@ func TestInitErrorAccepted(t *testing.T) {
 func TestInitErrorForbidden(t *testing.T) {
 	flowTest := testdata.NewFlowTest()
 	flowTest.ConfigureForInit()
-	router := NewRouter(flowTest.AppCtx, flowTest.RegistrationService, flowTest.RenderingService)
+	router := NewRouter(flowTest.AppCtx, flowTest.RegistrationService, flowTest.RenderingService, flowTest.EventsAPI)
 	flowTest.ConfigureForInvoke(context.Background(), createInvoke("InvokeA"))
 	responseRecorder := makeTestRequest(t, router, httptest.NewRequest("GET", "/runtime/invocation/next", nil))
 	assert.Equal(t, http.StatusOK, responseRecorder.Code)
@@ -126,7 +126,7 @@ func TestInitErrorForbidden(t *testing.T) {
 func TestInvokeResponseAccepted(t *testing.T) {
 	flowTest := testdata.NewFlowTest()
 	flowTest.ConfigureForInit()
-	router := NewRouter(flowTest.AppCtx, flowTest.RegistrationService, flowTest.RenderingService)
+	router := NewRouter(flowTest.AppCtx, flowTest.RegistrationService, flowTest.RenderingService, flowTest.EventsAPI)
 	flowTest.ConfigureForInvoke(context.Background(), createInvoke("InvokeA"))
 	responseRecorder := makeTestRequest(t, router, httptest.NewRequest("GET", "/runtime/invocation/next", nil))
 	assert.Equal(t, http.StatusOK, responseRecorder.Code)
@@ -137,7 +137,7 @@ func TestInvokeResponseAccepted(t *testing.T) {
 func TestInvokeErrorResponseAccepted(t *testing.T) {
 	flowTest := testdata.NewFlowTest()
 	flowTest.ConfigureForInit()
-	router := NewRouter(flowTest.AppCtx, flowTest.RegistrationService, flowTest.RenderingService)
+	router := NewRouter(flowTest.AppCtx, flowTest.RegistrationService, flowTest.RenderingService, flowTest.EventsAPI)
 	flowTest.ConfigureForInvoke(context.Background(), createInvoke("InvokeA"))
 	responseRecorder := makeTestRequest(t, router, httptest.NewRequest("GET", "/runtime/invocation/next", nil))
 	assert.Equal(t, http.StatusOK, responseRecorder.Code)
@@ -148,7 +148,7 @@ func TestInvokeErrorResponseAccepted(t *testing.T) {
 func TestInvokeNextTwice(t *testing.T) {
 	flowTest := testdata.NewFlowTest()
 	flowTest.ConfigureForInit()
-	router := NewRouter(flowTest.AppCtx, flowTest.RegistrationService, flowTest.RenderingService)
+	router := NewRouter(flowTest.AppCtx, flowTest.RegistrationService, flowTest.RenderingService, flowTest.EventsAPI)
 	flowTest.ConfigureForInvoke(context.Background(), createInvoke("InvokeA"))
 	responseRecorder := makeTestRequest(t, router, httptest.NewRequest("GET", "/runtime/invocation/next", nil))
 	assert.Equal(t, http.StatusOK, responseRecorder.Code)
@@ -159,7 +159,7 @@ func TestInvokeNextTwice(t *testing.T) {
 func TestInvokeResponseInvalidRequestID(t *testing.T) {
 	flowTest := testdata.NewFlowTest()
 	flowTest.ConfigureForInit()
-	router := NewRouter(flowTest.AppCtx, flowTest.RegistrationService, flowTest.RenderingService)
+	router := NewRouter(flowTest.AppCtx, flowTest.RegistrationService, flowTest.RenderingService, flowTest.EventsAPI)
 	flowTest.ConfigureForInvoke(context.Background(), createInvoke("ABC"))
 	responseRecorder := makeTestRequest(t, router, httptest.NewRequest("GET", "/runtime/invocation/next", nil))
 	assert.Equal(t, http.StatusOK, responseRecorder.Code)
@@ -171,7 +171,7 @@ func TestInvokeResponseInvalidRequestID(t *testing.T) {
 func TestInvokeErrorResponseInvalidRequestID(t *testing.T) {
 	flowTest := testdata.NewFlowTest()
 	flowTest.ConfigureForInit()
-	router := NewRouter(flowTest.AppCtx, flowTest.RegistrationService, flowTest.RenderingService)
+	router := NewRouter(flowTest.AppCtx, flowTest.RegistrationService, flowTest.RenderingService, flowTest.EventsAPI)
 	flowTest.ConfigureForInvoke(context.Background(), createInvoke("ABC"))
 	responseRecorder := makeTestRequest(t, router, httptest.NewRequest("GET", "/runtime/invocation/next", nil))
 	assert.Equal(t, http.StatusOK, responseRecorder.Code)
@@ -183,7 +183,7 @@ func TestInvokeErrorResponseInvalidRequestID(t *testing.T) {
 func TestInvokeResponseTwice(t *testing.T) {
 	flowTest := testdata.NewFlowTest()
 	flowTest.ConfigureForInit()
-	router := NewRouter(flowTest.AppCtx, flowTest.RegistrationService, flowTest.RenderingService)
+	router := NewRouter(flowTest.AppCtx, flowTest.RegistrationService, flowTest.RenderingService, flowTest.EventsAPI)
 	flowTest.ConfigureForInvoke(context.Background(), createInvoke("ABC"))
 	responseRecorder := makeTestRequest(t, router, httptest.NewRequest("GET", "/runtime/invocation/next", nil))
 	assert.Equal(t, http.StatusOK, responseRecorder.Code)
@@ -197,7 +197,7 @@ func TestInvokeResponseTwice(t *testing.T) {
 func TestInvokeErrorResponseTwice(t *testing.T) {
 	flowTest := testdata.NewFlowTest()
 	flowTest.ConfigureForInit()
-	router := NewRouter(flowTest.AppCtx, flowTest.RegistrationService, flowTest.RenderingService)
+	router := NewRouter(flowTest.AppCtx, flowTest.RegistrationService, flowTest.RenderingService, flowTest.EventsAPI)
 	flowTest.ConfigureForInvoke(context.Background(), createInvoke("ABC"))
 	responseRecorder := makeTestRequest(t, router, httptest.NewRequest("GET", "/runtime/invocation/next", nil))
 	assert.Equal(t, http.StatusOK, responseRecorder.Code)
@@ -211,7 +211,7 @@ func TestInvokeErrorResponseTwice(t *testing.T) {
 func TestInvokeResponseAfterErrorResponse(t *testing.T) {
 	flowTest := testdata.NewFlowTest()
 	flowTest.ConfigureForInit()
-	router := NewRouter(flowTest.AppCtx, flowTest.RegistrationService, flowTest.RenderingService)
+	router := NewRouter(flowTest.AppCtx, flowTest.RegistrationService, flowTest.RenderingService, flowTest.EventsAPI)
 	flowTest.ConfigureForInvoke(context.Background(), createInvoke("ABC"))
 	responseRecorder := makeTestRequest(t, router, httptest.NewRequest("GET", "/runtime/invocation/next", nil))
 	assert.Equal(t, http.StatusOK, responseRecorder.Code)
@@ -225,7 +225,7 @@ func TestInvokeResponseAfterErrorResponse(t *testing.T) {
 func TestInvokeErrorResponseAfterResponse(t *testing.T) {
 	flowTest := testdata.NewFlowTest()
 	flowTest.ConfigureForInit()
-	router := NewRouter(flowTest.AppCtx, flowTest.RegistrationService, flowTest.RenderingService)
+	router := NewRouter(flowTest.AppCtx, flowTest.RegistrationService, flowTest.RenderingService, flowTest.EventsAPI)
 	flowTest.ConfigureForInvoke(context.Background(), createInvoke("ABC"))
 	responseRecorder := makeTestRequest(t, router, httptest.NewRequest("GET", "/runtime/invocation/next", nil))
 	assert.Equal(t, http.StatusOK, responseRecorder.Code)
@@ -239,7 +239,7 @@ func TestInvokeErrorResponseAfterResponse(t *testing.T) {
 func TestMoreThanOneInvoke(t *testing.T) {
 	flowTest := testdata.NewFlowTest()
 	flowTest.ConfigureForInit()
-	router := NewRouter(flowTest.AppCtx, flowTest.RegistrationService, flowTest.RenderingService)
+	router := NewRouter(flowTest.AppCtx, flowTest.RegistrationService, flowTest.RenderingService, flowTest.EventsAPI)
 	var responseRecorder *httptest.ResponseRecorder
 	for _, id := range []string{"A", "B", "C"} {
 		flowTest.ConfigureForInvoke(context.Background(), createInvoke(id))
@@ -250,12 +250,25 @@ func TestMoreThanOneInvoke(t *testing.T) {
 	}
 }
 
+func TestInitCachingAPIDisabledForPlainInit(t *testing.T) {
+	flowTest := testdata.NewFlowTest()
+	flowTest.ConfigureForInit()
+	router := NewRouter(flowTest.AppCtx, flowTest.RegistrationService, flowTest.RenderingService, flowTest.EventsAPI)
+	var responseRecorder *httptest.ResponseRecorder
+
+	responseRecorder = makeTestRequest(t, router, httptest.NewRequest("GET", "/runtime/restore/next", nil))
+	assert.Equal(t, http.StatusNotFound, responseRecorder.Code)
+
+	responseRecorder = makeTestRequest(t, router, httptest.NewRequest("GET", "/credentials", nil))
+	assert.Equal(t, http.StatusNotFound, responseRecorder.Code)
+}
+
 func benchmarkInvoke(b *testing.B, payload []byte) {
 	b.StopTimer()
 	b.ReportAllocs()
 	flowTest := testdata.NewFlowTest()
 	flowTest.ConfigureForInit()
-	router := NewRouter(flowTest.AppCtx, flowTest.RegistrationService, flowTest.RenderingService)
+	router := NewRouter(flowTest.AppCtx, flowTest.RegistrationService, flowTest.RenderingService, flowTest.EventsAPI)
 	for i := 0; i < b.N; i++ {
 		id := uuid.New().String()
 		flowTest.ConfigureForInvoke(context.Background(), createInvoke(id))

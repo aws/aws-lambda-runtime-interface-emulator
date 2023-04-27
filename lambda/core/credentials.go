@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"sync"
 	"time"
-
-	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -26,11 +24,9 @@ type Credentials struct {
 }
 
 type CredentialsService interface {
-	SetCredentials(token, awsKey, awsSecret, awsSession string)
+	SetCredentials(token, awsKey, awsSecret, awsSession string, expiration time.Time)
 	GetCredentials(token string) (*Credentials, error)
-	UpdateCredentials(awsKey, awsSecret, awsSession string) error
-	BlockService()
-	UnblockService()
+	UpdateCredentials(awsKey, awsSecret, awsSession string, expiration time.Time) error
 }
 
 type credentialsServiceImpl struct {
@@ -51,7 +47,7 @@ func NewCredentialsService() CredentialsService {
 	return credentialsService
 }
 
-func (c *credentialsServiceImpl) SetCredentials(token, awsKey, awsSecret, awsSession string) {
+func (c *credentialsServiceImpl) SetCredentials(token, awsKey, awsSecret, awsSession string, expiration time.Time) {
 	c.contentMutex.Lock()
 	defer c.contentMutex.Unlock()
 
@@ -59,7 +55,7 @@ func (c *credentialsServiceImpl) SetCredentials(token, awsKey, awsSecret, awsSes
 		AwsKey:     awsKey,
 		AwsSecret:  awsSecret,
 		AwsSession: awsSession,
-		Expiration: time.Now().Add(16 * time.Minute),
+		Expiration: expiration,
 	}
 }
 
@@ -77,33 +73,7 @@ func (c *credentialsServiceImpl) GetCredentials(token string) (*Credentials, err
 	return nil, ErrCredentialsNotFound
 }
 
-func (c *credentialsServiceImpl) BlockService() {
-	if c.currentState == BLOCKED {
-		return
-	}
-	log.Info("blocking the credentials service")
-	c.serviceMutex.Lock()
-
-	c.contentMutex.Lock()
-	defer c.contentMutex.Unlock()
-
-	c.currentState = BLOCKED
-}
-
-func (c *credentialsServiceImpl) UnblockService() {
-	if c.currentState == UNBLOCKED {
-		return
-	}
-	log.Info("unblocking the credentials service")
-
-	c.contentMutex.Lock()
-	defer c.contentMutex.Unlock()
-
-	c.currentState = UNBLOCKED
-	c.serviceMutex.Unlock()
-}
-
-func (c *credentialsServiceImpl) UpdateCredentials(awsKey, awsSecret, awsSession string) error {
+func (c *credentialsServiceImpl) UpdateCredentials(awsKey, awsSecret, awsSession string, expiration time.Time) error {
 	mapSize := len(c.credentials)
 	if mapSize != 1 {
 		return fmt.Errorf("there are %d set of credentials", mapSize)
@@ -114,6 +84,6 @@ func (c *credentialsServiceImpl) UpdateCredentials(awsKey, awsSecret, awsSession
 		token = key
 	}
 
-	c.SetCredentials(token, awsKey, awsSecret, awsSession)
+	c.SetCredentials(token, awsKey, awsSecret, awsSession, expiration)
 	return nil
 }

@@ -4,13 +4,12 @@
 package agents
 
 import (
-	"bytes"
-	"io/ioutil"
 	"os"
 	"path"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // - Test utilities
@@ -50,14 +49,8 @@ func mkLink(name, target string) fileInfo {
 	}
 }
 
-// populate a temporary directory with a list of files and directories
-// returns the name of the temporary root directory
-func createFileTree(fs []fileInfo) (string, error) {
-
-	root, err := ioutil.TempDir(os.TempDir(), "tmp-")
-	if err != nil {
-		return "", err
-	}
+// populate a directory with a list of files and directories
+func createFileTree(root string, fs []fileInfo) error {
 
 	for _, info := range fs {
 		filename := info.name
@@ -65,67 +58,40 @@ func createFileTree(fs []fileInfo) (string, error) {
 		name := path.Base(filename)
 		err := os.MkdirAll(dir, 0775)
 		if err != nil && !os.IsExist(err) {
-			return "", err
+			return err
 		}
 		if os.ModeDir == info.mode&os.ModeDir {
 			err := os.Mkdir(path.Join(dir, name), info.mode&os.ModePerm)
 			if err != nil {
-				return "", err
+				return err
 			}
 		} else if os.ModeSymlink == info.mode&os.ModeSymlink {
 			target := path.Join(root, info.target)
 			_, err = os.Stat(target)
 			if err != nil {
-				return "", err
+				return err
 			}
 			err := os.Symlink(target, path.Join(dir, name))
 			if err != nil {
-				return "", err
+				return err
 			}
 		} else {
 			file, err := os.OpenFile(path.Join(dir, name), os.O_RDWR|os.O_CREATE, info.mode&os.ModePerm)
 			if err != nil {
-				return "", err
+				return err
 			}
 			file.Truncate(info.size)
 			file.Close()
 		}
 	}
 
-	return root, nil
-}
-
-// executes a given closure inside a temporary directory populated with the given FS tree
-func within(fs []fileInfo, closure func()) error {
-
-	var root string
-	var cwd string
-	var err error
-
-	if root, err = createFileTree(fs); err != nil {
-		return err
-	}
-
-	defer os.RemoveAll(root)
-
-	if cwd, err = os.Getwd(); err != nil {
-		return err
-	}
-
-	if err = os.Chdir(root); err != nil {
-		return err
-	}
-
-	defer os.Chdir(cwd)
-
-	closure()
 	return nil
 }
 
 // - Actual tests
 
 // If the agents folder is empty it is not an error
-func TestRootEmpty(t *testing.T) {
+func TestBaseEmpty(t *testing.T) {
 
 	assert := assert.New(t)
 
@@ -133,34 +99,51 @@ func TestRootEmpty(t *testing.T) {
 		mkDir("/opt/extensions", 0777),
 	}
 
-	assert.NoError(within(fs, func() {
-		agents := ListExternalAgentPaths("opt/extensions")
-		assert.Equal(0, len(agents))
-	}))
+	tmpDir, err := os.MkdirTemp("", "ext-")
+	require.NoError(t, err)
+
+	createFileTree(tmpDir, fs)
+	defer os.RemoveAll(tmpDir)
+
+	agents := ListExternalAgentPaths(path.Join(tmpDir, "/opt/extensions"), "/")
+	assert.Equal(0, len(agents))
 }
 
 // Test that non-existant /opt/extensions is treated as if no agents were found
-func TestRootNotExist(t *testing.T) {
+func TestBaseNotExist(t *testing.T) {
 
 	assert := assert.New(t)
 
-	agents := ListExternalAgentPaths("/path/which/does/not/exist")
+	agents := ListExternalAgentPaths("/path/which/does/not/exist", "/")
+	assert.Equal(0, len(agents))
+}
+
+// Test that non-existant root dir is teaded as if no agents were found
+func TestChrootNotExist(t *testing.T) {
+
+	assert := assert.New(t)
+
+	agents := ListExternalAgentPaths("/bin", "/does/not/exist")
 	assert.Equal(0, len(agents))
 }
 
 // Test that non-directory /opt/extensions is treated as if no agents were found
-func TestRootNotDir(t *testing.T) {
+func TestBaseNotDir(t *testing.T) {
 
 	assert := assert.New(t)
 
 	fs := []fileInfo{
 		mkFile("/opt/extensions", 1, 0777),
 	}
+	tmpDir, err := os.MkdirTemp("", "ext-")
+	require.NoError(t, err)
 
-	assert.NoError(within(fs, func() {
-		agents := ListExternalAgentPaths("opt/extensions")
-		assert.Equal(0, len(agents))
-	}))
+	createFileTree(tmpDir, fs)
+	defer os.RemoveAll(tmpDir)
+
+	path := path.Join(tmpDir, "/opt/extensions")
+	agents := ListExternalAgentPaths(path, "/")
+	assert.Equal(0, len(agents))
 }
 
 // Test our ability to find agent bootstraps in the FS and return them sorted.
@@ -188,99 +171,63 @@ func TestFindAgentMixed(t *testing.T) {
 	fs := append([]fileInfo{}, listed...)
 	fs = append(fs, unlisted...)
 
-	assert.NoError(within(fs, func() {
-		agentPaths := ListExternalAgentPaths("opt/extensions")
-		assert.Equal(len(listed), len(agentPaths))
-		last := ""
-		for index := range listed {
-			if len(last) > 0 {
-				assert.GreaterOrEqual(agentPaths[index], last)
-			}
-			last = agentPaths[index]
+	tmpDir, err := os.MkdirTemp("", "ext-")
+	require.NoError(t, err)
+
+	createFileTree(tmpDir, fs)
+	defer os.RemoveAll(tmpDir)
+
+	path := path.Join(tmpDir, "/opt/extensions")
+	agentPaths := ListExternalAgentPaths(path, "/")
+	assert.Equal(len(listed), len(agentPaths))
+	last := ""
+	for index := range listed {
+		if len(last) > 0 {
+			assert.GreaterOrEqual(agentPaths[index], last)
 		}
-	}))
+		last = agentPaths[index]
+	}
 }
 
-// Test our ability to start agents
-func TestAgentStart(t *testing.T) {
-	assert := assert.New(t)
-	agent := NewExternalAgentProcess("../testdata/agents/bash_true.sh", []string{}, &mockWriter{}, &mockWriter{})
-	assert.Nil(agent.Start())
-	assert.Nil(agent.Wait())
-}
+// Test our ability to find agent bootstraps in the FS and return them sorted,
+// when using a different mount namespace root for the extensiosn domain.
+// Even if not all files are valid as executable agents,
+// ListExternalAgentPaths() is expected to return all of them.
+func TestFindAgentMixedInChroot(t *testing.T) {
 
-// Test that execution of invalid agents is correctly reported
-func TestInvalidAgentStart(t *testing.T) {
-	assert := assert.New(t)
-	agent := NewExternalAgentProcess("/bin/none", []string{}, &mockWriter{}, &mockWriter{})
-	assert.True(os.IsNotExist(agent.Start()))
-}
-
-func TestAgentStdoutWriter(t *testing.T) {
-	// Given
 	assert := assert.New(t)
 
-	stdout := &mockWriter{}
-	stderr := &mockWriter{}
-	expectedStdout := "stdout line 1\nstdout line 2\nstdout line 3\n"
-	expectedStderr := ""
+	listed := []fileInfo{
+		mkFile("/opt/extensions/ok2", 1, 0777),                // this is ok
+		mkFile("/opt/extensions/ok1", 1, 0777),                // this is ok as well
+		mkFile("/opt/extensions/not_exec", 1, 0666),           // this is not executable
+		mkFile("/opt/extensions/not_read", 1, 0333),           // this is not readable
+		mkFile("/opt/extensions/empty_file", 0, 0777),         // this is empty
+		mkLink("/opt/extensions/link", "/opt/extensions/ok1"), // symlink must be ignored
+	}
 
-	agent := NewExternalAgentProcess("../testdata/agents/bash_stdout.sh", []string{}, stdout, stderr)
+	unlisted := []fileInfo{
+		mkDir("/opt/extensions/empty_dir", 0777),              // this is an empty directory
+		mkDir("/opt/extensions/nonempty_dir", 0777),           // subdirs should not be listed
+		mkFile("/opt/extensions/nonempty_dir/notok", 1, 0777), // files in subdirs should not be listed
+	}
 
-	// When
-	assert.NoError(agent.Start())
-	assert.NoError(agent.Wait())
+	fs := append([]fileInfo{}, listed...)
+	fs = append(fs, unlisted...)
 
-	// Then
-	assert.Equal(expectedStdout, string(bytes.Join(stdout.bytesReceived, []byte(""))))
-	assert.Equal(expectedStderr, string(bytes.Join(stderr.bytesReceived, []byte(""))))
-}
+	rootDir, err := os.MkdirTemp("", "rootfs")
+	require.NoError(t, err)
 
-func TestAgentStderrWriter(t *testing.T) {
-	// Given
-	assert := assert.New(t)
+	createFileTree(rootDir, fs)
+	defer os.RemoveAll(rootDir)
 
-	stdout := &mockWriter{}
-	stderr := &mockWriter{}
-	expectedStdout := ""
-	expectedStderr := "stderr line 1\nstderr line 2\nstderr line 3\n"
-
-	agent := NewExternalAgentProcess("../testdata/agents/bash_stderr.sh", []string{}, stdout, stderr)
-
-	// When
-	assert.NoError(agent.Start())
-	assert.NoError(agent.Wait())
-
-	// Then
-	assert.Equal(expectedStdout, string(bytes.Join(stdout.bytesReceived, []byte(""))))
-	assert.Equal(expectedStderr, string(bytes.Join(stderr.bytesReceived, []byte(""))))
-}
-
-func TestAgentStdoutAndStderrSeperateWriters(t *testing.T) {
-	// Given
-	assert := assert.New(t)
-
-	stdout := &mockWriter{}
-	stderr := &mockWriter{}
-	expectedStdout := "stdout line 1\nstdout line 2\nstdout line 3\n"
-	expectedStderr := "stderr line 1\nstderr line 2\nstderr line 3\n"
-
-	agent := NewExternalAgentProcess("../testdata/agents/bash_stdout_and_stderr.sh", []string{}, stdout, stderr)
-
-	// When
-	assert.NoError(agent.Start())
-	assert.NoError(agent.Wait())
-
-	// Then
-	assert.Equal(expectedStdout, string(bytes.Join(stdout.bytesReceived, []byte(""))))
-	assert.Equal(expectedStderr, string(bytes.Join(stderr.bytesReceived, []byte(""))))
-}
-
-type mockWriter struct {
-	bytesReceived [][]byte
-}
-
-func (m *mockWriter) Write(bytes []byte) (int, error) {
-	m.bytesReceived = append(m.bytesReceived, bytes)
-	return len(bytes), nil
+	agentPaths := ListExternalAgentPaths("/opt/extensions", rootDir)
+	assert.Equal(len(listed), len(agentPaths))
+	last := ""
+	for index := range listed {
+		if len(last) > 0 {
+			assert.GreaterOrEqual(agentPaths[index], last)
+		}
+		last = agentPaths[index]
+	}
 }

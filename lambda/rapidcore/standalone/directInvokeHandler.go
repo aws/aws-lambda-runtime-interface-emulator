@@ -4,13 +4,15 @@
 package standalone
 
 import (
+	"go.amzn.com/lambda/rapidcore"
+
+	"net/http"
+
 	log "github.com/sirupsen/logrus"
 	"go.amzn.com/lambda/core/directinvoke"
-	"go.amzn.com/lambda/rapidcore"
-	"net/http"
 )
 
-func DirectInvokeHandler(w http.ResponseWriter, r *http.Request, s rapidcore.InteropServer) {
+func DirectInvokeHandler(w http.ResponseWriter, r *http.Request, s InteropServer) {
 	tok := s.CurrentToken()
 	if tok == nil {
 		log.Errorf("Attempt to call directInvoke without Reserve")
@@ -21,6 +23,14 @@ func DirectInvokeHandler(w http.ResponseWriter, r *http.Request, s rapidcore.Int
 	invoke, err := directinvoke.ReceiveDirectInvoke(w, r, *tok)
 	if err != nil {
 		log.Errorf("direct invoke error: %s", err)
+		return
+	}
+
+	if err := s.AwaitInitialized(); err != nil {
+		w.WriteHeader(DoneFailedHTTPCode)
+		if state, err := s.InternalState(); err == nil {
+			w.Write(state.AsJSON())
+		}
 		return
 	}
 

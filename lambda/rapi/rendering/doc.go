@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 /*
-
 Package rendering provides stateful event rendering service.
 
 State of the rendering service should be set from the main event dispatch thread
@@ -17,6 +16,5 @@ Example of INVOKE event:
 [main] // release threads registered for INVOKE event
 
 [thread] // receives INVOKE event
-
 */
 package rendering

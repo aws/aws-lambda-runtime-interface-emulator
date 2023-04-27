@@ -149,26 +149,24 @@ func (e *Environment) mergeCustomerEnvironmentVariables(envVars map[string]strin
 
 // RuntimeExecEnv returns the key=value strings of all environment variables
 // passed to runtime process on exec()
-func (e *Environment) RuntimeExecEnv() []string {
+func (e *Environment) RuntimeExecEnv() map[string]string {
 	if !e.initEnvVarsSet || !e.runtimeAPISet {
 		log.Fatal("credentials, customer and runtime API address must be set")
 	}
 
-	return asEnviron(mapUnion(e.Customer, e.PlatformUnreserved, e.Credentials, e.Runtime, e.Platform))
+	return mapUnion(e.Customer, e.PlatformUnreserved, e.Credentials, e.Runtime, e.Platform)
 }
 
 // AgentExecEnv returns the key=value strings of all environment variables
 // passed to agent process on exec()
-func (e *Environment) AgentExecEnv() []string {
+func (e *Environment) AgentExecEnv() map[string]string {
 	if !e.initEnvVarsSet || !e.runtimeAPISet {
 		log.Fatal("credentials, customer and runtime API address must be set")
 	}
 
 	excludedKeys := extensionExcludedKeys()
 	excludeCondition := func(key string) bool { return excludedKeys[key] || strings.HasPrefix(key, "_") }
-	environ := asEnviron(mapExclude(mapUnion(e.Customer, e.Credentials, e.Platform), excludeCondition))
-
-	return environ
+	return mapExclude(mapUnion(e.Customer, e.Credentials, e.Platform), excludeCondition)
 }
 
 // RAPIDInternalConfig returns the rapid config parsed from environment vars
@@ -247,14 +245,6 @@ func mapUnion(maps ...map[string]string) map[string]string {
 		}
 	}
 	return union
-}
-
-func asEnviron(m map[string]string) []string {
-	keySepValArray := []string{}
-	for key, val := range m {
-		keySepValArray = append(keySepValArray, key+"="+val)
-	}
-	return keySepValArray
 }
 
 func mapExclude(m map[string]string, excludeCondition func(string) bool) map[string]string {

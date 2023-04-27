@@ -5,8 +5,6 @@ package standalone
 
 import (
 	"net/http"
-
-	"go.amzn.com/lambda/rapidcore"
 )
 
 type resetAPIRequest struct {
@@ -14,7 +12,7 @@ type resetAPIRequest struct {
 	TimeoutMs int64  `json:"timeoutMs"`
 }
 
-func ResetHandler(w http.ResponseWriter, r *http.Request, s rapidcore.InteropServer) {
+func ResetHandler(w http.ResponseWriter, r *http.Request, s InteropServer) {
 	reset := resetAPIRequest{}
 	if lerr := readBodyAndUnmarshalJSON(r, &reset); lerr != nil {
 		lerr.Send(w, r)

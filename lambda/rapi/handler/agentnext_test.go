@@ -7,7 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -52,7 +52,7 @@ func TestRenderAgentInvokeUnknownAgent(t *testing.T) {
 	assert.Equal(t, http.StatusForbidden, responseRecorder.Code)
 
 	var errorResponse model.ErrorResponse
-	respBody, _ := ioutil.ReadAll(responseRecorder.Body)
+	respBody, _ := io.ReadAll(responseRecorder.Body)
 	json.Unmarshal(respBody, &errorResponse)
 	assert.Equal(t, http.StatusForbidden, responseRecorder.Code)
 	assert.Equal(t, errAgentIdentifierUnknown, errorResponse.ErrorType)
@@ -75,7 +75,7 @@ func TestRenderAgentInvokeInvalidAgentState(t *testing.T) {
 	assert.Equal(t, http.StatusForbidden, responseRecorder.Code)
 
 	var errorResponse model.ErrorResponse
-	respBody, _ := ioutil.ReadAll(responseRecorder.Body)
+	respBody, _ := io.ReadAll(responseRecorder.Body)
 	json.Unmarshal(respBody, &errorResponse)
 	assert.Equal(t, http.StatusForbidden, responseRecorder.Code)
 	assert.Equal(t, errAgentInvalidState, errorResponse.ErrorType)
@@ -118,7 +118,7 @@ func TestRenderAgentInvokeNextHappy(t *testing.T) {
 	handler.ServeHTTP(responseRecorder, request)
 	assert.Equal(t, http.StatusOK, responseRecorder.Code)
 	var response model.AgentInvokeEvent
-	respBody, _ := ioutil.ReadAll(responseRecorder.Body)
+	respBody, _ := io.ReadAll(responseRecorder.Body)
 	json.Unmarshal(respBody, &response)
 
 	assert.Equal(t, agent.RunningState, agent.GetState())
@@ -167,7 +167,7 @@ func TestRenderAgentInternalInvokeNextHappy(t *testing.T) {
 	handler.ServeHTTP(responseRecorder, request)
 	assert.Equal(t, http.StatusOK, responseRecorder.Code)
 	var response model.AgentInvokeEvent
-	respBody, _ := ioutil.ReadAll(responseRecorder.Body)
+	respBody, _ := io.ReadAll(responseRecorder.Body)
 	json.Unmarshal(respBody, &response)
 
 	assert.Equal(t, agent.RunningState, agent.GetState())
@@ -212,7 +212,7 @@ func TestRenderAgentInternalShutdownEvent(t *testing.T) {
 	handler.ServeHTTP(responseRecorder, request)
 	assert.Equal(t, http.StatusOK, responseRecorder.Code)
 	var response model.AgentShutdownEvent
-	respBody, _ := ioutil.ReadAll(responseRecorder.Body)
+	respBody, _ := io.ReadAll(responseRecorder.Body)
 	json.Unmarshal(respBody, &response)
 
 	assert.Equal(t, agent.RunningState, agent.GetState())
@@ -254,7 +254,7 @@ func TestRenderAgentExternalShutdownEvent(t *testing.T) {
 	handler.ServeHTTP(responseRecorder, request)
 	assert.Equal(t, http.StatusOK, responseRecorder.Code)
 	var response model.AgentShutdownEvent
-	respBody, _ := ioutil.ReadAll(responseRecorder.Body)
+	respBody, _ := io.ReadAll(responseRecorder.Body)
 	json.Unmarshal(respBody, &response)
 
 	assert.Equal(t, agent.RunningState, agent.GetState())
@@ -297,7 +297,7 @@ func TestRenderAgentInvokeNextHappyEmptyTraceID(t *testing.T) {
 	handler.ServeHTTP(responseRecorder, request)
 	assert.Equal(t, http.StatusOK, responseRecorder.Code)
 	var response model.AgentInvokeEvent
-	respBody, _ := ioutil.ReadAll(responseRecorder.Body)
+	respBody, _ := io.ReadAll(responseRecorder.Body)
 	json.Unmarshal(respBody, &response)
 
 	assert.Nil(t, response.Tracing)

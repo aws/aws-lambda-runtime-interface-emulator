@@ -6,11 +6,20 @@ package env
 import (
 	"fmt"
 	"os"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
+
+func envToSlice(env map[string]string) []string {
+	ret := make([]string, len(env))
+	i := 0
+	for key, val := range env {
+		ret[i] = key + "=" + val
+		i++
+	}
+	return ret
+}
 
 func TestRAPIDInternalConfig(t *testing.T) {
 	os.Clearenv()
@@ -121,34 +130,35 @@ func TestRuntimeExecEnvironmentVariables(t *testing.T) {
 	rapidEnvVars := env.RuntimeExecEnv()
 
 	var rapidEnvKeys []string
-	for _, keyval := range rapidEnvVars {
-		key := strings.Split(keyval, "=")[0]
+	for key := range rapidEnvVars {
 		rapidEnvKeys = append(rapidEnvKeys, key)
 	}
+
+	rapidEnvVarsSlice := envToSlice(rapidEnvVars)
 
 	for key := range env.RAPID {
 		assert.NotContains(t, rapidEnvKeys, key)
 	}
 
 	for key, val := range env.Runtime {
-		assert.Contains(t, rapidEnvVars, key+"="+val)
+		assert.Contains(t, rapidEnvVarsSlice, key+"="+val)
 	}
 
 	for key, val := range env.Platform {
-		assert.Contains(t, rapidEnvVars, key+"="+val)
+		assert.Contains(t, rapidEnvVarsSlice, key+"="+val)
 	}
 
 	for key, val := range env.PlatformUnreserved {
-		assert.Contains(t, rapidEnvVars, key+"="+val)
+		assert.Contains(t, rapidEnvVarsSlice, key+"="+val)
 		assert.NotContains(t, env.Customer, key)
 	}
 
 	for key, val := range env.Credentials {
-		assert.Contains(t, rapidEnvVars, key+"="+val)
+		assert.Contains(t, rapidEnvVarsSlice, key+"="+val)
 	}
 
 	for key, val := range env.Customer {
-		assert.Contains(t, rapidEnvVars, key+"="+val)
+		assert.Contains(t, rapidEnvVarsSlice, key+"="+val)
 		assert.NotContains(t, env.PlatformUnreserved, key)
 	}
 }
@@ -191,7 +201,7 @@ func TestRuntimeExecEnvironmentVariablesPriority(t *testing.T) {
 	assert.Equal(t, len(predefinedInternalEnvVarKeys()), len(env.RAPID))
 	assert.Equal(t, len(predefinedRuntimeEnvVarKeys()), len(env.Runtime))
 
-	rapidEnvVars := env.RuntimeExecEnv()
+	rapidEnvVars := envToSlice(env.RuntimeExecEnv())
 
 	// Customer env vars cannot override platform/internal ones
 	assert.NotContains(t, rapidEnvVars, conflictPlatformKeyFromInit+"="+customerEnvVal)
@@ -224,7 +234,7 @@ func TestCustomerEnvironmentVariablesFromInitCanOverrideEnvironmentVariablesFrom
 	assert.Equal(t, env.Customer["LCIS_ARG1"], lcisCLIArgEnvVal)
 	assert.Equal(t, env.Customer["MY_FOOBAR_ENV_1"], customerEnvVal)
 
-	rapidEnvVars := env.RuntimeExecEnv()
+	rapidEnvVars := envToSlice(env.RuntimeExecEnv())
 
 	assert.Contains(t, rapidEnvVars, "LCIS_ARG1="+lcisCLIArgEnvVal)
 	assert.Contains(t, rapidEnvVars, "MY_FOOBAR_ENV_1="+customerEnvVal)
@@ -250,17 +260,18 @@ func TestAgentExecEnvironmentVariables(t *testing.T) {
 	agentEnvVars := env.AgentExecEnv()
 
 	var agentEnvKeys []string
-	for _, keyval := range agentEnvVars {
-		key := strings.Split(keyval, "=")[0]
+	for key := range agentEnvVars {
 		agentEnvKeys = append(agentEnvKeys, key)
 	}
+
+	agentEnvVarsSlice := envToSlice(agentEnvVars)
 
 	for key := range env.RAPID {
 		assert.NotContains(t, agentEnvKeys, key)
 	}
 
 	for key, val := range env.Runtime {
-		assert.NotContains(t, agentEnvKeys, key+"="+val)
+		assert.NotContains(t, agentEnvVarsSlice, key+"="+val)
 	}
 
 	for key := range env.Platform {
@@ -272,10 +283,10 @@ func TestAgentExecEnvironmentVariables(t *testing.T) {
 	}
 
 	for key, val := range env.Credentials {
-		assert.Contains(t, agentEnvVars, key+"="+val)
+		assert.Contains(t, agentEnvVarsSlice, key+"="+val)
 	}
 
-	assert.Contains(t, agentEnvVars, runtimeAPIAddressKey+"="+env.Platform[runtimeAPIAddressKey])
+	assert.Contains(t, agentEnvVarsSlice, runtimeAPIAddressKey+"="+env.Platform[runtimeAPIAddressKey])
 }
 
 func TestStoreEnvironmentVariablesFromInitCaching(t *testing.T) {

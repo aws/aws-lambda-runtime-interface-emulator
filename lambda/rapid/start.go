@@ -7,9 +7,11 @@ package rapid
 import (
 	"context"
 	"errors"
-	"io"
+	"fmt"
 	"os"
+	"path"
 	"strings"
+	"sync"
 	"time"
 
 	"go.amzn.com/lambda/agents"
@@ -18,11 +20,11 @@ import (
 	"go.amzn.com/lambda/extensions"
 	"go.amzn.com/lambda/fatalerror"
 	"go.amzn.com/lambda/interop"
-	"go.amzn.com/lambda/logging"
 	"go.amzn.com/lambda/metering"
 	"go.amzn.com/lambda/rapi"
+	"go.amzn.com/lambda/rapi/model"
 	"go.amzn.com/lambda/rapi/rendering"
-	"go.amzn.com/lambda/runtimecmd"
+	supvmodel "go.amzn.com/lambda/supervisor/model"
 	"go.amzn.com/lambda/telemetry"
 
 	"github.com/google/uuid"
@@ -31,11 +33,11 @@ import (
 )
 
 const (
-	RuntimeAPIHost        = "127.0.0.1"
-	RuntimeAPIPort        = 9001
+	RuntimeDomain         = "runtime"
+	OperatorDomain        = "operator"
 	defaultAgentLocation  = "/opt/extensions"
-	runtimeDeadlineShare  = 0.3
 	disableExtensionsFile = "/opt/disable-extensions-jwigqn8j"
+	runtimeProcessName    = "runtime"
 )
 
 const (
@@ -47,37 +49,38 @@ const (
 var errResetReceived = errors.New("errResetReceived")
 
 type rapidContext struct {
-	bootstrap           Bootstrap
-	interopServer       interop.Server
-	server              *rapi.Server
-	appCtx              appctx.ApplicationContext
-	preLoadTimeNs       int64
-	postLoadTimeNs      int64
-	startRequest        *interop.Start
-	initDone            bool
-	initFlow            core.InitFlowSynchronization
-	invokeFlow          core.InvokeFlowSynchronization
-	registrationService core.RegistrationService
-	renderingService    *rendering.EventRenderingService
-	telemetryAPIEnabled bool
-	logsSubscriptionAPI telemetry.LogsSubscriptionAPI
-	logsEgressAPI       telemetry.LogsEgressAPI
-	xray                telemetry.Tracer
-	exitPidChan         chan int
-	resetChan           chan *interop.Reset
-	environment         EnvironmentVariables
-	standaloneMode      bool
-	debugTailLogger     *logging.TailLogWriter
-	platformLogger      logging.PlatformLogger
-	runtimeStdoutWriter io.Writer
-	runtimeStderrWriter io.Writer
-	eventsAPI           telemetry.EventsAPI
-	initCachingEnabled  bool
-	credentialsService  core.CredentialsService
+	interopServer            interop.Server
+	server                   *rapi.Server
+	appCtx                   appctx.ApplicationContext
+	preLoadTimeNs            int64
+	postLoadTimeNs           int64
+	initDone                 bool
+	supervisor               supvmodel.Supervisor
+	runtimeDomainGeneration  uint32
+	initFlow                 core.InitFlowSynchronization
+	invokeFlow               core.InvokeFlowSynchronization
+	registrationService      core.RegistrationService
+	renderingService         *rendering.EventRenderingService
+	telemetryAPIEnabled      bool
+	logsSubscriptionAPI      telemetry.SubscriptionAPI
+	telemetrySubscriptionAPI telemetry.SubscriptionAPI
+	logsEgressAPI            telemetry.StdLogsEgressAPI
+	xray                     telemetry.Tracer
+	standaloneMode           bool
+	eventsAPI                telemetry.EventsAPI
+	initCachingEnabled       bool
+	credentialsService       core.CredentialsService
+	signalCtx                context.Context
+	executionMutex           sync.Mutex
+	shutdownContext          *shutdownContext
 }
 
+// Validate interface compliance
+var _ interop.RapidContext = (*rapidContext)(nil)
+
 type invokeMetrics struct {
-	rendererMetrics  rendering.InvokeRendererMetrics
+	rendererMetrics rendering.InvokeRendererMetrics
+
 	runtimeReadyTime int64
 }
 
@@ -102,7 +105,7 @@ func (c *rapidContext) GetExtensionNames() string {
 
 func logAgentsInitStatus(execCtx *rapidContext) {
 	for _, agent := range execCtx.registrationService.AgentsInfo() {
-		execCtx.platformLogger.LogExtensionInitEvent(agent.Name, agent.State, agent.ErrorType, agent.Subscriptions)
+		execCtx.eventsAPI.SendExtensionInit(agent.Name, agent.State, agent.ErrorType, agent.Subscriptions)
 	}
 }
 
@@ -113,8 +116,7 @@ func agentLaunchError(agent *core.ExternalAgent, appCtx appctx.ApplicationContex
 	appctx.StoreFirstFatalError(appCtx, fatalerror.AgentLaunchError)
 }
 
-func doInitExtensions(execCtx *rapidContext, watchdog *core.Watchdog) error {
-	agentPaths := agents.ListExternalAgentPaths(defaultAgentLocation)
+func doInitExtensions(domain string, agentPaths []string, execCtx *rapidContext, env interop.EnvironmentVariables) error {
 	initFlow := execCtx.registrationService.InitFlow()
 
 	// we don't bring it into the loop below because we don't want unnecessary broadcasts on agent gate
@@ -123,22 +125,8 @@ func doInitExtensions(execCtx *rapidContext, watchdog *core.Watchdog) error {
 	}
 
 	for _, agentPath := range agentPaths {
-		env := execCtx.environment.AgentExecEnv()
-
-		agentStdoutWriter, agentStderrWriter, err := execCtx.logsEgressAPI.GetExtensionSockets()
-
-		if err != nil {
-			return err
-		}
-
-		// Compose debug log writer with all log sinks. Debug log writer w
-		// will not write logs when disabled by invoke parameter
-		agentStdoutWriter = io.MultiWriter(execCtx.debugTailLogger, agentStdoutWriter)
-		agentStderrWriter = io.MultiWriter(execCtx.debugTailLogger, agentStderrWriter)
-
-		agentProc := agents.NewExternalAgentProcess(agentPath, env, agentStdoutWriter, agentStderrWriter)
-
-		agent, err := execCtx.registrationService.CreateExternalAgent(agentProc.Name())
+		// Using path.Base(agentPath) not agentName because the agent name is contact, as standalone can get the internal state.
+		agent, err := execCtx.registrationService.CreateExternalAgent(path.Base(agentPath))
 
 		if err != nil {
 			return err
@@ -149,12 +137,30 @@ func doInitExtensions(execCtx *rapidContext, watchdog *core.Watchdog) error {
 			return core.ErrTooManyExtensions
 		}
 
-		if err := agentProc.Start(); err != nil {
+		env := env.AgentExecEnv()
+
+		agentStdoutWriter, agentStderrWriter, err := execCtx.logsEgressAPI.GetExtensionSockets()
+
+		if err != nil {
+			return err
+		}
+		agentName := fmt.Sprintf("extension-%s-%d", path.Base(agentPath), execCtx.runtimeDomainGeneration)
+
+		err = execCtx.supervisor.Exec(&supvmodel.ExecRequest{
+			Domain:       domain,
+			Name:         agentName,
+			Path:         agentPath,
+			Env:          &env,
+			StdoutWriter: agentStdoutWriter,
+			StderrWriter: agentStderrWriter,
+		})
+
+		if err != nil {
 			agentLaunchError(agent, execCtx.appCtx, err)
 			return err
 		}
 
-		agent.Pid = watchdog.GoWait(&agentProc, fatalerror.AgentCrash)
+		execCtx.shutdownContext.createExitedChannel(agentName)
 	}
 
 	if err := initFlow.AwaitExternalAgentsRegistered(); err != nil {
@@ -164,19 +170,153 @@ func doInitExtensions(execCtx *rapidContext, watchdog *core.Watchdog) error {
 	return nil
 }
 
-func doInit(ctx context.Context, execCtx *rapidContext, watchdog *core.Watchdog) error {
+func doRuntimeBootstrap(execCtx *rapidContext, sbInfoFromInit interop.SandboxInfoFromInit) ([]string, map[string]string, string, []*os.File, error) {
+	env := sbInfoFromInit.EnvironmentVariables
+	runtimeBootstrap := sbInfoFromInit.RuntimeBootstrap
+	bootstrapCmd, err := runtimeBootstrap.Cmd()
+	if err != nil {
+		if fatalError, formattedLog, hasError := runtimeBootstrap.CachedFatalError(err); hasError {
+			appctx.StoreFirstFatalError(execCtx.appCtx, fatalError)
+			execCtx.eventsAPI.SendImageErrorLog(formattedLog)
+		} else {
+			appctx.StoreFirstFatalError(execCtx.appCtx, fatalerror.InvalidEntrypoint)
+		}
+		return []string{}, map[string]string{}, "", []*os.File{}, err
+	}
+
+	bootstrapEnv := runtimeBootstrap.Env(env)
+	bootstrapCwd, err := runtimeBootstrap.Cwd()
+	if err != nil {
+		if fatalError, formattedLog, hasError := runtimeBootstrap.CachedFatalError(err); hasError {
+			appctx.StoreFirstFatalError(execCtx.appCtx, fatalError)
+			execCtx.eventsAPI.SendImageErrorLog(formattedLog)
+		} else {
+			appctx.StoreFirstFatalError(execCtx.appCtx, fatalerror.InvalidWorkingDir)
+		}
+		return []string{}, map[string]string{}, "", []*os.File{}, err
+	}
+
+	bootstrapExtraFiles := runtimeBootstrap.ExtraFiles()
+
+	return bootstrapCmd, bootstrapEnv, bootstrapCwd, bootstrapExtraFiles, nil
+}
+
+func (c *rapidContext) setupEventsWatcher(events <-chan supvmodel.Event) {
+	go func() {
+		for event := range events {
+			var err error = nil
+			log.Debugf("The events handler received the event %+v.", event)
+			if loss := event.Event.EventLoss(); loss != nil {
+				log.Panicf("Lost %d events from supervisor", *loss)
+			}
+			termination := event.Event.ProcessTerminated()
+
+			// If we are not shutting down then we care if an unexpected exit happens.
+			if !c.shutdownContext.isShuttingDown() {
+				runtimeProcessName := fmt.Sprintf("%s-%d", runtimeProcessName, c.runtimeDomainGeneration)
+
+				// If event from the runtime.
+				if *termination.Name == runtimeProcessName {
+					if termination.Success() {
+						err = fmt.Errorf("Runtime exited without providing a reason")
+					} else {
+						err = fmt.Errorf("Runtime exited with error: %s", termination.String())
+					}
+					appctx.StoreFirstFatalError(c.appCtx, fatalerror.RuntimeExit)
+				} else {
+					if termination.Success() {
+						err = fmt.Errorf("exit code 0")
+					} else {
+						err = fmt.Errorf(termination.String())
+					}
+
+					appctx.StoreFirstFatalError(c.appCtx, fatalerror.AgentCrash)
+				}
+
+				log.Warnf("Process %s exited: %+v", *termination.Name, termination)
+			}
+
+			// At the moment we only get termination events.
+			// When their are other event types then we would need to be selective,
+			// about what we send to handleShutdownEvent().
+			c.shutdownContext.handleProcessExit(*termination)
+			c.registrationService.CancelFlows(err)
+		}
+	}()
+}
+
+func doOperatorDomainInit(ctx context.Context, execCtx *rapidContext, operatorDomainExtraConfig interop.DynamicDomainConfig) error {
+	events, err := execCtx.supervisor.Events()
+	if err != nil {
+		log.WithError(err).Panic("Could not get events stream from supervsior")
+	}
+	execCtx.setupEventsWatcher(events)
+
+	log.Info("Configuring and starting Operator Domain")
+	conf := operatorDomainExtraConfig
+	err = execCtx.supervisor.Configure(&supvmodel.ConfigureRequest{
+		Domain:               OperatorDomain,
+		AdditionalStartHooks: conf.AdditionalStartHooks,
+		Mounts:               conf.Mounts,
+	})
+
+	if err != nil {
+		log.WithError(err).Error("Failed to configure operator domain")
+		return err
+	}
+
+	err = execCtx.supervisor.Start(&supvmodel.StartRequest{
+		Domain: OperatorDomain,
+	})
+
+	if err != nil {
+		log.WithError(err).Error("Failed to start operator domain")
+		return err
+	}
+
+	// we configure the runtime domain only once and not at
+	// every init phase (e.g., suppressed or reset).
+	err = execCtx.supervisor.Configure(&supvmodel.ConfigureRequest{
+		Domain: RuntimeDomain,
+	})
+
+	if err != nil {
+		log.WithError(err).Error("Failed to configure operator domain")
+		return err
+	}
+
+	return nil
+
+}
+
+func doRuntimeDomainInit(ctx context.Context, execCtx *rapidContext, sbInfoFromInit interop.SandboxInfoFromInit) error {
 	execCtx.xray.RecordInitStartTime()
 	defer execCtx.xray.RecordInitEndTime()
 
-	if extensions.AreEnabled() {
-		defer func() {
+	defer func() {
+		if extensions.AreEnabled() {
 			logAgentsInitStatus(execCtx)
-		}()
+		}
+	}()
 
-		if err := doInitExtensions(execCtx, watchdog); err != nil {
+	log.Info("Starting runtime domain")
+	err := execCtx.supervisor.Start(&supvmodel.StartRequest{
+		Domain: RuntimeDomain,
+	})
+	if err != nil {
+		log.WithError(err).Panic("Failed configuring runtime domain")
+	}
+	execCtx.runtimeDomainGeneration++
+
+	if extensions.AreEnabled() {
+		runtimeExtensions := agents.ListExternalAgentPaths(defaultAgentLocation,
+			execCtx.supervisor.RuntimeConfig.RootPath)
+		if err := doInitExtensions(RuntimeDomain, runtimeExtensions, execCtx, sbInfoFromInit.EnvironmentVariables); err != nil {
 			return err
 		}
 	}
+
+	appctx.StoreSandboxType(execCtx.appCtx, sbInfoFromInit.SandboxType)
 
 	initFlow := execCtx.registrationService.InitFlow()
 
@@ -188,55 +328,65 @@ func doInit(ctx context.Context, execCtx *rapidContext, watchdog *core.Watchdog)
 	// runtime is implicitly subscribed for certain lifecycle events.
 	log.Debug("Preregister runtime")
 	registrationService := execCtx.registrationService
-	if err := registrationService.PreregisterRuntime(runtime); err != nil {
-		return err
-	}
+	err = registrationService.PreregisterRuntime(runtime)
 
-	bootstrap := execCtx.bootstrap
-	bootstrapCmd, err := bootstrap.Cmd()
 	if err != nil {
-		if fatalError, formattedLog, hasError := bootstrap.CachedFatalError(err); hasError {
-			appctx.StoreFirstFatalError(execCtx.appCtx, fatalError)
-			execCtx.platformLogger.Printf("%s", formattedLog)
-		} else {
-			appctx.StoreFirstFatalError(execCtx.appCtx, fatalerror.InvalidEntrypoint)
-		}
 		return err
 	}
 
-	bootstrapEnv := bootstrap.Env(execCtx.environment)
-	bootstrapCwd, err := bootstrap.Cwd()
+	bootstrapCmd, bootstrapEnv, bootstrapCwd, bootstrapExtraFiles, err := doRuntimeBootstrap(execCtx, sbInfoFromInit)
+
 	if err != nil {
-		if fatalError, formattedLog, hasError := bootstrap.CachedFatalError(err); hasError {
-			appctx.StoreFirstFatalError(execCtx.appCtx, fatalError)
-			execCtx.platformLogger.Printf("%s", formattedLog)
-		} else {
-			appctx.StoreFirstFatalError(execCtx.appCtx, fatalerror.InvalidWorkingDir)
-		}
 		return err
 	}
 
-	bootstrapExtraFiles := bootstrap.ExtraFiles()
-	runtimeCmd := runtimecmd.NewCustomRuntimeCmd(ctx, bootstrapCmd, bootstrapCwd, bootstrapEnv, execCtx.runtimeStdoutWriter, execCtx.runtimeStderrWriter, bootstrapExtraFiles)
+	runtimeStdoutWriter, runtimeStderrWriter, err := execCtx.logsEgressAPI.GetRuntimeSockets()
+
+	if err != nil {
+		return err
+	}
 
 	log.Debug("Start runtime")
-	err = runtimeCmd.Start()
+	checkCredentials(execCtx, bootstrapEnv)
+	name := fmt.Sprintf("%s-%d", runtimeProcessName, execCtx.runtimeDomainGeneration)
+	err = execCtx.supervisor.Exec(&supvmodel.ExecRequest{
+		Domain:       RuntimeDomain,
+		Name:         name,
+		Cwd:          &bootstrapCwd,
+		Path:         bootstrapCmd[0],
+		Args:         bootstrapCmd[1:],
+		Env:          &bootstrapEnv,
+		StdoutWriter: runtimeStdoutWriter,
+		StderrWriter: runtimeStderrWriter,
+		ExtraFiles:   &bootstrapExtraFiles,
+	})
+
+	runtimeDoneStatus := telemetry.RuntimeDoneSuccess
+
+	defer func() {
+		sendInitRuntimeDoneLogEvent(execCtx, sbInfoFromInit.SandboxType, runtimeDoneStatus)
+	}()
+
 	if err != nil {
-		if fatalError, formattedLog, hasError := bootstrap.CachedFatalError(err); hasError {
+		if fatalError, formattedLog, hasError := sbInfoFromInit.RuntimeBootstrap.CachedFatalError(err); hasError {
 			appctx.StoreFirstFatalError(execCtx.appCtx, fatalError)
-			execCtx.platformLogger.Printf("%s", formattedLog)
+			execCtx.eventsAPI.SendImageErrorLog(formattedLog)
 		} else {
 			appctx.StoreFirstFatalError(execCtx.appCtx, fatalerror.InvalidEntrypoint)
 		}
 
+		runtimeDoneStatus = telemetry.RuntimeDoneFailure
 		return err
 	}
 
-	registrationService.GetRuntime().Pid = watchdog.GoWait(runtimeCmd, fatalerror.RuntimeExit)
+	execCtx.shutdownContext.createExitedChannel(name)
 
-	if err := initFlow.AwaitRuntimeReady(); err != nil {
+	if err := initFlow.AwaitRuntimeRestoreReady(); err != nil {
+		runtimeDoneStatus = telemetry.RuntimeDoneFailure
 		return err
 	}
+
+	runtimeDoneStatus = telemetry.RuntimeDoneSuccess
 
 	// Registration phase finished for agents - no more agents can be registered with the system
 	registrationService.TurnOff()
@@ -253,22 +403,17 @@ func doInit(ctx context.Context, execCtx *rapidContext, watchdog *core.Watchdog)
 	// Logs API subscription phase finished for agents - no more agents can be subscribed to the Logs API
 	if execCtx.telemetryAPIEnabled {
 		execCtx.logsSubscriptionAPI.TurnOff()
+		execCtx.telemetrySubscriptionAPI.TurnOff()
 	}
 
 	execCtx.initDone = true
+
 	return nil
 }
 
-func doInvoke(ctx context.Context, execCtx *rapidContext, watchdog *core.Watchdog, invokeRequest *interop.Invoke, mx *invokeMetrics) error {
+func doInvoke(ctx context.Context, execCtx *rapidContext, invokeRequest *interop.Invoke, mx *invokeMetrics, sbInfoFromInit interop.SandboxInfoFromInit) error {
 	execCtx.eventsAPI.SetCurrentRequestID(invokeRequest.ID)
 	appCtx := execCtx.appCtx
-	appctx.StoreErrorResponse(appCtx, nil)
-
-	if invokeRequest.NeedDebugLogs {
-		execCtx.debugTailLogger.Enable()
-	} else {
-		execCtx.debugTailLogger.Disable()
-	}
 
 	xray := execCtx.xray
 	xray.Configure(invokeRequest)
@@ -277,11 +422,11 @@ func doInvoke(ctx context.Context, execCtx *rapidContext, watchdog *core.Watchdo
 		if !execCtx.initDone {
 			// do inline init
 			if err := xray.CaptureInitSubsegment(ctx, func(ctx context.Context) error {
-				return doInit(ctx, execCtx, watchdog)
+				return doRuntimeDomainInit(ctx, execCtx, sbInfoFromInit)
 			}); err != nil {
 				return err
 			}
-		} else if execCtx.startRequest.SandboxType != interop.SandboxPreWarmed {
+		} else if sbInfoFromInit.SandboxType != interop.SandboxPreWarmed {
 			xray.SendInitSubsegmentWithRecordedTimesOnce(ctx)
 		}
 
@@ -317,16 +462,20 @@ func doInvoke(ctx context.Context, execCtx *rapidContext, watchdog *core.Watchdo
 			if extensions.AreEnabled() {
 				log.Debug("Release agents conditions")
 				for _, agent := range extAgents {
+					//TODO handle Supervisors listening channel
 					agent.Release()
 				}
 				for _, agent := range intAgents {
+					//TODO handle Supervisors listening channel
 					agent.Release()
 				}
 			}
 
 			log.Debug("Release runtime condition")
+			//TODO handle Supervisors listening channel
 			runtime.Release()
 			log.Debug("Await runtime response")
+			//TODO handle Supervisors listening channel
 			return invokeFlow.AwaitRuntimeResponse()
 		})); err != nil {
 			return err
@@ -335,12 +484,21 @@ func doInvoke(ctx context.Context, execCtx *rapidContext, watchdog *core.Watchdo
 		// Runtime overhead
 		if err := xray.CaptureOverheadSubsegment(ctx, func(ctx context.Context) error {
 			log.Debug("Await runtime ready")
+			//TODO handle Supervisors listening channel
 			return invokeFlow.AwaitRuntimeReady()
 		}); err != nil {
 			return err
 		}
 		mx.runtimeReadyTime = metering.Monotime()
-		if err := execCtx.eventsAPI.SendRuntimeDone("success"); err != nil {
+
+		runtimeDoneEventData := telemetry.InvokeRuntimeDoneData{
+			Status:          telemetry.RuntimeDoneSuccess,
+			Metrics:         telemetry.GetRuntimeDoneInvokeMetrics(invokeRequest.InvokeReceivedTime, invokeRequest.InvokeResponseMetrics, mx.runtimeReadyTime),
+			InternalMetrics: invokeRequest.InvokeResponseMetrics,
+			Tracing:         telemetry.BuildTracingCtx(model.XRayTracingType, invokeRequest.TraceID, invokeRequest.LambdaSegmentID),
+			Spans:           telemetry.GetRuntimeDoneSpans(invokeRequest.InvokeReceivedTime, invokeRequest.InvokeResponseMetrics),
+		}
+		if err := execCtx.eventsAPI.SendRuntimeDone(runtimeDoneEventData); err != nil {
 			log.Errorf("Failed to send RUNDONE: %s", err)
 		}
 
@@ -348,6 +506,7 @@ func doInvoke(ctx context.Context, execCtx *rapidContext, watchdog *core.Watchdo
 		if execCtx.HasActiveExtensions() {
 			execCtx.interopServer.SendRuntimeReady()
 			log.Debug("Await agents ready")
+			//TODO handle Supervisors listening channel
 			if err := invokeFlow.AwaitAgentsReady(); err != nil {
 				log.Warnf("AwaitAgentsReady() = %s", err)
 				return err
@@ -364,177 +523,148 @@ func extensionsDisabledByLayer() bool {
 	return err == nil
 }
 
-// acceptStartRequest is a second initialization phase, performed after receiving START
+// acceptInitRequest is a second initialization phase, performed after receiving START
 // initialized entities: _HANDLER, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_SESSION_TOKEN
-func (c *rapidContext) acceptStartRequest(startRequest *interop.Start) {
-	c.startRequest = startRequest
-	c.environment.StoreEnvironmentVariablesFromInit(
-		startRequest.CustomerEnvironmentVariables,
-		startRequest.Handler,
-		startRequest.AwsKey,
-		startRequest.AwsSecret,
-		startRequest.AwsSession,
-		startRequest.FunctionName,
-		startRequest.FunctionVersion)
+func (c *rapidContext) acceptInitRequest(initRequest *interop.Init) *interop.Init {
+	initRequest.EnvironmentVariables.StoreEnvironmentVariablesFromInit(
+		initRequest.CustomerEnvironmentVariables,
+		initRequest.Handler,
+		initRequest.AwsKey,
+		initRequest.AwsSecret,
+		initRequest.AwsSession,
+		initRequest.FunctionName,
+		initRequest.FunctionVersion)
 	c.registrationService.SetFunctionMetadata(core.FunctionMetadata{
-		FunctionName:    startRequest.FunctionName,
-		FunctionVersion: startRequest.FunctionVersion,
-		Handler:         startRequest.Handler,
+		FunctionName:    initRequest.FunctionName,
+		FunctionVersion: initRequest.FunctionVersion,
+		Handler:         initRequest.Handler,
+		RuntimeInfo:     initRequest.RuntimeInfo,
 	})
 
 	if extensionsDisabledByLayer() {
 		extensions.Disable()
 	}
+
+	return initRequest
 }
 
-func (c *rapidContext) acceptStartRequestForInitCaching(startRequest *interop.Start) error {
+func (c *rapidContext) acceptInitRequestForInitCaching(initRequest *interop.Init) (*interop.Init, error) {
 	log.Info("Configure environment for Init Caching.")
-	c.startRequest = startRequest
 	randomUUID, err := uuid.NewRandom()
 
 	if err != nil {
-		return err
+		return initRequest, err
 	}
 
 	initCachingToken := randomUUID.String()
 
-	c.environment.StoreEnvironmentVariablesFromInitForInitCaching(
-		RuntimeAPIHost,
-		RuntimeAPIPort,
-		startRequest.CustomerEnvironmentVariables,
-		startRequest.Handler,
-		startRequest.FunctionName,
-		startRequest.FunctionVersion,
+	initRequest.EnvironmentVariables.StoreEnvironmentVariablesFromInitForInitCaching(
+		c.server.Host(),
+		c.server.Port(),
+		initRequest.CustomerEnvironmentVariables,
+		initRequest.Handler,
+		initRequest.FunctionName,
+		initRequest.FunctionVersion,
 		initCachingToken)
 
 	c.registrationService.SetFunctionMetadata(core.FunctionMetadata{
-		FunctionName:    startRequest.FunctionName,
-		FunctionVersion: startRequest.FunctionVersion,
-		Handler:         startRequest.Handler,
+		FunctionName:    initRequest.FunctionName,
+		FunctionVersion: initRequest.FunctionVersion,
+		Handler:         initRequest.Handler,
 	})
 
-	c.credentialsService.SetCredentials(initCachingToken, startRequest.AwsKey, startRequest.AwsSecret, startRequest.AwsSession)
+	c.credentialsService.SetCredentials(initCachingToken, initRequest.AwsKey, initRequest.AwsSecret, initRequest.AwsSession, initRequest.CredentialsExpiry)
 
 	if extensionsDisabledByLayer() {
 		extensions.Disable()
 	}
 
-	return nil
+	return initRequest, nil
 }
 
-func handleStart(ctx context.Context, execCtx *rapidContext, watchdog *core.Watchdog, startRequest *interop.Start) {
+func handleInit(execCtx *rapidContext, initRequest *interop.Init,
+	initStartedResponse chan<- interop.InitStarted,
+	initSuccessResponse chan<- interop.InitSuccess,
+	initFailureResponse chan<- interop.InitFailure) {
+	ctx := execCtx.signalCtx
+
 	if execCtx.initCachingEnabled {
-		if err := execCtx.acceptStartRequestForInitCaching(startRequest); err != nil {
-			handleStartError(execCtx, startRequest.InvokeID, startRequest.CorrelationID, err)
+		var err error
+		if initRequest, err = execCtx.acceptInitRequestForInitCaching(initRequest); err != nil {
+			// TODO: call handleInitError only after sending the RUNNING, since
+			// Slicer will fail receiving DONEFAIL here as it is expecting RUNNING
+			handleInitError(execCtx, initRequest.InvokeID, err, initFailureResponse)
 			return
 		}
-
-		execCtx.credentialsService.UnblockService()
-		defer execCtx.credentialsService.BlockService()
 	} else {
-		execCtx.acceptStartRequest(startRequest)
+		initRequest = execCtx.acceptInitRequest(initRequest)
 	}
 
-	interopServer, appCtx := execCtx.interopServer, execCtx.appCtx
-
-	if err := interopServer.SendRunning(&interop.Running{
+	initStartedMsg := interop.InitStarted{
 		PreLoadTimeNs:     execCtx.preLoadTimeNs,
 		PostLoadTimeNs:    execCtx.postLoadTimeNs,
 		WaitStartTimeNs:   execCtx.postLoadTimeNs,
 		WaitEndTimeNs:     metering.Monotime(),
 		ExtensionsEnabled: extensions.AreEnabled(),
-	}); err != nil {
-		log.Panic(err)
+		Ack:               make(chan struct{}),
 	}
 
-	if !startRequest.SuppressInit {
-		if err := doInit(ctx, execCtx, watchdog); err != nil {
-			handleStartError(execCtx, startRequest.InvokeID, startRequest.CorrelationID, err)
+	initStartedResponse <- initStartedMsg
+	<-initStartedMsg.Ack
+
+	// Operator domain init happens only once, it's never suppressed,
+	// and it's terminal in case of failures
+	if err := doOperatorDomainInit(ctx, execCtx, initRequest.OperatorDomainExtraConfig); err != nil {
+		// TODO: I believe we need to handle this specially, because we want
+		// to consider any failure here as terminal
+		handleInitError(execCtx, initRequest.InvokeID, err, initFailureResponse)
+		return
+	}
+
+	if !initRequest.SuppressInit {
+		// doRuntimeDomainInit() is used in both init/invoke, so the signature requires sbInfo arg
+		sbInfo := interop.SandboxInfoFromInit{
+			EnvironmentVariables: initRequest.EnvironmentVariables,
+			SandboxType:          initRequest.SandboxType,
+			RuntimeBootstrap:     initRequest.Bootstrap,
+		}
+		if err := doRuntimeDomainInit(ctx, execCtx, sbInfo); err != nil {
+			handleInitError(execCtx, initRequest.InvokeID, err, initFailureResponse)
 			return
 		}
 	}
 
-	doneMsg := &interop.Done{
-		CorrelationID: startRequest.CorrelationID,
-		Meta: interop.DoneMetadata{
-			RuntimeRelease:      appctx.GetRuntimeRelease(appCtx),
-			NumActiveExtensions: execCtx.registrationService.CountAgents(),
-			ExtensionNames:      execCtx.GetExtensionNames(),
-		},
-	}
-	if execCtx.telemetryAPIEnabled {
-		doneMsg.Meta.LogsAPIMetrics = execCtx.logsSubscriptionAPI.FlushMetrics()
-	}
-	if err := interopServer.SendDone(doneMsg); err != nil {
-		log.Panic(err)
-	}
-
-	if err := interopServer.StartAcceptingDirectInvokes(); err != nil {
-		log.Panic(err)
-	}
-}
-
-func handleStartError(execCtx *rapidContext, invokeID string, correlationID string, err error) {
-	log.WithError(err).WithField("InvokeID", invokeID).Error("Init failed")
-	doneFailMsg := generateDoneFail(execCtx, correlationID, nil, 0)
-	handleInitError(doneFailMsg, execCtx, invokeID, execCtx.interopServer, err)
-}
-
-func generateDoneFail(execCtx *rapidContext, correlationID string, invokeMx *invokeMetrics, invokeReceivedTime int64) *interop.DoneFail {
-	errorType, found := appctx.LoadFirstFatalError(execCtx.appCtx)
-	if !found {
-		errorType = fatalerror.Unknown
-	}
-
-	doneFailMsg := &interop.DoneFail{
-		ErrorType:     errorType,
-		CorrelationID: correlationID, // required for standalone mode
-		Meta: interop.DoneMetadata{
-			RuntimeRelease:      appctx.GetRuntimeRelease(execCtx.appCtx),
-			NumActiveExtensions: execCtx.registrationService.CountAgents(),
-			InvokeReceivedTime:  invokeReceivedTime,
-		},
-	}
-
-	if invokeMx != nil {
-		doneFailMsg.Meta.InvokeRequestReadTimeNs = invokeMx.rendererMetrics.ReadTime.Nanoseconds()
-		doneFailMsg.Meta.InvokeRequestSizeBytes = int64(invokeMx.rendererMetrics.SizeBytes)
-		doneFailMsg.Meta.RuntimeReadyTime = int64(invokeMx.runtimeReadyTime)
-		doneFailMsg.Meta.ExtensionNames = execCtx.GetExtensionNames()
+	initSuccessMsg := interop.InitSuccess{
+		RuntimeRelease:      appctx.GetRuntimeRelease(execCtx.appCtx),
+		NumActiveExtensions: execCtx.registrationService.CountAgents(),
+		ExtensionNames:      execCtx.GetExtensionNames(),
+		Ack:                 make(chan struct{}),
 	}
 
 	if execCtx.telemetryAPIEnabled {
-		doneFailMsg.Meta.LogsAPIMetrics = execCtx.logsSubscriptionAPI.FlushMetrics()
+		initSuccessMsg.LogsAPIMetrics = interop.MergeSubscriptionMetrics(execCtx.logsSubscriptionAPI.FlushMetrics(), execCtx.telemetrySubscriptionAPI.FlushMetrics())
 	}
 
-	return doneFailMsg
+	initSuccessResponse <- initSuccessMsg
+	<-initSuccessMsg.Ack
 }
 
-func handleInvoke(ctx context.Context, execCtx *rapidContext, watchdog *core.Watchdog, invokeRequest *interop.Invoke) {
-	interopServer, appCtx := execCtx.interopServer, execCtx.appCtx
-
+func handleInvoke(execCtx *rapidContext, invokeRequest *interop.Invoke, sbInfoFromInit interop.SandboxInfoFromInit) (interop.InvokeSuccess, *interop.InvokeFailure) {
+	ctx := execCtx.signalCtx
 	invokeMx := invokeMetrics{}
 
-	if invokeRequest.ResyncState.IsResyncReceived {
-		err := execCtx.credentialsService.UpdateCredentials(invokeRequest.ResyncState.AwsKey, invokeRequest.ResyncState.AwsSecret, invokeRequest.ResyncState.AwsSession)
-		execCtx.credentialsService.UnblockService()
-
-		if err != nil {
-			log.WithError(err).WithField("InvokeID", invokeRequest.ID).Error("Resync for Invoke failed")
-			doneFailMsg := generateDoneFail(execCtx, invokeRequest.CorrelationID, &invokeMx, invokeRequest.InvokeReceivedTime)
-			handleInvokeError(doneFailMsg, execCtx, invokeRequest.ID, interopServer, err)
-		}
-	}
-
-	if err := doInvoke(ctx, execCtx, watchdog, invokeRequest, &invokeMx); err != nil {
+	if err := doInvoke(ctx, execCtx, invokeRequest, &invokeMx, sbInfoFromInit); err != nil {
 		log.WithError(err).WithField("InvokeID", invokeRequest.ID).Error("Invoke failed")
-		doneFailMsg := generateDoneFail(execCtx, invokeRequest.CorrelationID, &invokeMx, invokeRequest.InvokeReceivedTime)
-		handleInvokeError(doneFailMsg, execCtx, invokeRequest.ID, interopServer, err)
-		return
-	}
+		invokeFailure := handleInvokeError(execCtx, invokeRequest, &invokeMx, err)
 
-	if err := execCtx.interopServer.CommitResponse(); err != nil {
-		log.Panic(err)
+		if invokeRequest.InvokeResponseMetrics != nil && interop.IsResponseStreamingMetrics(invokeRequest.InvokeResponseMetrics) {
+			invokeFailure.ResponseMetrics = interop.ResponseMetrics{
+				RuntimeTimeThrottledMs:       invokeRequest.InvokeResponseMetrics.TimeShapedNs / int64(time.Millisecond),
+				RuntimeProducedBytes:         invokeRequest.InvokeResponseMetrics.ProducedBytes,
+				RuntimeOutboundThroughputBps: invokeRequest.InvokeResponseMetrics.OutboundThroughputBps,
+			}
+		}
+		return interop.InvokeSuccess{}, invokeFailure
 	}
 
 	var invokeCompletionTimeNs int64
@@ -542,30 +672,35 @@ func handleInvoke(ctx context.Context, execCtx *rapidContext, watchdog *core.Wat
 		invokeCompletionTimeNs = time.Now().UnixNano() - responseTimeNs
 	}
 
-	doneMsg := &interop.Done{
-		CorrelationID: invokeRequest.CorrelationID,
-		Meta: interop.DoneMetadata{
-			RuntimeRelease:          appctx.GetRuntimeRelease(appCtx),
-			NumActiveExtensions:     execCtx.registrationService.CountAgents(),
-			ExtensionNames:          execCtx.GetExtensionNames(),
+	invokeSuccessMsg := interop.InvokeSuccess{
+		RuntimeRelease:      appctx.GetRuntimeRelease(execCtx.appCtx),
+		NumActiveExtensions: execCtx.registrationService.CountAgents(),
+		ExtensionNames:      execCtx.GetExtensionNames(),
+		InvokeMetrics: interop.InvokeMetrics{
 			InvokeRequestReadTimeNs: invokeMx.rendererMetrics.ReadTime.Nanoseconds(),
 			InvokeRequestSizeBytes:  int64(invokeMx.rendererMetrics.SizeBytes),
-			InvokeCompletionTimeNs:  invokeCompletionTimeNs,
-			InvokeReceivedTime:      invokeRequest.InvokeReceivedTime,
 			RuntimeReadyTime:        invokeMx.runtimeReadyTime,
 		},
-	}
-	if execCtx.telemetryAPIEnabled {
-		doneMsg.Meta.LogsAPIMetrics = execCtx.logsSubscriptionAPI.FlushMetrics()
+		InvokeCompletionTimeNs: invokeCompletionTimeNs,
+		InvokeReceivedTime:     invokeRequest.InvokeReceivedTime,
 	}
 
-	if err := interopServer.SendDone(doneMsg); err != nil {
-		log.Panic(err)
+	if invokeRequest.InvokeResponseMetrics != nil && interop.IsResponseStreamingMetrics(invokeRequest.InvokeResponseMetrics) {
+		invokeSuccessMsg.ResponseMetrics = interop.ResponseMetrics{
+			RuntimeTimeThrottledMs:       invokeRequest.InvokeResponseMetrics.TimeShapedNs / int64(time.Millisecond),
+			RuntimeProducedBytes:         invokeRequest.InvokeResponseMetrics.ProducedBytes,
+			RuntimeOutboundThroughputBps: invokeRequest.InvokeResponseMetrics.OutboundThroughputBps,
+		}
 	}
+
+	if execCtx.telemetryAPIEnabled {
+		invokeSuccessMsg.LogsAPIMetrics = interop.MergeSubscriptionMetrics(execCtx.logsSubscriptionAPI.FlushMetrics(), execCtx.telemetrySubscriptionAPI.FlushMetrics())
+	}
+
+	return invokeSuccessMsg, nil
 }
 
-func reinitialize(execCtx *rapidContext, watchdog *core.Watchdog) {
-	execCtx.interopServer.Clear()
+func reinitialize(execCtx *rapidContext) {
 	execCtx.appCtx.Delete(appctx.AppCtxInvokeErrorResponseKey)
 	execCtx.appCtx.Delete(appctx.AppCtxRuntimeReleaseKey)
 	execCtx.appCtx.Delete(appctx.AppCtxFirstFatalErrorKey)
@@ -576,90 +711,125 @@ func reinitialize(execCtx *rapidContext, watchdog *core.Watchdog) {
 	execCtx.invokeFlow.Clear()
 	if execCtx.telemetryAPIEnabled {
 		execCtx.logsSubscriptionAPI.Clear()
+		execCtx.telemetrySubscriptionAPI.Clear()
 	}
-	watchdog.Clear()
-}
-
-func blockForever() {
-	select {}
 }
 
 // handle notification of reset
-func handleReset(execCtx *rapidContext, watchdog *core.Watchdog, reset *interop.Reset) {
-	log.Warnf("Reset initiated: %s", reset.Reason)
-	if execCtx.initCachingEnabled {
-		execCtx.credentialsService.UnblockService()
-	}
+func handleReset(execCtx *rapidContext, resetEvent *interop.Reset, invokeReceivedTime int64, invokeResponseMetrics *interop.InvokeResponseMetrics) (interop.ResetSuccess, *interop.ResetFailure) {
+	log.Warnf("Reset initiated: %s", resetEvent.Reason)
 
-	if err := execCtx.eventsAPI.SendRuntimeDone(reset.Reason); err != nil {
-		log.Errorf("Failed to send RUNDONE: %s", err)
-	}
-
-	profiler := metering.ExtensionsResetDurationProfiler{}
-	gracefulShutdown(execCtx, watchdog, &profiler, reset.DeadlineNs, execCtx.standaloneMode, reset.Reason)
-
-	extensionsResetMs, resetTimeout := profiler.CalculateExtensionsResetMs()
-
-	meta := interop.DoneMetadata{
-		ExtensionsResetMs: extensionsResetMs,
-	}
-
-	if !execCtx.standaloneMode {
-		// GIRP interopServer implementation sends GIRP RSTFAIL/RSTDONE
-		if resetTimeout {
-			// TODO: DoneFail must contain a reset timeout ErrorType for rapid local to distinguish errors
-			doneFail := &interop.DoneFail{CorrelationID: reset.CorrelationID, Meta: meta}
-			if err := execCtx.interopServer.SendDoneFail(doneFail); err != nil {
-				log.Panicf("Failed to SendDoneFail: %s", err)
-			}
-		} else {
-			done := &interop.Done{CorrelationID: reset.CorrelationID, Meta: meta}
-			if err := execCtx.interopServer.SendDone(done); err != nil {
-				log.Panicf("Failed to SendDone: %s", err)
-			}
+	// Only send RuntimeDone event if we get a reset during an Invoke
+	if resetEvent.Reason == "failure" || resetEvent.Reason == "timeout" {
+		runtimeDoneEventData := telemetry.InvokeRuntimeDoneData{
+			Status:          resetEvent.Reason,
+			InternalMetrics: invokeResponseMetrics,
+			Metrics:         telemetry.GetRuntimeDoneInvokeMetrics(invokeReceivedTime, invokeResponseMetrics, metering.Monotime()),
+			Tracing:         telemetry.BuildTracingCtx(model.XRayTracingType, resetEvent.TraceID, resetEvent.LambdaSegmentID),
+			Spans:           telemetry.GetRuntimeDoneSpans(invokeReceivedTime, invokeResponseMetrics),
 		}
-
-		os.Exit(0)
+		if err := execCtx.eventsAPI.SendRuntimeDone(runtimeDoneEventData); err != nil {
+			log.Errorf("Failed to send RUNDONE: %s", err)
+		}
 	}
 
-	reinitialize(execCtx, watchdog)
+	extensionsResetMs, resetTimeout, _ := execCtx.shutdownContext.shutdown(execCtx, resetEvent.DeadlineNs, resetEvent.Reason)
 
-	fatalErrorType, _ := appctx.LoadFirstFatalError(execCtx.appCtx)
+	log.Info("Starting runtime domain")
+	err := execCtx.supervisor.Start(&supvmodel.StartRequest{
+		Domain: RuntimeDomain,
+	})
+	if err != nil {
+		log.WithError(err).Panic("Failed booting runtime domain")
+	}
+	execCtx.runtimeDomainGeneration++
+
+	// Only used by standalone for more indepth assertions.
+	var fatalErrorType fatalerror.ErrorType
+
+	if execCtx.standaloneMode {
+		fatalErrorType, _ = appctx.LoadFirstFatalError(execCtx.appCtx)
+	}
+
+	var responseMetrics interop.ResponseMetrics
+	if resetEvent.InvokeResponseMetrics != nil && interop.IsResponseStreamingMetrics(resetEvent.InvokeResponseMetrics) {
+		responseMetrics.RuntimeTimeThrottledMs = resetEvent.InvokeResponseMetrics.TimeShapedNs / int64(time.Millisecond)
+		responseMetrics.RuntimeProducedBytes = resetEvent.InvokeResponseMetrics.ProducedBytes
+		responseMetrics.RuntimeOutboundThroughputBps = resetEvent.InvokeResponseMetrics.OutboundThroughputBps
+	}
 
 	if resetTimeout {
-		doneFail := &interop.DoneFail{CorrelationID: reset.CorrelationID, ErrorType: fatalErrorType, Meta: meta}
-		if err := execCtx.interopServer.SendDoneFail(doneFail); err != nil {
-			log.Panicf("Failed to SendDoneFail: %s", err)
-		}
-	} else {
-		done := &interop.Done{CorrelationID: reset.CorrelationID, ErrorType: fatalErrorType, Meta: meta}
-		if err := execCtx.interopServer.SendDone(done); err != nil {
-			log.Panicf("Failed to SendDone: %s", err)
+		return interop.ResetSuccess{}, &interop.ResetFailure{
+			ExtensionsResetMs: extensionsResetMs,
+			ErrorType:         fatalErrorType,
+			ResponseMetrics:   responseMetrics,
 		}
 	}
+
+	return interop.ResetSuccess{
+		ExtensionsResetMs: extensionsResetMs,
+		ErrorType:         fatalErrorType,
+		ResponseMetrics:   responseMetrics,
+	}, nil
 }
 
 // handle notification of shutdown
-func handleShutdown(execCtx *rapidContext, watchdog *core.Watchdog, shutdown *interop.Shutdown, reason string) {
-	log.Warnf("Shutdown initiated")
+func handleShutdown(execCtx *rapidContext, shutdownEvent *interop.Shutdown, reason string) interop.ShutdownSuccess {
+	log.Warnf("Shutdown initiated: %s", reason)
+	// TODO Handle shutdown error
+	_, _, _ = execCtx.shutdownContext.shutdown(execCtx, shutdownEvent.DeadlineNs, reason)
 
-	gracefulShutdown(execCtx, watchdog, &metering.ExtensionsResetDurationProfiler{}, shutdown.DeadlineNs, true, reason)
+	// Only used by standalone for more indepth assertions.
+	var fatalErrorType fatalerror.ErrorType
 
-	fatalErrorType, _ := appctx.LoadFirstFatalError(execCtx.appCtx)
-
-	if err := execCtx.interopServer.SendDone(&interop.Done{CorrelationID: shutdown.CorrelationID, ErrorType: fatalErrorType}); err != nil {
-		log.Panicf("Failed to SendDone: %s", err)
+	if execCtx.standaloneMode {
+		fatalErrorType, _ = appctx.LoadFirstFatalError(execCtx.appCtx)
 	}
 
-	// Shutdown induces a terminal state and no further messages will be processed
-	blockForever()
+	return interop.ShutdownSuccess{ErrorType: fatalErrorType}
+}
+
+func handleRestore(execCtx *rapidContext, restore *interop.Restore) error {
+	err := execCtx.credentialsService.UpdateCredentials(restore.AwsKey, restore.AwsSecret, restore.AwsSession, restore.CredentialsExpiry)
+	restoreStatus := telemetry.RuntimeDoneSuccess
+
+	defer func() {
+		sendRestoreRuntimeDoneLogEvent(execCtx, restoreStatus)
+	}()
+
+	if err != nil {
+		return fmt.Errorf("error when updating credentials: %s", err)
+	}
+	renderer := rendering.NewRestoreRenderer()
+	execCtx.renderingService.SetRenderer(renderer)
+
+	registrationService := execCtx.registrationService
+	runtime := registrationService.GetRuntime()
+
+	// If runtime has not called /restore/next then just return
+	// instead of releasing the Runtime since there is no need to release.
+	// Then the runtime should be released only during Invoke
+	if runtime.GetState() != runtime.RuntimeRestoreReadyState {
+		restoreStatus = telemetry.RuntimeDoneSuccess
+		log.Infof("Runtime is in state: %s just returning", runtime.GetState().Name())
+		return nil
+	}
+
+	runtime.Release()
+
+	initFlow := execCtx.initFlow
+	err = initFlow.AwaitRuntimeReady()
+
+	if err != nil {
+		restoreStatus = telemetry.RuntimeDoneFailure
+	} else {
+		restoreStatus = telemetry.RuntimeDoneSuccess
+	}
+
+	return err
 }
 
 func start(signalCtx context.Context, execCtx *rapidContext) {
-	watchdog := core.NewWatchdog(execCtx.registrationService.InitFlow(), execCtx.invokeFlow, execCtx.exitPidChan, execCtx.appCtx)
-
-	interopServer := execCtx.interopServer
-
 	// Start Runtime API Server
 	err := execCtx.server.Listen()
 	if err != nil {
@@ -670,30 +840,40 @@ func start(signalCtx context.Context, execCtx *rapidContext) {
 
 	// Note, most of initialization code should run before blocking to receive START,
 	// code before START runs in parallel with code downloads.
+}
 
-	go func() {
-		for {
-			reset := <-interopServer.ResetChan()
-			// In the event of a Reset during init/invoke, CancelFlows cancels execution
-			// flows and return with the errResetReceived err - this error is special-cased
-			// and not handled by the init/invoke (unexpected) error handling functions
-			watchdog.CancelFlows(errResetReceived)
-			execCtx.resetChan <- reset
-		}
-	}()
+func sendRestoreRuntimeDoneLogEvent(execCtx *rapidContext, status string) {
+	if err := execCtx.eventsAPI.SendRestoreRuntimeDone(status); err != nil {
+		log.Errorf("Failed to send RESTRD: %s", err)
+	}
+}
 
-	for {
-		select {
-		case start := <-interopServer.StartChan():
-			handleStart(signalCtx, execCtx, watchdog, start)
-		case invoke := <-interopServer.InvokeChan():
-			handleInvoke(signalCtx, execCtx, watchdog, invoke)
-		case err := <-interopServer.TransportErrorChan():
-			log.Panicf("Transport error emitted by interop server: %s", err)
-		case reset := <-execCtx.resetChan:
-			handleReset(execCtx, watchdog, reset)
-		case shutdown := <-interopServer.ShutdownChan(): // only in standalone mode
-			handleShutdown(execCtx, watchdog, shutdown, standaloneShutdownReason)
+func sendInitRuntimeDoneLogEvent(execCtx *rapidContext, sandboxType interop.SandboxType, status string) {
+	initSource := interop.InferTelemetryInitSource(execCtx.initCachingEnabled, sandboxType)
+
+	runtimeDoneData := &telemetry.InitRuntimeDoneData{
+		InitSource: initSource,
+		Status:     status,
+	}
+
+	if err := execCtx.eventsAPI.SendInitRuntimeDone(runtimeDoneData); err != nil {
+		log.Errorf("Failed to send INITRD: %s", err)
+	}
+}
+
+// This function will log a line if AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, or AWS_SESSION_TOKEN is missing
+// This is expected to happen in cases when credentials provider is not needed
+func checkCredentials(execCtx *rapidContext, bootstrapEnv map[string]string) {
+	credentialsKeys := []string{"AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN"}
+	missingCreds := []string{}
+
+	for _, credEnvVar := range credentialsKeys {
+		if val, keyExists := bootstrapEnv[credEnvVar]; !keyExists || val == "" {
+			missingCreds = append(missingCreds, credEnvVar)
 		}
+	}
+
+	if len(missingCreds) > 0 {
+		log.Infof("Starting runtime without %s , Expected?: %t", strings.Join(missingCreds[:], ", "), execCtx.initCachingEnabled)
 	}
 }

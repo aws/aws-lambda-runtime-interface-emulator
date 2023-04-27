@@ -8,16 +8,17 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"go.amzn.com/lambda/interop"
+	"go.amzn.com/lambda/metering"
 	"go.amzn.com/lambda/rapidcore"
 )
 
-func Execute(w http.ResponseWriter, r *http.Request, sandbox rapidcore.Sandbox) {
+func Execute(w http.ResponseWriter, r *http.Request, sandbox rapidcore.LambdaInvokeAPI) {
 
 	invokePayload := &interop.Invoke{
-		TraceID:         r.Header.Get("X-Amzn-Trace-Id"),
-		LambdaSegmentID: r.Header.Get("X-Amzn-Segment-Id"),
-		Payload:         r.Body,
-		CorrelationID:   "invokeCorrelationID",
+		TraceID:            r.Header.Get("X-Amzn-Trace-Id"),
+		LambdaSegmentID:    r.Header.Get("X-Amzn-Segment-Id"),
+		Payload:            r.Body,
+		InvokeReceivedTime: metering.Monotime(),
 	}
 
 	// If we write to 'w' directly and waitUntilRelease fails, we won't be able to propagate error anymore
@@ -38,17 +39,17 @@ func Execute(w http.ResponseWriter, r *http.Request, sandbox rapidcore.Sandbox) 
 
 		case rapidcore.ErrInvokeResponseAlreadyWritten:
 			return
-		case rapidcore.ErrInvokeTimeout:
+		case rapidcore.ErrInvokeTimeout, rapidcore.ErrInitResetReceived:
 			w.WriteHeader(http.StatusGatewayTimeout)
 
 		// DONE failures:
-		case rapidcore.ErrTerminated, rapidcore.ErrInitDoneFailed, rapidcore.ErrInvokeDoneFailed:
+		case rapidcore.ErrInvokeDoneFailed:
 			copyHeaders(invokeResp, w)
 			w.WriteHeader(DoneFailedHTTPCode)
 			w.Write(invokeResp.Body)
 			return
 		// Reservation canceled errors
-		case rapidcore.ErrReserveReservationDone, rapidcore.ErrInvokeReservationDone, rapidcore.ErrReleaseReservationDone:
+		case rapidcore.ErrReserveReservationDone, rapidcore.ErrInvokeReservationDone, rapidcore.ErrReleaseReservationDone, rapidcore.ErrInitNotStarted:
 			w.WriteHeader(http.StatusGatewayTimeout)
 		}
 

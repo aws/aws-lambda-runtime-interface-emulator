@@ -5,11 +5,12 @@ package handler
 
 import (
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"net/http"
 
 	"go.amzn.com/lambda/appctx"
 	"go.amzn.com/lambda/interop"
+	"go.amzn.com/lambda/telemetry"
 
 	"go.amzn.com/lambda/core"
 	"go.amzn.com/lambda/rapi/rendering"
@@ -19,6 +20,7 @@ import (
 
 type initErrorHandler struct {
 	registrationService core.RegistrationService
+	eventsAPI           telemetry.EventsAPI
 }
 
 func (h *initErrorHandler) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
@@ -30,6 +32,10 @@ func (h *initErrorHandler) ServeHTTP(writer http.ResponseWriter, request *http.R
 	}
 
 	runtime := h.registrationService.GetRuntime()
+
+	// the previousStateName is needed to define if the init/error is called for INIT or RESTORE
+	previousStateName := runtime.GetState().Name()
+
 	if err := runtime.InitError(); err != nil {
 		log.Warn(err)
 		rendering.RenderForbiddenWithTypeMsg(writer, request, rendering.ErrorTypeInvalidStateTransition, StateTransitionFailedForRuntimeMessageFormat,
@@ -39,9 +45,15 @@ func (h *initErrorHandler) ServeHTTP(writer http.ResponseWriter, request *http.R
 
 	errorType := request.Header.Get("Lambda-Runtime-Function-Error-Type")
 
-	errorBody, err := ioutil.ReadAll(request.Body)
+	errorBody, err := io.ReadAll(request.Body)
 	if err != nil {
 		log.WithError(err).Warn("Failed to read error body")
+	}
+
+	if previousStateName == core.RuntimeRestoringStateName {
+		h.sendRestoreRuntimeDoneLogEvent()
+	} else {
+		h.sendInitRuntimeDoneLogEvent(appCtx)
 	}
 
 	response := &interop.ErrorResponse{
@@ -50,7 +62,7 @@ func (h *initErrorHandler) ServeHTTP(writer http.ResponseWriter, request *http.R
 		ContentType: determineJSONContentType(errorBody),
 	}
 
-	if err := server.SendErrorResponse(server.GetCurrentInvokeID(), response); err != nil {
+	if err := server.SendInitErrorResponse(server.GetCurrentInvokeID(), response); err != nil {
 		rendering.RenderInteropError(writer, request, err)
 		return
 	}
@@ -62,9 +74,10 @@ func (h *initErrorHandler) ServeHTTP(writer http.ResponseWriter, request *http.R
 
 // NewInitErrorHandler returns a new instance of http handler
 // for serving /runtime/init/error.
-func NewInitErrorHandler(registrationService core.RegistrationService) http.Handler {
+func NewInitErrorHandler(registrationService core.RegistrationService, eventsAPI telemetry.EventsAPI) http.Handler {
 	return &initErrorHandler{
 		registrationService: registrationService,
+		eventsAPI:           eventsAPI,
 	}
 }
 
@@ -73,4 +86,25 @@ func determineJSONContentType(body []byte) string {
 		return "application/json"
 	}
 	return "application/octet-stream"
+}
+
+func (h *initErrorHandler) sendInitRuntimeDoneLogEvent(appCtx appctx.ApplicationContext) {
+	// ToDo: Convert this to an enum for the whole package to increase readability.
+	initCachingEnabled := appctx.LoadInitType(appCtx) == appctx.InitCaching
+
+	initSource := interop.InferTelemetryInitSource(initCachingEnabled, appctx.LoadSandboxType(appCtx))
+	runtimeDoneData := &telemetry.InitRuntimeDoneData{
+		InitSource: initSource,
+		Status:     telemetry.RuntimeDoneFailure,
+	}
+
+	if err := h.eventsAPI.SendInitRuntimeDone(runtimeDoneData); err != nil {
+		log.Errorf("Failed to send INITRD: %s", err)
+	}
+}
+
+func (h *initErrorHandler) sendRestoreRuntimeDoneLogEvent() {
+	if err := h.eventsAPI.SendRestoreRuntimeDone(telemetry.RuntimeDoneFailure); err != nil {
+		log.Errorf("Failed to send RESTRD: %s", err)
+	}
 }

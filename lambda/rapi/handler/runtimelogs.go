@@ -7,7 +7,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 
 	"go.amzn.com/lambda/core"
@@ -20,8 +20,8 @@ import (
 )
 
 type runtimeLogsHandler struct {
-	registrationService core.RegistrationService
-	logsSubscriptionAPI telemetry.LogsSubscriptionAPI
+	registrationService   core.RegistrationService
+	telemetrySubscription telemetry.SubscriptionAPI
 }
 
 func (h *runtimeLogsHandler) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
@@ -31,10 +31,10 @@ func (h *runtimeLogsHandler) ServeHTTP(writer http.ResponseWriter, request *http
 		switch err := err.(type) {
 		case *ErrAgentIdentifierUnknown:
 			rendering.RenderForbiddenWithTypeMsg(writer, request, errAgentIdentifierUnknown, "Unknown extension "+err.agentID.String())
-			h.logsSubscriptionAPI.RecordCounterMetric(logsapi.SubscribeClientErr, 1)
+			h.telemetrySubscription.RecordCounterMetric(logsapi.SubscribeClientErr, 1)
 		default:
 			rendering.RenderInternalServerError(writer, request)
-			h.logsSubscriptionAPI.RecordCounterMetric(logsapi.SubscribeServerErr, 1)
+			h.telemetrySubscription.RecordCounterMetric(logsapi.SubscribeServerErr, 1)
 		}
 		return
 	}
@@ -45,21 +45,21 @@ func (h *runtimeLogsHandler) ServeHTTP(writer http.ResponseWriter, request *http
 	if err != nil {
 		log.Error(err)
 		rendering.RenderInternalServerError(writer, request)
-		h.logsSubscriptionAPI.RecordCounterMetric(logsapi.SubscribeServerErr, 1)
+		h.telemetrySubscription.RecordCounterMetric(logsapi.SubscribeServerErr, 1)
 		return
 	}
 
-	respBody, status, headers, err := h.logsSubscriptionAPI.Subscribe(agentName, bytes.NewReader(body), request.Header)
+	respBody, status, headers, err := h.telemetrySubscription.Subscribe(agentName, bytes.NewReader(body), request.Header)
 	if err != nil {
 		log.Errorf("Telemetry API error: %s", err)
 		switch err {
 		case logsapi.ErrTelemetryServiceOff:
 			rendering.RenderForbiddenWithTypeMsg(writer, request,
-				errLogsSubscriptionClosed, "Logs API subscription is closed already")
-			h.logsSubscriptionAPI.RecordCounterMetric(logsapi.SubscribeClientErr, 1)
+				h.telemetrySubscription.GetServiceClosedErrorType(), h.telemetrySubscription.GetServiceClosedErrorMessage())
+			h.telemetrySubscription.RecordCounterMetric(logsapi.SubscribeClientErr, 1)
 		default:
 			rendering.RenderInternalServerError(writer, request)
-			h.logsSubscriptionAPI.RecordCounterMetric(logsapi.SubscribeServerErr, 1)
+			h.telemetrySubscription.RecordCounterMetric(logsapi.SubscribeServerErr, 1)
 		}
 		return
 	}
@@ -67,11 +67,11 @@ func (h *runtimeLogsHandler) ServeHTTP(writer http.ResponseWriter, request *http
 	rendering.RenderRuntimeLogsResponse(writer, respBody, status, headers)
 	switch status / 100 {
 	case 2: // 2xx
-		h.logsSubscriptionAPI.RecordCounterMetric(logsapi.SubscribeSuccess, 1)
+		h.telemetrySubscription.RecordCounterMetric(logsapi.SubscribeSuccess, 1)
 	case 4: // 4xx
-		h.logsSubscriptionAPI.RecordCounterMetric(logsapi.SubscribeClientErr, 1)
+		h.telemetrySubscription.RecordCounterMetric(logsapi.SubscribeClientErr, 1)
 	case 5: // 5xx
-		h.logsSubscriptionAPI.RecordCounterMetric(logsapi.SubscribeServerErr, 1)
+		h.telemetrySubscription.RecordCounterMetric(logsapi.SubscribeServerErr, 1)
 	}
 }
 
@@ -114,7 +114,7 @@ func (h *runtimeLogsHandler) getAgentName(agentID uuid.UUID) (string, bool) {
 }
 
 func (h *runtimeLogsHandler) getBody(writer http.ResponseWriter, request *http.Request) ([]byte, error) {
-	body, err := ioutil.ReadAll(request.Body)
+	body, err := io.ReadAll(request.Body)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to read error body: %s", err)
 	}
@@ -122,11 +122,11 @@ func (h *runtimeLogsHandler) getBody(writer http.ResponseWriter, request *http.R
 	return body, nil
 }
 
-// NewRuntimeLogsHandler returns a new instance of http handler
+// NewRuntimeTelemetrySubscriptionHandler returns a new instance of http handler
 // for serving /runtime/logs
-func NewRuntimeLogsHandler(registrationService core.RegistrationService, logsSubscriptionAPI telemetry.LogsSubscriptionAPI) http.Handler {
+func NewRuntimeTelemetrySubscriptionHandler(registrationService core.RegistrationService, telemetrySubscription telemetry.SubscriptionAPI) http.Handler {
 	return &runtimeLogsHandler{
-		registrationService: registrationService,
-		logsSubscriptionAPI: logsSubscriptionAPI,
+		registrationService:   registrationService,
+		telemetrySubscription: telemetrySubscription,
 	}
 }
