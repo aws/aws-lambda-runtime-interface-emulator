@@ -14,8 +14,10 @@ import (
 	"strings"
 	"time"
 
+	"go.amzn.com/lambda/core/statejson"
 	"go.amzn.com/lambda/interop"
 	"go.amzn.com/lambda/rapidcore"
+	"go.amzn.com/lambda/rapidcore/env"
 
 	"github.com/google/uuid"
 
@@ -25,6 +27,19 @@ import (
 type Sandbox interface {
 	Init(i *interop.Init, invokeTimeoutMs int64)
 	Invoke(responseWriter http.ResponseWriter, invoke *interop.Invoke) error
+}
+
+type InteropServer interface {
+	Init(i *interop.Init, invokeTimeoutMs int64) error
+	AwaitInitialized() error
+	FastInvoke(w http.ResponseWriter, i *interop.Invoke, direct bool) error
+	Reserve(id string, traceID, lambdaSegmentID string) (*rapidcore.ReserveResponse, error)
+	Reset(reason string, timeoutMs int64) (*statejson.ResetDescription, error)
+	AwaitRelease() (*statejson.InternalStateDescription, error)
+	Shutdown(shutdown *interop.Shutdown) *statejson.InternalStateDescription
+	InternalState() (*statejson.InternalStateDescription, error)
+	CurrentToken() *interop.Token
+	Restore(restore *interop.Restore) error
 }
 
 var initDone bool
@@ -57,7 +72,7 @@ func printEndReports(invokeId string, initDuration string, memorySize string, in
 		invokeId, invokeDuration, math.Ceil(invokeDuration), memorySize, memorySize)
 }
 
-func InvokeHandler(w http.ResponseWriter, r *http.Request, sandbox Sandbox) {
+func InvokeHandler(w http.ResponseWriter, r *http.Request, sandbox Sandbox, bs interop.Bootstrap) {
 	log.Debugf("invoke: -> %s %s %v", r.Method, r.URL, r.Header)
 	bodyBytes, err := ioutil.ReadAll(r.Body)
 	if err != nil {
@@ -80,7 +95,7 @@ func InvokeHandler(w http.ResponseWriter, r *http.Request, sandbox Sandbox) {
 
 	if !initDone {
 
-		initStart, initEnd := InitHandler(sandbox, functionVersion, timeout)
+		initStart, initEnd := InitHandler(sandbox, functionVersion, timeout, bs)
 
 		// Calculate InitDuration
 		initTimeMS := math.Min(float64(initEnd.Sub(initStart).Nanoseconds()),
@@ -99,7 +114,6 @@ func InvokeHandler(w http.ResponseWriter, r *http.Request, sandbox Sandbox) {
 		TraceID:            r.Header.Get("X-Amzn-Trace-Id"),
 		LambdaSegmentID:    r.Header.Get("X-Amzn-Segment-Id"),
 		Payload:            bytes.NewReader(bodyBytes),
-		CorrelationID:      "invokeCorrelationID",
 	}
 	fmt.Println("START RequestId: " + invokePayload.ID + " Version: " + functionVersion)
 
@@ -166,7 +180,7 @@ func InvokeHandler(w http.ResponseWriter, r *http.Request, sandbox Sandbox) {
 	w.Write(invokeResp.Body)
 }
 
-func InitHandler(sandbox Sandbox, functionVersion string, timeout int64) (time.Time, time.Time) {
+func InitHandler(sandbox Sandbox, functionVersion string, timeout int64, bs interop.Bootstrap) (time.Time, time.Time) {
 	additionalFunctionEnvironmentVariables := map[string]string{}
 
 	// Add default Env Vars if they were not defined. This is a required otherwise 1p Python2.7, Python3.6, and
@@ -189,15 +203,20 @@ func InitHandler(sandbox Sandbox, functionVersion string, timeout int64) (time.T
 	// pass to rapid
 	sandbox.Init(&interop.Init{
 		Handler:           GetenvWithDefault("AWS_LAMBDA_FUNCTION_HANDLER", os.Getenv("_HANDLER")),
-		CorrelationID:     "initCorrelationID",
 		AwsKey:            os.Getenv("AWS_ACCESS_KEY_ID"),
 		AwsSecret:         os.Getenv("AWS_SECRET_ACCESS_KEY"),
 		AwsSession:        os.Getenv("AWS_SESSION_TOKEN"),
 		XRayDaemonAddress: "0.0.0.0:0", // TODO
 		FunctionName:      GetenvWithDefault("AWS_LAMBDA_FUNCTION_NAME", "test_function"),
 		FunctionVersion:   functionVersion,
-
+		RuntimeInfo: interop.RuntimeInfo{
+			ImageJSON: "{}",
+			Arn:       "",
+			Version:   ""},
 		CustomerEnvironmentVariables: additionalFunctionEnvironmentVariables,
+		SandboxType:                  interop.SandboxClassic,
+		Bootstrap:                    bs,
+		EnvironmentVariables:         env.NewEnvironment(),
 	}, timeout*1000)
 	initEnd := time.Now()
 	return initStart, initEnd

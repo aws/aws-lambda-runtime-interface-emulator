@@ -6,6 +6,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"net"
 	"os"
 	"runtime/debug"
 
@@ -21,8 +22,11 @@ const (
 )
 
 type options struct {
-	LogLevel           string `long:"log-level" default:"info" description:"log level"`
+	LogLevel           string `long:"log-level" description:"The level of AWS Lambda Runtime Interface Emulator logs to display. Can also be set by the environment variable 'LOG_LEVEL'. Defaults to the value 'info'."`
 	InitCachingEnabled bool   `long:"enable-init-caching" description:"Enable support for Init Caching"`
+	// Do not have a default value so we do not need to keep it in sync with the default value in lambda/rapidcore/sandbox_builder.go
+	RuntimeAPIAddress               string `long:"runtime-api-address" description:"The address of the AWS Lambda Runtime API to communicate with the Lambda execution environment."`
+	RuntimeInterfaceEmulatorAddress string `long:"runtime-interface-emulator-address" default:"0.0.0.0:8080" description:"The address for the AWS Lambda Runtime Interface Emulator to accept HTTP request upon."`
 }
 
 func main() {
@@ -30,11 +34,37 @@ func main() {
 	debug.SetGCPercent(33)
 
 	opts, args := getCLIArgs()
-	rapidcore.SetLogLevel(opts.LogLevel)
+
+	logLevel := "info"
+
+	// If you specify an option by using a parameter on the CLI command line, it overrides any value from either the corresponding environment variable.
+	//
+	// https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html
+	if opts.LogLevel != "" {
+		logLevel = opts.LogLevel
+	} else if envLogLevel, envLogLevelSet := os.LookupEnv("LOG_LEVEL"); envLogLevelSet {
+		logLevel = envLogLevel
+	}
+
+	rapidcore.SetLogLevel(logLevel)
+
+	if opts.RuntimeAPIAddress != "" {
+		_, _, err := net.SplitHostPort(opts.RuntimeAPIAddress)
+
+		if err != nil {
+			log.WithError(err).Fatalf("The command line value for \"--runtime-api-address\" is not a valid network address %q.", opts.RuntimeAPIAddress)
+		}
+	}
+
+	_, _, err := net.SplitHostPort(opts.RuntimeInterfaceEmulatorAddress)
+
+	if err != nil {
+		log.WithError(err).Fatalf("The command line value for \"--runtime-interface-emulator-address\" is not a valid network address %q.", opts.RuntimeInterfaceEmulatorAddress)
+	}
 
 	bootstrap, handler := getBootstrap(args, opts)
 	sandbox := rapidcore.
-		NewSandboxBuilder(bootstrap).
+		NewSandboxBuilder().
 		AddShutdownFunc(context.CancelFunc(func() { os.Exit(0) })).
 		SetExtensionsFlag(true).
 		SetInitCachingFlag(opts.InitCachingEnabled)
@@ -43,10 +73,17 @@ func main() {
 		sandbox.SetHandler(handler)
 	}
 
-	go sandbox.Create()
+	if opts.RuntimeAPIAddress != "" {
+		sandbox.SetRuntimeAPIAddress(opts.RuntimeAPIAddress)
+	}
 
-	testAPIipport := "0.0.0.0:8080"
-	startHTTPServer(testAPIipport, sandbox)
+	sandboxContext, internalStateFn := sandbox.Create()
+	// Since we have not specified a custom interop server for standalone, we can
+	// directly reference the default interop server, which is a concrete type
+	sandbox.DefaultInteropServer().SetSandboxContext(sandboxContext)
+	sandbox.DefaultInteropServer().SetInternalStateGetter(internalStateFn)
+
+	startHTTPServer(opts.RuntimeInterfaceEmulatorAddress, sandbox, bootstrap)
 }
 
 func getCLIArgs() (options, []string) {
@@ -112,5 +149,5 @@ func getBootstrap(args []string, opts options) (*rapidcore.Bootstrap, string) {
 		log.Panic("insufficient arguments: bootstrap not provided")
 	}
 
-	return rapidcore.NewBootstrapSingleCmd(bootstrapLookupCmd, currentWorkingDir), handler
+	return rapidcore.NewBootstrapSingleCmd(bootstrapLookupCmd, currentWorkingDir, ""), handler
 }

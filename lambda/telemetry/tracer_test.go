@@ -5,6 +5,8 @@ package telemetry
 
 import (
 	"testing"
+
+	"go.amzn.com/lambda/rapi/model"
 )
 
 var parserTests = []struct {
@@ -31,6 +33,50 @@ func TestParseTraceID(t *testing.T) {
 			}
 			if sampled != tt.sampledOut {
 				t.Errorf("got %q, wanted %q", sampled, tt.sampledOut)
+			}
+		})
+	}
+}
+
+func TestBuildFullTraceID(t *testing.T) {
+	specs := map[string]struct {
+		root            string
+		parent          string
+		sample          string
+		expectedTraceID string
+	}{
+		"all non-empty components, sampled": {
+			root:            "1-5b3cc918-939afd635f8891ba6a9e1df6",
+			parent:          "c88d77b0aef840e9",
+			sample:          model.XRaySampled,
+			expectedTraceID: "Root=1-5b3cc918-939afd635f8891ba6a9e1df6;Parent=c88d77b0aef840e9;Sampled=1",
+		},
+		"all non-empty components, non-sampled": {
+			root:            "1-5b3cc918-939afd635f8891ba6a9e1df6",
+			parent:          "c88d77b0aef840e9",
+			sample:          model.XRayNonSampled,
+			expectedTraceID: "Root=1-5b3cc918-939afd635f8891ba6a9e1df6;Parent=c88d77b0aef840e9;Sampled=0",
+		},
+		"root is non-empty, parent and sample are empty": {
+			root:            "1-5b3cc918-939afd635f8891ba6a9e1df6",
+			expectedTraceID: "Root=1-5b3cc918-939afd635f8891ba6a9e1df6;Sampled=0",
+		},
+		"root is empty": {
+			parent:          "c88d77b0aef840e9",
+			expectedTraceID: "",
+		},
+		"sample is empty": {
+			root:            "1-5b3cc918-939afd635f8891ba6a9e1df6",
+			parent:          "c88d77b0aef840e9",
+			expectedTraceID: "Root=1-5b3cc918-939afd635f8891ba6a9e1df6;Parent=c88d77b0aef840e9;Sampled=0",
+		},
+	}
+
+	for name, spec := range specs {
+		t.Run(name, func(t *testing.T) {
+			actual := BuildFullTraceID(spec.root, spec.parent, spec.sample)
+			if actual != spec.expectedTraceID {
+				t.Errorf("got %q, wanted %q", actual, spec.expectedTraceID)
 			}
 		})
 	}

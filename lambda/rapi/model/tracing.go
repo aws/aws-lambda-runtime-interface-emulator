@@ -3,14 +3,21 @@
 
 package model
 
+type TracingType string
+
 const (
 	// XRayTracingType represents an X-Ray Tracing object type
-	XRayTracingType = "X-Amzn-Trace-Id"
+	XRayTracingType TracingType = "X-Amzn-Trace-Id"
+)
+
+const (
+	XRaySampled    = "1"
+	XRayNonSampled = "0"
 )
 
 // Tracing object returned as part of agent Invoke event
 type Tracing struct {
-	Type string `json:"type"`
+	Type TracingType `json:"type"`
 	XRayTracing
 }
 

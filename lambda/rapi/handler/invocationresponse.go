@@ -15,7 +15,10 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-const contentTypeOverrideHeaderName = "Content-Type"
+const (
+	StreamingFunctionResponseMode = "streaming"
+	ErrInvalidResponseModeHeader  = "Runtime.InvalidResponseModeHeader"
+)
 
 type invocationResponseHandler struct {
 	registrationService core.RegistrationService
@@ -39,9 +42,23 @@ func (h *invocationResponseHandler) ServeHTTP(writer http.ResponseWriter, reques
 
 	invokeID := chi.URLParam(request, "awsrequestid")
 
-	responseContentType := request.Header.Get(contentTypeOverrideHeaderName)
+	headers := map[string]string{contentTypeHeader: request.Header.Get(contentTypeHeader)}
+	if functionResponseMode := request.Header.Get(functionResponseModeHeader); functionResponseMode != "" {
+		switch functionResponseMode {
+		case StreamingFunctionResponseMode:
+			headers[functionResponseModeHeader] = functionResponseMode
+		default:
+			errorResponse := &interop.ErrorResponse{
+				ErrorType:   ErrInvalidResponseModeHeader,
+				ContentType: request.Header.Get(contentTypeHeader),
+			}
+			_ = server.SendErrorResponse(chi.URLParam(request, "awsrequestid"), errorResponse)
+			rendering.RenderInvalidFunctionResponseMode(writer, request)
+			return
+		}
+	}
 
-	if err := server.SendResponse(invokeID, responseContentType, request.Body); err != nil {
+	if err := server.SendResponse(invokeID, headers, request.Body, request.Trailer, &interop.CancellableRequest{Request: request}); err != nil {
 		switch err := err.(type) {
 		case *interop.ErrorResponseTooLarge:
 			if server.SendErrorResponse(invokeID, err.AsInteropError()) != nil {
@@ -66,6 +83,19 @@ func (h *invocationResponseHandler) ServeHTTP(writer http.ResponseWriter, reques
 
 			rendering.RenderRequestEntityTooLarge(writer, request)
 			return
+
+		case *interop.ErrTruncatedResponse:
+			if err := runtime.ResponseSent(); err != nil {
+				log.Panic(err)
+			}
+
+			rendering.RenderTruncatedHTTPRequestError(writer, request)
+			return
+
+		case *interop.ErrInternalPlatformError:
+			rendering.RenderInternalServerError(writer, request)
+			return
+
 		default:
 			rendering.RenderInteropError(writer, request, err)
 			return

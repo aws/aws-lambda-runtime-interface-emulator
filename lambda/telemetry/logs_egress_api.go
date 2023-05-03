@@ -8,7 +8,12 @@ import (
 	"os"
 )
 
-type LogsEgressAPI interface {
+// StdLogsEgressAPI is the interface that wraps the basic methods required to setup
+// logs channels for Runtime's stdout/stderr and Extension's stdout/stderr.
+//
+// Implementation should return a Writer implementor for stdout and another for
+// stderr on success and an error on failure.
+type StdLogsEgressAPI interface {
 	GetExtensionSockets() (io.Writer, io.Writer, error)
 	GetRuntimeSockets() (io.Writer, io.Writer, error)
 }

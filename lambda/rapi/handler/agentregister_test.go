@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -41,7 +40,7 @@ func TestRenderAgentRegisterInvalidAgentName(t *testing.T) {
 	require.Equal(t, http.StatusForbidden, responseRecorder.Code)
 
 	var errorResponse model.ErrorResponse
-	respBody, _ := ioutil.ReadAll(responseRecorder.Body)
+	respBody, _ := io.ReadAll(responseRecorder.Body)
 	json.Unmarshal(respBody, &errorResponse)
 	require.Equal(t, http.StatusForbidden, responseRecorder.Code)
 	require.Equal(t, errAgentNameInvalid, errorResponse.ErrorType)
@@ -63,7 +62,7 @@ func TestRenderAgentRegisterRegistrationClosed(t *testing.T) {
 	require.Equal(t, http.StatusForbidden, responseRecorder.Code)
 
 	var errorResponse model.ErrorResponse
-	respBody, _ := ioutil.ReadAll(responseRecorder.Body)
+	respBody, _ := io.ReadAll(responseRecorder.Body)
 	json.Unmarshal(respBody, &errorResponse)
 	require.Equal(t, http.StatusForbidden, responseRecorder.Code)
 	require.Equal(t, errAgentRegistrationClosed, errorResponse.ErrorType)
@@ -88,7 +87,7 @@ func TestRenderAgentRegisterInvalidAgentState(t *testing.T) {
 	require.Equal(t, http.StatusForbidden, responseRecorder.Code)
 
 	var errorResponse model.ErrorResponse
-	respBody, _ := ioutil.ReadAll(responseRecorder.Body)
+	respBody, _ := io.ReadAll(responseRecorder.Body)
 	json.Unmarshal(respBody, &errorResponse)
 	require.Equal(t, http.StatusForbidden, responseRecorder.Code)
 	require.Equal(t, errAgentInvalidState, errorResponse.ErrorType)
@@ -311,7 +310,7 @@ func TestRenderAgentResponse(t *testing.T) {
 			require.Equal(t, http.StatusOK, responseRecorder.Code)
 
 			registerResponse := ExtensionRegisterResponseWithConfig{}
-			respBody, _ := ioutil.ReadAll(responseRecorder.Body)
+			respBody, _ := io.ReadAll(responseRecorder.Body)
 			json.Unmarshal(respBody, &registerResponse)
 			assert.Equal(t, tt.expectedRegistrationResponse.FunctionName, registerResponse.FunctionName)
 			assert.Equal(t, tt.expectedRegistrationResponse.FunctionVersion, registerResponse.FunctionVersion)

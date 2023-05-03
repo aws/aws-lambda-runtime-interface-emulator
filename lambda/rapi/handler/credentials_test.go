@@ -21,13 +21,11 @@ const InitCachingAwsKey = "sampleAwsKey"
 const InitCachingAwsSecret = "sampleAwsSecret"
 const InitCachingAwsSessionToken = "sampleAwsSessionToken"
 
-func getRequestContext(isServiceBlocked bool) (http.Handler, *http.Request, *httptest.ResponseRecorder) {
+func getRequestContext() (http.Handler, *http.Request, *httptest.ResponseRecorder) {
 	flowTest := testdata.NewFlowTest()
-	if isServiceBlocked {
-		flowTest.ConfigureForBlockedInitCaching(InitCachingToken, InitCachingAwsKey, InitCachingAwsSecret, InitCachingAwsSessionToken)
-	} else {
-		flowTest.ConfigureForInitCaching(InitCachingToken, InitCachingAwsKey, InitCachingAwsSecret, InitCachingAwsSessionToken)
-	}
+
+	flowTest.ConfigureForInitCaching(InitCachingToken, InitCachingAwsKey, InitCachingAwsSecret, InitCachingAwsSessionToken)
+
 	handler := NewCredentialsHandler(flowTest.CredentialsService)
 	responseRecorder := httptest.NewRecorder()
 	appCtx := flowTest.AppCtx
@@ -38,14 +36,14 @@ func getRequestContext(isServiceBlocked bool) (http.Handler, *http.Request, *htt
 }
 
 func TestEmptyAuthorizationHeader(t *testing.T) {
-	handler, request, responseRecorder := getRequestContext(false)
+	handler, request, responseRecorder := getRequestContext()
 
 	handler.ServeHTTP(responseRecorder, request)
 	assert.Equal(t, http.StatusNotFound, responseRecorder.Code)
 }
 
 func TestArbitraryAuthorizationHeader(t *testing.T) {
-	handler, request, responseRecorder := getRequestContext(false)
+	handler, request, responseRecorder := getRequestContext()
 	request.Header.Set("Authorization", "randomAuthToken")
 
 	handler.ServeHTTP(responseRecorder, request)
@@ -53,7 +51,7 @@ func TestArbitraryAuthorizationHeader(t *testing.T) {
 }
 
 func TestSuccessfulGet(t *testing.T) {
-	handler, request, responseRecorder := getRequestContext(false)
+	handler, request, responseRecorder := getRequestContext()
 	request.Header.Set("Authorization", InitCachingToken)
 
 	handler.ServeHTTP(responseRecorder, request)
@@ -67,25 +65,6 @@ func TestSuccessfulGet(t *testing.T) {
 	expirationTime, err := time.Parse(time.RFC3339, responseMap["Expiration"])
 	assert.NoError(t, err)
 	durationUntilExpiration := time.Until(expirationTime)
-	assert.True(t, durationUntilExpiration.Minutes() <= 16 && durationUntilExpiration.Minutes() > 15 && durationUntilExpiration.Hours() < 1)
+	assert.True(t, durationUntilExpiration.Minutes() <= 30 && durationUntilExpiration.Minutes() > 29 && durationUntilExpiration.Hours() < 1)
 	log.Println(responseRecorder.Body.String())
-}
-
-func TestBlockedGet(t *testing.T) {
-	handler, request, responseRecorder := getRequestContext(true)
-	request.Header.Set("Authorization", InitCachingToken)
-
-	timeout := time.After(1 * time.Second)
-	done := make(chan bool)
-
-	go func() {
-		handler.ServeHTTP(responseRecorder, request)
-		done <- true
-	}()
-
-	select {
-	case <-done:
-		t.Fatal("Endpoint should be blocked!")
-	case <-timeout:
-	}
 }

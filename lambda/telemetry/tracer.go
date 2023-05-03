@@ -11,6 +11,7 @@ import (
 
 	"go.amzn.com/lambda/appctx"
 	"go.amzn.com/lambda/interop"
+	"go.amzn.com/lambda/rapi/model"
 )
 
 type traceContextKey int
@@ -128,4 +129,25 @@ func ParseTraceID(fullTraceID string) (rootID, parentID, sample string) {
 		}
 	}
 	return
+}
+
+// BuildFullTraceID takes individual components of X-Ray trace header
+// and puts them together into a formatted trace header.
+// If root is empty, returns an empty string.
+func BuildFullTraceID(root, parent, sample string) string {
+	if root == "" {
+		return ""
+	}
+
+	parts := make([]string, 0, 3)
+	parts = append(parts, "Root="+root)
+	if parent != "" {
+		parts = append(parts, "Parent="+parent)
+	}
+	if sample == "" {
+		sample = model.XRayNonSampled
+	}
+	parts = append(parts, "Sampled="+sample)
+
+	return strings.Join(parts, ";")
 }

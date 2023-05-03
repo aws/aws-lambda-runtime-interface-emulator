@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"testing"
 	"time"
@@ -52,7 +51,7 @@ func TestServerReturnsSuccessfulResponse(t *testing.T) {
 	if err != nil {
 		assert.FailNowf(t, "Failed to get response", err.Error())
 	}
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		assert.FailNowf(t, "Failed to read response body", err.Error())
 	}

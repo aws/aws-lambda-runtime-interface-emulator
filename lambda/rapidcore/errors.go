@@ -5,9 +5,9 @@ package rapidcore
 
 import "errors"
 
-var ErrInitAlreadyDone = errors.New("InitAlreadyDone")
 var ErrInitDoneFailed = errors.New("InitDoneFailed")
-var ErrInitError = errors.New("InitError")
+var ErrInitNotStarted = errors.New("InitNotStarted")
+var ErrInitResetReceived = errors.New("InitResetReceived")
 
 var ErrNotReserved = errors.New("NotReserved")
 var ErrAlreadyReserved = errors.New("AlreadyReserved")
@@ -23,5 +23,3 @@ var ErrReleaseReservationDone = errors.New("ReleaseReservationDone")
 
 var ErrInternalServerError = errors.New("InternalServerError")
 var ErrInvokeTimeout = errors.New("InvokeTimeout")
-
-var ErrTerminated = errors.New("SandboxTerminated") // sent to signal a process exit

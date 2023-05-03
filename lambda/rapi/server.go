@@ -13,6 +13,7 @@ import (
 	"go.amzn.com/lambda/appctx"
 
 	"go.amzn.com/lambda/core"
+	"go.amzn.com/lambda/interop"
 	"go.amzn.com/lambda/rapi/rendering"
 	"go.amzn.com/lambda/telemetry"
 
@@ -23,6 +24,7 @@ const version20180601 = "/2018-06-01"
 const version20200101 = "/2020-01-01"
 const version20200815 = "/2020-08-15"
 const version20210423 = "/2021-04-23"
+const version20220701 = "/2022-07-01"
 
 // Server is a Runtime API server
 type Server struct {
@@ -31,6 +33,10 @@ type Server struct {
 	server   *http.Server
 	listener net.Listener
 	exit     chan error
+}
+
+func SaveConnInContext(ctx context.Context, c net.Conn) context.Context {
+	return context.WithValue(ctx, interop.HTTPConnKey, c)
 }
 
 // NewServer creates a new Runtime API Server
@@ -44,28 +50,30 @@ func NewServer(host string, port int, appCtx appctx.ApplicationContext,
 	registrationService core.RegistrationService,
 	renderingService *rendering.EventRenderingService,
 	telemetryAPIEnabled bool,
-	logsSubscriptionAPI telemetry.LogsSubscriptionAPI, initCachingEnabled bool, credentialsService core.CredentialsService) *Server {
+	logsSubscriptionAPI telemetry.SubscriptionAPI, telemetrySubscriptionAPI telemetry.SubscriptionAPI, credentialsService core.CredentialsService, eventsAPI telemetry.EventsAPI) *Server {
 
 	exitErrors := make(chan error, 1)
 
 	router := chi.NewRouter()
-	router.Mount(version20180601, NewRouter(appCtx, registrationService, renderingService))
+	router.Mount(version20180601, NewRouter(appCtx, registrationService, renderingService, eventsAPI))
 	router.Mount(version20200101, ExtensionsRouter(appCtx, registrationService, renderingService))
 
 	if telemetryAPIEnabled {
 		router.Mount(version20200815, LogsAPIRouter(registrationService, logsSubscriptionAPI))
+		router.Mount(version20220701, TelemetryAPIRouter(registrationService, telemetrySubscriptionAPI))
 	} else {
 		router.Mount(version20200815, LogsAPIStubRouter())
+		router.Mount(version20220701, TelemetryAPIStubRouter())
 	}
 
-	if initCachingEnabled {
+	if appctx.LoadInitType(appCtx) == appctx.InitCaching {
 		router.Mount(version20210423, CredentialsAPIRouter(credentialsService))
 	}
 
 	return &Server{
 		host:     host,
 		port:     port,
-		server:   &http.Server{Handler: router},
+		server:   &http.Server{Handler: router, ConnContext: SaveConnInContext},
 		listener: nil,
 		exit:     exitErrors,
 	}

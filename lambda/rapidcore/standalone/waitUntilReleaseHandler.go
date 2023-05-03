@@ -9,7 +9,7 @@ import (
 	"go.amzn.com/lambda/rapidcore"
 )
 
-func WaitUntilReleaseHandler(w http.ResponseWriter, r *http.Request, s rapidcore.InteropServer) {
+func WaitUntilReleaseHandler(w http.ResponseWriter, r *http.Request, s InteropServer) {
 	internalState, err := s.AwaitRelease()
 	if err != nil {
 		switch err {
@@ -20,7 +20,7 @@ func WaitUntilReleaseHandler(w http.ResponseWriter, r *http.Request, s rapidcore
 			// TODO use http.StatusOK
 			w.WriteHeader(http.StatusGatewayTimeout)
 			return
-		case rapidcore.ErrTerminated:
+		case rapidcore.ErrInitDoneFailed:
 			w.WriteHeader(DoneFailedHTTPCode)
 			w.Write(internalState.AsJSON())
 			return

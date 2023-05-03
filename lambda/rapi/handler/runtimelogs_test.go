@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -23,28 +22,43 @@ import (
 	"go.amzn.com/lambda/rapidcore/telemetry/logsapi"
 )
 
-type mockLogsSubscriptionAPI struct{ mock.Mock }
+type mockSubscriptionAPI struct{ mock.Mock }
 
-func (s *mockLogsSubscriptionAPI) Subscribe(agentName string, body io.Reader, headers map[string][]string) ([]byte, int, map[string][]string, error) {
+func (s *mockSubscriptionAPI) Subscribe(agentName string, body io.Reader, headers map[string][]string) ([]byte, int, map[string][]string, error) {
 	args := s.Called(agentName, body, headers)
 	return args.Get(0).([]byte), args.Int(1), args.Get(2).(map[string][]string), args.Error(3)
 }
 
-func (s *mockLogsSubscriptionAPI) RecordCounterMetric(metricName string, count int) {
+func (s *mockSubscriptionAPI) RecordCounterMetric(metricName string, count int) {
 	s.Called(metricName, count)
 }
 
-func (s *mockLogsSubscriptionAPI) FlushMetrics() interop.LogsAPIMetrics {
+func (s *mockSubscriptionAPI) FlushMetrics() interop.TelemetrySubscriptionMetrics {
 	args := s.Called()
-	return args.Get(0).(interop.LogsAPIMetrics)
+	return args.Get(0).(interop.TelemetrySubscriptionMetrics)
 }
 
-func (s *mockLogsSubscriptionAPI) Clear() {
+func (s *mockSubscriptionAPI) Clear() {
 	s.Called()
 }
 
-func (s *mockLogsSubscriptionAPI) TurnOff() {
+func (s *mockSubscriptionAPI) TurnOff() {
 	s.Called()
+}
+
+func (s *mockSubscriptionAPI) GetEndpointURL() string {
+	args := s.Called()
+	return args.Get(0).(string)
+}
+
+func (s *mockSubscriptionAPI) GetServiceClosedErrorMessage() string {
+	args := s.Called()
+	return args.Get(0).(string)
+}
+
+func (s *mockSubscriptionAPI) GetServiceClosedErrorType() string {
+	args := s.Called()
+	return args.Get(0).(string)
 }
 
 func TestSuccessfulRuntimeLogsResponseProxy(t *testing.T) {
@@ -60,11 +74,11 @@ func TestSuccessfulRuntimeLogsResponseProxy(t *testing.T) {
 	agent, err := registrationService.CreateExternalAgent(agentName)
 	assert.NoError(t, err)
 
-	logsSubscriptionAPI := &mockLogsSubscriptionAPI{}
-	logsSubscriptionAPI.On("Subscribe", agentName, bytes.NewReader(reqBody), reqHeaders).Return(respBody, respStatus, respHeaders, nil)
-	logsSubscriptionAPI.On("RecordCounterMetric", clientErrMetric, 1)
+	telemetrySubscription := &mockSubscriptionAPI{}
+	telemetrySubscription.On("Subscribe", agentName, bytes.NewReader(reqBody), reqHeaders).Return(respBody, respStatus, respHeaders, nil)
+	telemetrySubscription.On("RecordCounterMetric", clientErrMetric, 1)
 
-	handler := NewRuntimeLogsHandler(registrationService, logsSubscriptionAPI)
+	handler := NewRuntimeTelemetrySubscriptionHandler(registrationService, telemetrySubscription)
 	request := httptest.NewRequest("PUT", "/", bytes.NewBuffer(reqBody))
 	for k, vals := range reqHeaders {
 		for _, v := range vals {
@@ -77,10 +91,10 @@ func TestSuccessfulRuntimeLogsResponseProxy(t *testing.T) {
 
 	handler.ServeHTTP(responseRecorder, request)
 
-	logsSubscriptionAPI.AssertCalled(t, "Subscribe", agentName, bytes.NewReader(reqBody), reqHeaders)
-	logsSubscriptionAPI.AssertCalled(t, "RecordCounterMetric", clientErrMetric, 1)
+	telemetrySubscription.AssertCalled(t, "Subscribe", agentName, bytes.NewReader(reqBody), reqHeaders)
+	telemetrySubscription.AssertCalled(t, "RecordCounterMetric", clientErrMetric, 1)
 
-	recordedBody, err := ioutil.ReadAll(responseRecorder.Body)
+	recordedBody, err := io.ReadAll(responseRecorder.Body)
 	assert.NoError(t, err)
 
 	assert.Equal(t, respStatus, responseRecorder.Code)
@@ -98,10 +112,10 @@ func TestErrorUnregisteredAgentID(t *testing.T) {
 		core.NewInvokeFlowSynchronization(),
 	)
 
-	logsSubscriptionAPI := &mockLogsSubscriptionAPI{}
-	logsSubscriptionAPI.On("RecordCounterMetric", clientErrMetric, 1)
+	telemetrySubscription := &mockSubscriptionAPI{}
+	telemetrySubscription.On("RecordCounterMetric", clientErrMetric, 1)
 
-	handler := NewRuntimeLogsHandler(registrationService, logsSubscriptionAPI)
+	handler := NewRuntimeTelemetrySubscriptionHandler(registrationService, telemetrySubscription)
 	request := httptest.NewRequest("PUT", "/", bytes.NewBuffer(reqBody))
 	for k, vals := range reqHeaders {
 		for _, v := range vals {
@@ -114,16 +128,16 @@ func TestErrorUnregisteredAgentID(t *testing.T) {
 
 	handler.ServeHTTP(responseRecorder, request)
 
-	recordedBody, err := ioutil.ReadAll(responseRecorder.Body)
+	recordedBody, err := io.ReadAll(responseRecorder.Body)
 	assert.NoError(t, err)
 
 	expectedErrorBody := fmt.Sprintf(`{"errorMessage":"Unknown extension %s","errorType":"Extension.UnknownExtensionIdentifier"}`+"\n", invalidAgentID.String())
-	expectedHeaders := http.Header(map[string][]string{"Content-Type": []string{"application/json; charset=utf-8"}})
+	expectedHeaders := http.Header(map[string][]string{"Content-Type": []string{"application/json"}})
 
 	assert.Equal(t, http.StatusForbidden, responseRecorder.Code)
 	assert.Equal(t, expectedErrorBody, string(recordedBody))
 	assert.Equal(t, expectedHeaders, responseRecorder.Header())
-	logsSubscriptionAPI.AssertCalled(t, "RecordCounterMetric", clientErrMetric, 1)
+	telemetrySubscription.AssertCalled(t, "RecordCounterMetric", clientErrMetric, 1)
 }
 
 func TestErrorTelemetryAPICallFailure(t *testing.T) {
@@ -139,11 +153,11 @@ func TestErrorTelemetryAPICallFailure(t *testing.T) {
 	agent, err := registrationService.CreateExternalAgent(agentName)
 	assert.NoError(t, err)
 
-	logsSubscriptionAPI := &mockLogsSubscriptionAPI{}
-	logsSubscriptionAPI.On("Subscribe", agentName, bytes.NewReader(reqBody), reqHeaders).Return([]byte(``), http.StatusOK, map[string][]string{}, apiError)
-	logsSubscriptionAPI.On("RecordCounterMetric", serverErrMetric, 1)
+	telemetrySubscription := &mockSubscriptionAPI{}
+	telemetrySubscription.On("Subscribe", agentName, bytes.NewReader(reqBody), reqHeaders).Return([]byte(``), http.StatusOK, map[string][]string{}, apiError)
+	telemetrySubscription.On("RecordCounterMetric", serverErrMetric, 1)
 
-	handler := NewRuntimeLogsHandler(registrationService, logsSubscriptionAPI)
+	handler := NewRuntimeTelemetrySubscriptionHandler(registrationService, telemetrySubscription)
 	request := httptest.NewRequest("PUT", "/", bytes.NewBuffer(reqBody))
 	for k, vals := range reqHeaders {
 		for _, v := range vals {
@@ -156,16 +170,16 @@ func TestErrorTelemetryAPICallFailure(t *testing.T) {
 
 	handler.ServeHTTP(responseRecorder, request)
 
-	recordedBody, err := ioutil.ReadAll(responseRecorder.Body)
+	recordedBody, err := io.ReadAll(responseRecorder.Body)
 	assert.NoError(t, err)
 
 	expectedErrorBody := `{"errorMessage":"Internal Server Error","errorType":"InternalServerError"}` + "\n"
-	expectedHeaders := http.Header(map[string][]string{"Content-Type": []string{"application/json; charset=utf-8"}})
+	expectedHeaders := http.Header(map[string][]string{"Content-Type": []string{"application/json"}})
 
 	assert.Equal(t, http.StatusInternalServerError, responseRecorder.Code)
 	assert.Equal(t, expectedErrorBody, string(recordedBody))
 	assert.Equal(t, expectedHeaders, responseRecorder.Header())
-	logsSubscriptionAPI.AssertCalled(t, "RecordCounterMetric", serverErrMetric, 1)
+	telemetrySubscription.AssertCalled(t, "RecordCounterMetric", serverErrMetric, 1)
 }
 
 func TestRenderLogsSubscriptionClosed(t *testing.T) {
@@ -181,11 +195,13 @@ func TestRenderLogsSubscriptionClosed(t *testing.T) {
 	agent, err := registrationService.CreateExternalAgent(agentName)
 	assert.NoError(t, err)
 
-	logsSubscriptionAPI := &mockLogsSubscriptionAPI{}
-	logsSubscriptionAPI.On("Subscribe", agentName, bytes.NewReader(reqBody), reqHeaders).Return([]byte(``), http.StatusOK, map[string][]string{}, apiError)
-	logsSubscriptionAPI.On("RecordCounterMetric", clientErrMetric, 1)
+	telemetrySubscription := &mockSubscriptionAPI{}
+	telemetrySubscription.On("Subscribe", agentName, bytes.NewReader(reqBody), reqHeaders).Return([]byte(``), http.StatusOK, map[string][]string{}, apiError)
+	telemetrySubscription.On("RecordCounterMetric", clientErrMetric, 1)
+	telemetrySubscription.On("GetServiceClosedErrorMessage").Return("Logs API subscription is closed already")
+	telemetrySubscription.On("GetServiceClosedErrorType").Return("Logs.SubscriptionClosed")
 
-	handler := NewRuntimeLogsHandler(registrationService, logsSubscriptionAPI)
+	handler := NewRuntimeTelemetrySubscriptionHandler(registrationService, telemetrySubscription)
 	request := httptest.NewRequest("PUT", "/", bytes.NewBuffer(reqBody))
 	for k, vals := range reqHeaders {
 		for _, v := range vals {
@@ -198,14 +214,58 @@ func TestRenderLogsSubscriptionClosed(t *testing.T) {
 
 	handler.ServeHTTP(responseRecorder, request)
 
-	recordedBody, err := ioutil.ReadAll(responseRecorder.Body)
+	recordedBody, err := io.ReadAll(responseRecorder.Body)
 	assert.NoError(t, err)
 
 	expectedErrorBody := `{"errorMessage":"Logs API subscription is closed already","errorType":"Logs.SubscriptionClosed"}` + "\n"
-	expectedHeaders := http.Header(map[string][]string{"Content-Type": []string{"application/json; charset=utf-8"}})
+	expectedHeaders := http.Header(map[string][]string{"Content-Type": []string{"application/json"}})
 
 	assert.Equal(t, http.StatusForbidden, responseRecorder.Code)
 	assert.Equal(t, expectedErrorBody, string(recordedBody))
 	assert.Equal(t, expectedHeaders, responseRecorder.Header())
-	logsSubscriptionAPI.AssertCalled(t, "RecordCounterMetric", clientErrMetric, 1)
+	telemetrySubscription.AssertCalled(t, "RecordCounterMetric", clientErrMetric, 1)
+}
+
+func TestRenderTelemetrySubscriptionClosed(t *testing.T) {
+	agentName, reqBody, reqHeaders := "dummyName", []byte(`foobar`), map[string][]string{"Key": []string{"VAL1", "VAL2"}}
+	apiError := logsapi.ErrTelemetryServiceOff
+	clientErrMetric := logsapi.SubscribeClientErr
+
+	registrationService := core.NewRegistrationService(
+		core.NewInitFlowSynchronization(),
+		core.NewInvokeFlowSynchronization(),
+	)
+
+	agent, err := registrationService.CreateExternalAgent(agentName)
+	assert.NoError(t, err)
+
+	telemetrySubscription := &mockSubscriptionAPI{}
+	telemetrySubscription.On("Subscribe", agentName, bytes.NewReader(reqBody), reqHeaders).Return([]byte(``), http.StatusOK, map[string][]string{}, apiError)
+	telemetrySubscription.On("RecordCounterMetric", clientErrMetric, 1)
+	telemetrySubscription.On("GetServiceClosedErrorMessage").Return("Telemetry API subscription is closed already")
+	telemetrySubscription.On("GetServiceClosedErrorType").Return("Telemetry.SubscriptionClosed")
+
+	handler := NewRuntimeTelemetrySubscriptionHandler(registrationService, telemetrySubscription)
+	request := httptest.NewRequest("PUT", "/", bytes.NewBuffer(reqBody))
+	for k, vals := range reqHeaders {
+		for _, v := range vals {
+			request.Header.Add(k, v)
+		}
+	}
+
+	request = request.WithContext(context.WithValue(context.Background(), AgentIDCtxKey, agent.ID))
+	responseRecorder := httptest.NewRecorder()
+
+	handler.ServeHTTP(responseRecorder, request)
+
+	recordedBody, err := io.ReadAll(responseRecorder.Body)
+	assert.NoError(t, err)
+
+	expectedErrorBody := `{"errorMessage":"Telemetry API subscription is closed already","errorType":"Telemetry.SubscriptionClosed"}` + "\n"
+	expectedHeaders := http.Header(map[string][]string{"Content-Type": []string{"application/json"}})
+
+	assert.Equal(t, http.StatusForbidden, responseRecorder.Code)
+	assert.Equal(t, expectedErrorBody, string(recordedBody))
+	assert.Equal(t, expectedHeaders, responseRecorder.Header())
+	telemetrySubscription.AssertCalled(t, "RecordCounterMetric", clientErrMetric, 1)
 }

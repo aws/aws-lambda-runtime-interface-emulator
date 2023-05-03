@@ -7,7 +7,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -58,7 +58,7 @@ func TestAgentUniqueIdentifierHeaderValidatorForbidden(t *testing.T) {
 	responseRecorder := httptest.NewRecorder()
 	router.ServeHTTP(responseRecorder, request)
 	assert.Equal(t, http.StatusForbidden, responseRecorder.Code)
-	respBody, _ := ioutil.ReadAll(responseRecorder.Body)
+	respBody, _ := io.ReadAll(responseRecorder.Body)
 	json.Unmarshal(respBody, &errorResponse)
 	assert.Equal(t, handler.ErrAgentIdentifierMissing, errorResponse.ErrorType)
 
@@ -66,7 +66,7 @@ func TestAgentUniqueIdentifierHeaderValidatorForbidden(t *testing.T) {
 	request.Header.Set(handler.LambdaAgentIdentifier, "invalid-unique-identifier")
 	router.ServeHTTP(responseRecorder, request)
 	assert.Equal(t, http.StatusForbidden, responseRecorder.Code)
-	respBody, _ = ioutil.ReadAll(responseRecorder.Body)
+	respBody, _ = io.ReadAll(responseRecorder.Body)
 	json.Unmarshal(respBody, &errorResponse)
 	assert.Equal(t, handler.ErrAgentIdentifierInvalid, errorResponse.ErrorType)
 }

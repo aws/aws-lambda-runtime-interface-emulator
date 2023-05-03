@@ -8,16 +8,98 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"go.amzn.com/lambda/core/statejson"
 	"go.amzn.com/lambda/fatalerror"
+	"go.amzn.com/lambda/supervisor/model"
+
+	log "github.com/sirupsen/logrus"
 )
 
 // MaxPayloadSize max event body size declared as LAMBDA_EVENT_BODY_SIZE
-const MaxPayloadSize = 6*1024*1024 + 100 // 6 MiB + 100 bytes
+const (
+	MaxPayloadSize = 6*1024*1024 + 100 // 6 MiB + 100 bytes
+
+	ResponseBandwidthRate      = 2 * 1024 * 1024 // default average rate of 2 MiB/s
+	ResponseBandwidthBurstSize = 6 * 1024 * 1024 // default burst size of 6 MiB
+
+	MinResponseBandwidthRate = 32 * 1024        // 32 KiB/s
+	MaxResponseBandwidthRate = 64 * 1024 * 1024 // 64 MiB/s
+
+	MinResponseBandwidthBurstSize = 32 * 1024        // 32 KiB
+	MaxResponseBandwidthBurstSize = 64 * 1024 * 1024 // 64 MiB
+)
 
 const functionResponseSizeTooLargeType = "Function.ResponseSizeTooLarge"
+
+// ResponseMode are top-level constants used in combination with the various types of
+// modes we have for responses, such as invoke's response mode and function's response mode.
+// In the future we might have invoke's request mode or similar, so these help set the ground
+// for consistency.
+type ResponseMode string
+
+const ResponseModeBuffered = "Buffered"
+const ResponseModeStreaming = "Streaming"
+
+type InvokeResponseMode string
+
+const InvokeResponseModeBuffered InvokeResponseMode = ResponseModeBuffered
+const InvokeResponseModeStreaming InvokeResponseMode = ResponseModeStreaming
+
+var AllInvokeResponseModes = []string{
+	string(InvokeResponseModeBuffered), string(InvokeResponseModeStreaming),
+}
+
+// ConvertToInvokeResponseMode converts the given string to a InvokeResponseMode
+// It is case insensitive and if there is no match, an error is thrown.
+func ConvertToInvokeResponseMode(value string) (InvokeResponseMode, error) {
+	// buffered
+	if strings.EqualFold(value, string(InvokeResponseModeBuffered)) {
+		return InvokeResponseModeBuffered, nil
+	}
+
+	// streaming
+	if strings.EqualFold(value, string(InvokeResponseModeStreaming)) {
+		return InvokeResponseModeStreaming, nil
+	}
+
+	// unknown
+	allowedValues := strings.Join(AllInvokeResponseModes, ", ")
+	log.Errorf("Unlable to map %s to %s.", value, allowedValues)
+	return "", ErrInvalidInvokeResponseMode
+}
+
+// FunctionResponseMode is passed by Runtime to tell whether the response should be
+// streamed or not.
+type FunctionResponseMode string
+
+const FunctionResponseModeBuffered FunctionResponseMode = ResponseModeBuffered
+const FunctionResponseModeStreaming FunctionResponseMode = ResponseModeStreaming
+
+var AllFunctionResponseModes = []string{
+	string(FunctionResponseModeBuffered), string(FunctionResponseModeStreaming),
+}
+
+// ConvertToFunctionResponseMode converts the given string to a FunctionResponseMode
+// It is case insensitive and if there is no match, an error is thrown.
+func ConvertToFunctionResponseMode(value string) (FunctionResponseMode, error) {
+	// buffered
+	if strings.EqualFold(value, string(FunctionResponseModeBuffered)) {
+		return FunctionResponseModeBuffered, nil
+	}
+
+	// streaming
+	if strings.EqualFold(value, string(FunctionResponseModeStreaming)) {
+		return FunctionResponseModeStreaming, nil
+	}
+
+	// unknown
+	allowedValues := strings.Join(AllFunctionResponseModes, ", ")
+	log.Errorf("Unlable to map %s to %s.", value, allowedValues)
+	return "", ErrInvalidFunctionResponseMode
+}
 
 // Message is a generic interop message.
 type Message interface{}
@@ -37,11 +119,10 @@ type Invoke struct {
 	ContentType           string
 	Payload               io.Reader
 	NeedDebugLogs         bool
-	CorrelationID         string // internal use only
 	ReservationToken      string
 	VersionID             string
 	InvokeReceivedTime    int64
-	ResyncState           Resync
+	InvokeResponseMetrics *InvokeResponseMetrics
 }
 
 type Token struct {
@@ -54,21 +135,13 @@ type Token struct {
 	LambdaSegmentID  string
 	InvokeMetadata   string
 	NeedDebugLogs    bool
-	ResyncState      Resync
-}
-
-type Resync struct {
-	IsResyncReceived bool
-	AwsKey           string
-	AwsSecret        string
-	AwsSession       string
-	ReceivedTime     time.Time
 }
 
 type ErrorResponse struct {
 	// Payload sent via shared memory.
-	Payload     []byte `json:"Payload,omitempty"`
-	ContentType string `json:"-"`
+	Payload              []byte `json:"Payload,omitempty"`
+	ContentType          string `json:"-"`
+	FunctionResponseMode string `json:"-"`
 
 	// When error response body (Payload) is not provided, e.g.
 	// not retrievable, error type and error message will be
@@ -92,48 +165,80 @@ type SandboxType string
 const SandboxPreWarmed SandboxType = "PreWarmed"
 const SandboxClassic SandboxType = "Classic"
 
-// Start message received from the slicer, part of the protocol.
-type Start struct {
-	InvokeID          string
-	Handler           string
-	AwsKey            string
-	AwsSecret         string
-	AwsSession        string
-	SuppressInit      bool
-	XRayDaemonAddress string // only in standalone
-	FunctionName      string // only in standalone
-	FunctionVersion   string // only in standalone
-	CorrelationID     string // internal use only
-	// TODO: define new Init type that has the Start fields as well as env vars below.
-	// In standalone mode, these env vars come from test/init but from environment otherwise.
-	CustomerEnvironmentVariables map[string]string
-	SandboxType                  SandboxType
+// RuntimeInfo contains metadata about the runtime used by the Sandbox
+type RuntimeInfo struct {
+	ImageJSON string // image config, e.g {\"layers\":[]}
+	Arn       string // runtime ARN, e.g. arn:awstest:lambda:us-west-2::runtime:python3.8::alpha
+	Version   string // human-readable runtime arn equivalent, e.g. python3.8.v999
 }
 
-// Running message is sent to the slicer, part of the protocol.
-type Running struct {
-	WaitStartTimeNs   int64
-	WaitEndTimeNs     int64
-	PreLoadTimeNs     int64
-	PostLoadTimeNs    int64
-	ExtensionsEnabled bool
+// Captures configuration of the operator and runtime domain
+// that are only known after INIT is received
+type DynamicDomainConfig struct {
+	// extra hooks to execute at domain start. Currently used for filesystem and network hooks.
+	// It can be empty.
+	AdditionalStartHooks []model.Hook
+	Mounts               []model.DriveMount
+	//TODO: other dynamic configurations for the domain go here
 }
 
 // Reset message is sent to rapid to initiate reset sequence
 type Reset struct {
-	Reason        string
-	DeadlineNs    int64
-	CorrelationID string // internal use only
+	Reason                string
+	DeadlineNs            int64
+	InvokeResponseMetrics *InvokeResponseMetrics
+	TraceID               string
+	LambdaSegmentID       string
+}
+
+// Restore message is sent to rapid to restore runtime to make it ready for consecutive invokes
+type Restore struct {
+	AwsKey            string
+	AwsSecret         string
+	AwsSession        string
+	CredentialsExpiry time.Time
+}
+
+type Resync struct {
 }
 
 // Shutdown message is sent to rapid to initiate graceful shutdown
 type Shutdown struct {
-	DeadlineNs    int64
-	CorrelationID string // internal use only
+	DeadlineNs int64
 }
 
-// Metrics for response status of LogsAPI `/subscribe` calls
-type LogsAPIMetrics map[string]int
+// Metrics for response status of LogsAPI/TelemetryAPI `/subscribe` calls
+type TelemetrySubscriptionMetrics map[string]int
+
+func MergeSubscriptionMetrics(logsAPIMetrics TelemetrySubscriptionMetrics, telemetryAPIMetrics TelemetrySubscriptionMetrics) TelemetrySubscriptionMetrics {
+	metrics := make(map[string]int)
+	for metric, value := range logsAPIMetrics {
+		metrics[metric] = value
+	}
+
+	for metric, value := range telemetryAPIMetrics {
+		metrics[metric] += value
+	}
+	return metrics
+}
+
+// InvokeResponseMetrics are produced while sending streaming invoke response to WP
+type InvokeResponseMetrics struct {
+	StartReadingResponseMonoTimeMs  int64
+	FinishReadingResponseMonoTimeMs int64
+	TimeShapedNs                    int64
+	ProducedBytes                   int64
+	OutboundThroughputBps           int64 // in bytes per second
+	FunctionResponseMode            FunctionResponseMode
+	RuntimeCalledResponse           bool
+}
+
+func IsResponseStreamingMetrics(metrics *InvokeResponseMetrics) bool {
+	if metrics == nil {
+		return false
+	}
+	return metrics.FunctionResponseMode == FunctionResponseModeStreaming
+}
 
 type DoneMetadata struct {
 	NumActiveExtensions int
@@ -141,25 +246,26 @@ type DoneMetadata struct {
 	ExtensionNames      string
 	RuntimeRelease      string
 	// Metrics for response status of LogsAPI `/subscribe` calls
-	LogsAPIMetrics          LogsAPIMetrics
-	InvokeRequestReadTimeNs int64
-	InvokeRequestSizeBytes  int64
-	InvokeCompletionTimeNs  int64
-	InvokeReceivedTime      int64
-	RuntimeReadyTime        int64
+	LogsAPIMetrics               TelemetrySubscriptionMetrics
+	InvokeRequestReadTimeNs      int64
+	InvokeRequestSizeBytes       int64
+	InvokeCompletionTimeNs       int64
+	InvokeReceivedTime           int64
+	RuntimeReadyTime             int64
+	RuntimeTimeThrottledMs       int64
+	RuntimeProducedBytes         int64
+	RuntimeOutboundThroughputBps int64
 }
 
 type Done struct {
-	WaitForExit   bool
-	ErrorType     fatalerror.ErrorType
-	CorrelationID string // internal use only
-	Meta          DoneMetadata
+	WaitForExit bool
+	ErrorType   fatalerror.ErrorType
+	Meta        DoneMetadata
 }
 
 type DoneFail struct {
-	ErrorType     fatalerror.ErrorType
-	CorrelationID string // internal use only
-	Meta          DoneMetadata
+	ErrorType fatalerror.ErrorType
+	Meta      DoneMetadata
 }
 
 // ErrInvalidInvokeID is returned when invokeID provided in Invoke2 does not match one provided in Token
@@ -171,6 +277,22 @@ var ErrInvalidReservationToken = fmt.Errorf("ErrInvalidReservationToken")
 // ErrInvalidFunctionVersion is returned when functionVersion provided in Invoke2 does not match one provided in Token
 var ErrInvalidFunctionVersion = fmt.Errorf("ErrInvalidFunctionVersion")
 
+// ErrInvalidFunctionResponseMode is returned when the value sent by runtime during Invoke2
+// is not a constant of type interop.FunctionResponseMode
+var ErrInvalidFunctionResponseMode = fmt.Errorf("ErrInvalidFunctionResponseMode")
+
+// ErrInvalidInvokeResponseMode is returned when optional InvokeResponseMode header provided in Invoke2 is not a constant of type interop.InvokeResponseMode
+var ErrInvalidInvokeResponseMode = fmt.Errorf("ErrInvalidInvokeResponseMode")
+
+// ErrInvalidMaxPayloadSize is returned when optional MaxPayloadSize header provided in Invoke2 is invalid
+var ErrInvalidMaxPayloadSize = fmt.Errorf("ErrInvalidMaxPayloadSize")
+
+// ErrInvalidResponseBandwidthRate is returned when optional ResponseBandwidthRate header provided in Invoke2 is invalid
+var ErrInvalidResponseBandwidthRate = fmt.Errorf("ErrInvalidResponseBandwidthRate")
+
+// ErrInvalidResponseBandwidthBurstSize is returned when optional ResponseBandwidthBurstSize header provided in Invoke2 is invalid
+var ErrInvalidResponseBandwidthBurstSize = fmt.Errorf("ErrInvalidResponseBandwidthBurstSize")
+
 // ErrMalformedCustomerHeaders is returned when customer headers format is invalid
 var ErrMalformedCustomerHeaders = fmt.Errorf("ErrMalformedCustomerHeaders")
 
@@ -179,6 +301,20 @@ var ErrResponseSent = fmt.Errorf("ErrResponseSent")
 
 // ErrReservationExpired is returned when invoke arrived after InvackDeadline
 var ErrReservationExpired = fmt.Errorf("ErrReservationExpired")
+
+// ErrInternalPlatformError is returned when internal platform error occurred
+type ErrInternalPlatformError struct{}
+
+func (s *ErrInternalPlatformError) Error() string {
+	return "ErrInternalPlatformError"
+}
+
+// ErrTruncatedResponse is returned when response is truncated
+type ErrTruncatedResponse struct{}
+
+func (s *ErrTruncatedResponse) Error() string {
+	return "ErrTruncatedResponse"
+}
 
 // ErrorResponseTooLarge is returned when response Payload exceeds shared memory buffer size
 type ErrorResponseTooLarge struct {
@@ -211,17 +347,21 @@ func (s *ErrorResponseTooLarge) AsInteropError() *ErrorResponse {
 	return &resp
 }
 
-// Server implements Slicer communication protocol.
+// Server used for sending messages and sharing data between the Runtime API handlers and the
+// internal platform facing servers. For example,
+//
+//	responseCtx.SendResponse(...)
+//
+// will send the response payload and metadata provided by the runtime to the platform, through the internal
+// protocol used by the specific implementation
+// TODO: rename this to InvokeResponseContext, used to send responses from handlers to platform-facing server
 type Server interface {
-	// StartAcceptingDirectInvokes starts accepting on direct invoke socket (if one is available)
-	StartAcceptingDirectInvokes() error
-
-	// SendErrorResponse sends response.
+	// SendResponse sends response.
 	// Errors returned:
 	//   ErrInvalidInvokeID - validation error indicating that provided invokeID doesn't match current invokeID
 	//   ErrResponseSent    - validation error indicating that response with given invokeID was already sent
 	//   Non-nil error      - non-nil error indicating transport failure
-	SendResponse(invokeID string, contentType string, response io.Reader) error
+	SendResponse(invokeID string, headers map[string]string, response io.Reader, trailers http.Header, request *CancellableRequest) error
 
 	// SendErrorResponse sends error response.
 	// Errors returned:
@@ -229,61 +369,36 @@ type Server interface {
 	//   ErrResponseSent    - validation error indicating that response with given invokeID was already sent
 	//   Non-nil error      - non-nil error indicating transport failure
 	SendErrorResponse(invokeID string, response *ErrorResponse) error
+	SendInitErrorResponse(invokeID string, response *ErrorResponse) error
 
 	// GetCurrentInvokeID returns current invokeID.
 	// NOTE, in case of INIT, when invokeID is not known in advance (e.g. provisioned concurrency),
 	// returned invokeID will contain empty value.
 	GetCurrentInvokeID() string
 
-	// CommitMessage confirms that the message written through SendResponse and SendErrorResponse is complete.
-	CommitResponse() error
-
-	// SendRunning sends GIRD RUNNING.
-	// Returns error on transport failure.
-	SendRunning(*Running) error
-
-	// SendRuntimeReady sends GIRD RTREADY
+	// SendRuntimeReady sends a message indicating the runtime has called /invocation/next.
+	// The checkpoint allows us to compute the overhead due to Extensions by substracting it
+	// from the time when all extensions have called /next.
+	// TODO: this method is a lifecycle event used only for metrics, and doesn't belong here
 	SendRuntimeReady() error
-
-	// SendDone sends GIRD DONE.
-	// Returns error on transport failure.
-	SendDone(*Done) error
-
-	// SendDone sends GIRD DONEFAIL.
-	// Returns error on transport failure.
-	SendDoneFail(*DoneFail) error
-
-	// StartChan returns Start emitter
-	StartChan() <-chan *Start
-
-	// InvokeChan returns Invoke emitter
-	InvokeChan() <-chan *Invoke
-
-	// ResetChan returns Reset emitter
-	ResetChan() <-chan *Reset
-
-	// ShutdownChan returns Shutdown emitter
-	ShutdownChan() <-chan *Shutdown
-
-	// TransportErrorChan emits errors if there was parsing/connection issue
-	TransportErrorChan() <-chan error
-
-	// Clear is called on rapid reset. It should leave server prepared for new invocations
-	Clear()
-
-	// IsResponseSent exposes is response sent flag
-	IsResponseSent() bool
-
-	// The following are used by standalone rapid only
-	// TODO refactor to decouple the interfaces
-
-	SetInternalStateGetter(cb InternalStateGetter)
-
-	Init(i *Start, invokeTimeoutMs int64)
-
-	Invoke(responseWriter http.ResponseWriter, invoke *Invoke) error
-
-	Shutdown(shutdown *Shutdown) *statejson.InternalStateDescription
 }
 
 type InternalStateGetter func() statejson.InternalStateDescription
+
+const OnDemandInitTelemetrySource string = "on-demand"
+const ProvisionedConcurrencyInitTelemetrySource string = "provisioned-concurrency"
+const InitCachingInitTelemetrySource string = "snap-start"
+
+func InferTelemetryInitSource(initCachingEnabled bool, sandboxType SandboxType) string {
+	initSource := OnDemandInitTelemetrySource
+
+	// ToDo: Unify this selection of SandboxType by using the START message
+	// after having a roadmap on the combination of INIT modes
+	if initCachingEnabled {
+		initSource = InitCachingInitTelemetrySource
+	} else if sandboxType == SandboxPreWarmed {
+		initSource = ProvisionedConcurrencyInitTelemetrySource
+	}
+
+	return initSource
+}

@@ -92,7 +92,7 @@ func TestRenderInvoke(t *testing.T) {
 	assert.Equal(t, invokePayload, responseRecorder.Body.String())
 }
 
-//Cgo calls removed due to crashes while spawning threads under memory pressure.
+// Cgo calls removed due to crashes while spawning threads under memory pressure.
 func TestRenderInvokeDoesNotCallCgo(t *testing.T) {
 	cgoCallsBefore := runtime.NumCgoCall()
 	TestRenderInvoke(t)

@@ -12,8 +12,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestSuccessfulRuntimeLogsStub202Response(t *testing.T) {
-	handler := NewRuntimeLogsStubHandler()
+func TestSuccessfulRuntimeLogsAPIStub202Response(t *testing.T) {
+	handler := NewRuntimeLogsAPIStubHandler()
 	requestBody := []byte(`foobar`)
 	request := httptest.NewRequest("PUT", "/logs", bytes.NewBuffer(requestBody))
 	responseRecorder := httptest.NewRecorder()
@@ -22,4 +22,16 @@ func TestSuccessfulRuntimeLogsStub202Response(t *testing.T) {
 
 	assert.Equal(t, http.StatusAccepted, responseRecorder.Code)
 	assert.JSONEq(t, `{"errorMessage":"Logs API is not supported","errorType":"Logs.NotSupported"}`, responseRecorder.Body.String())
+}
+
+func TestSuccessfulRuntimeTelemetryAPIStub202Response(t *testing.T) {
+	handler := NewRuntimeTelemetryAPIStubHandler()
+	requestBody := []byte(`foobar`)
+	request := httptest.NewRequest("PUT", "/telemetry", bytes.NewBuffer(requestBody))
+	responseRecorder := httptest.NewRecorder()
+
+	handler.ServeHTTP(responseRecorder, request)
+
+	assert.Equal(t, http.StatusAccepted, responseRecorder.Code)
+	assert.JSONEq(t, `{"errorMessage":"Telemetry API is not supported","errorType":"Telemetry.NotSupported"}`, responseRecorder.Body.String())
 }

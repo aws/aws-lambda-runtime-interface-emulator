@@ -5,10 +5,11 @@ package appctx
 
 import (
 	"context"
-	"go.amzn.com/lambda/fatalerror"
-	"go.amzn.com/lambda/interop"
 	"net/http"
 	"strings"
+
+	"go.amzn.com/lambda/fatalerror"
+	"go.amzn.com/lambda/interop"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -163,4 +164,25 @@ func LoadFirstFatalError(appCtx ApplicationContext) (errorType fatalerror.ErrorT
 		return "", false
 	}
 	return v.(fatalerror.ErrorType), true
+}
+
+func StoreInitType(appCtx ApplicationContext, initCachingEnabled bool) {
+	if initCachingEnabled {
+		appCtx.Store(AppCtxInitType, InitCaching)
+	} else {
+		appCtx.Store(AppCtxInitType, Init)
+	}
+}
+
+// Default Init Type is Init unless it's explicitly stored in ApplicationContext
+func LoadInitType(appCtx ApplicationContext) InitType {
+	return appCtx.GetOrDefault(AppCtxInitType, Init).(InitType)
+}
+
+func StoreSandboxType(appCtx ApplicationContext, sandboxType interop.SandboxType) {
+	appCtx.Store(AppCtxSandboxType, sandboxType)
+}
+
+func LoadSandboxType(appCtx ApplicationContext) interop.SandboxType {
+	return appCtx.GetOrDefault(AppCtxSandboxType, interop.SandboxClassic).(interop.SandboxType)
 }

@@ -11,6 +11,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.amzn.com/lambda/fatalerror"
+
+	"go.amzn.com/lambda/interop"
 )
 
 func runTestRequestWithUserAgent(t *testing.T, userAgent string, expectedRuntimeRelease string) {
@@ -199,4 +201,27 @@ func TestFirstFatalError(t *testing.T) {
 	v, found = LoadFirstFatalError(appCtx)
 	require.True(t, found)
 	require.Equal(t, fatalerror.AgentCrash, v)
+}
+
+func TestStoreLoadInitType(t *testing.T) {
+	appCtx := NewApplicationContext()
+
+	initType := LoadInitType(appCtx)
+	assert.Equal(t, Init, initType)
+
+	StoreInitType(appCtx, true)
+	initType = LoadInitType(appCtx)
+	assert.Equal(t, InitCaching, initType)
+}
+
+func TestStoreLoadSandboxType(t *testing.T) {
+	appCtx := NewApplicationContext()
+
+	sandboxType := LoadSandboxType(appCtx)
+	assert.Equal(t, interop.SandboxClassic, sandboxType)
+
+	StoreSandboxType(appCtx, interop.SandboxPreWarmed)
+
+	sandboxType = LoadSandboxType(appCtx)
+	assert.Equal(t, interop.SandboxPreWarmed, sandboxType)
 }
