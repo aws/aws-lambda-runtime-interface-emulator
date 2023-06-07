@@ -1,24 +1,22 @@
 module go.amzn.com
 
-go 1.18
+go 1.19
 
 require (
-	github.com/aws/aws-lambda-go v1.20.0
+	github.com/aws/aws-lambda-go v1.41.0
 	github.com/go-chi/chi v4.1.2+incompatible
-	github.com/go-chi/render v1.0.1
-	github.com/google/uuid v1.1.2
-	github.com/jessevdk/go-flags v1.4.0
-	github.com/sirupsen/logrus v1.6.0
-	github.com/stretchr/testify v1.6.1
-	golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9
+	github.com/google/uuid v1.3.0
+	github.com/jessevdk/go-flags v1.5.0
+	github.com/sirupsen/logrus v1.9.3
+	github.com/stretchr/testify v1.8.4
+	golang.org/x/sync v0.2.0
 )
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/konsorten/go-windows-terminal-sequences v1.0.3 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	github.com/stretchr/objx v0.1.0 // indirect
-	golang.org/x/net v0.7.0 // indirect
-	golang.org/x/sys v0.5.0 // indirect
-	gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776 // indirect
+	github.com/stretchr/objx v0.5.0 // indirect
+	golang.org/x/net v0.10.0 // indirect
+	golang.org/x/sys v0.8.0 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
