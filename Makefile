@@ -24,7 +24,7 @@ compile-with-docker:
 	docker run --env GOPROXY=direct -v $(shell pwd):/LambdaRuntimeLocal -w /LambdaRuntimeLocal golang:1.19 make ARCH=${ARCH} compile-lambda-linux
 
 compile-lambda-linux:
-	CGO_ENABLED=0 GOOS=linux GOARCH=${GO_ARCH_${ARCH}} go build -ldflags "${RELEASE_BUILD_LINKER_FLAGS}" -o ${DESTINATION_${ARCH}} ./cmd/aws-lambda-rie
+	CGO_ENABLED=0 GOOS=linux GOARCH=${GO_ARCH_${ARCH}} go build -buildvcs=false -ldflags "${RELEASE_BUILD_LINKER_FLAGS}" -o ${DESTINATION_${ARCH}} ./cmd/aws-lambda-rie
 
 tests:
 	go test ./...
