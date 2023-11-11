@@ -9,23 +9,24 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
+	"go.amzn.com/lambda/core"
+	"go.amzn.com/lambda/interop"
+	"go.amzn.com/lambda/telemetry"
+
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-
-	"go.amzn.com/lambda/core"
-	"go.amzn.com/lambda/interop"
-	"go.amzn.com/lambda/rapidcore/telemetry/logsapi"
 )
 
 type mockSubscriptionAPI struct{ mock.Mock }
 
-func (s *mockSubscriptionAPI) Subscribe(agentName string, body io.Reader, headers map[string][]string) ([]byte, int, map[string][]string, error) {
-	args := s.Called(agentName, body, headers)
+func (s *mockSubscriptionAPI) Subscribe(agentName string, body io.Reader, headers map[string][]string, remoteAddr string) ([]byte, int, map[string][]string, error) {
+	args := s.Called(agentName, body, headers, remoteAddr)
 	return args.Get(0).([]byte), args.Int(1), args.Get(2).(map[string][]string), args.Error(3)
 }
 
@@ -61,10 +62,15 @@ func (s *mockSubscriptionAPI) GetServiceClosedErrorType() string {
 	return args.Get(0).(string)
 }
 
+func validIPPort(addr string) bool {
+	ip, _, err := net.SplitHostPort(addr)
+	return err == nil && net.ParseIP(ip) != nil
+}
+
 func TestSuccessfulRuntimeLogsResponseProxy(t *testing.T) {
 	agentName, reqBody, reqHeaders := "dummyName", []byte(`foobar`), map[string][]string{"Key": []string{"VAL1", "VAL2"}}
 	respBody, respStatus, respHeaders := []byte(`barbaz`), http.StatusNotFound, map[string][]string{"K": []string{"V1", "V2"}}
-	clientErrMetric := logsapi.SubscribeClientErr
+	clientErrMetric := telemetry.SubscribeClientErr
 
 	registrationService := core.NewRegistrationService(
 		core.NewInitFlowSynchronization(),
@@ -75,7 +81,7 @@ func TestSuccessfulRuntimeLogsResponseProxy(t *testing.T) {
 	assert.NoError(t, err)
 
 	telemetrySubscription := &mockSubscriptionAPI{}
-	telemetrySubscription.On("Subscribe", agentName, bytes.NewReader(reqBody), reqHeaders).Return(respBody, respStatus, respHeaders, nil)
+	telemetrySubscription.On("Subscribe", agentName, bytes.NewReader(reqBody), reqHeaders, mock.MatchedBy(validIPPort)).Return(respBody, respStatus, respHeaders, nil)
 	telemetrySubscription.On("RecordCounterMetric", clientErrMetric, 1)
 
 	handler := NewRuntimeTelemetrySubscriptionHandler(registrationService, telemetrySubscription)
@@ -91,8 +97,95 @@ func TestSuccessfulRuntimeLogsResponseProxy(t *testing.T) {
 
 	handler.ServeHTTP(responseRecorder, request)
 
-	telemetrySubscription.AssertCalled(t, "Subscribe", agentName, bytes.NewReader(reqBody), reqHeaders)
+	telemetrySubscription.AssertCalled(t, "Subscribe", agentName, bytes.NewReader(reqBody), reqHeaders, mock.MatchedBy(validIPPort))
 	telemetrySubscription.AssertCalled(t, "RecordCounterMetric", clientErrMetric, 1)
+
+	recordedBody, err := io.ReadAll(responseRecorder.Body)
+	assert.NoError(t, err)
+
+	assert.Equal(t, respStatus, responseRecorder.Code)
+	assert.Equal(t, respBody, recordedBody)
+	assert.Equal(t, http.Header(respHeaders), responseRecorder.Header())
+}
+
+func TestSuccessfulTelemetryAPIPutRequest(t *testing.T) {
+	agentName, reqBody, reqHeaders := "extensionName", []byte(`foobar`), map[string][]string{"Key": []string{"VAL1", "VAL2"}}
+	respBody, respStatus, respHeaders := []byte(`"OK"`), http.StatusOK, map[string][]string{"K": []string{"V1", "V2"}}
+	numSubscribersMetric := telemetry.NumSubscribers
+	subscribeSuccessMetric := telemetry.SubscribeSuccess
+
+	registrationService := core.NewRegistrationService(
+		core.NewInitFlowSynchronization(),
+		core.NewInvokeFlowSynchronization(),
+	)
+
+	agent, err := registrationService.CreateExternalAgent(agentName)
+	assert.NoError(t, err)
+
+	telemetrySubscription := &mockSubscriptionAPI{}
+	telemetrySubscription.On("Subscribe", agentName, bytes.NewReader(reqBody), reqHeaders, mock.MatchedBy(validIPPort)).Return(respBody, respStatus, respHeaders, nil)
+	telemetrySubscription.On("RecordCounterMetric", numSubscribersMetric, 1)
+	telemetrySubscription.On("RecordCounterMetric", subscribeSuccessMetric, 1)
+
+	handler := NewRuntimeTelemetrySubscriptionHandler(registrationService, telemetrySubscription)
+	request := httptest.NewRequest("PUT", "/", bytes.NewBuffer(reqBody))
+	for k, vals := range reqHeaders {
+		for _, v := range vals {
+			request.Header.Add(k, v)
+		}
+	}
+
+	request = request.WithContext(context.WithValue(context.Background(), AgentIDCtxKey, agent.ID))
+	responseRecorder := httptest.NewRecorder()
+
+	handler.ServeHTTP(responseRecorder, request)
+
+	telemetrySubscription.AssertCalled(t, "Subscribe", agentName, bytes.NewReader(reqBody), reqHeaders, mock.MatchedBy(validIPPort))
+	telemetrySubscription.AssertCalled(t, "RecordCounterMetric", numSubscribersMetric, 1)
+	telemetrySubscription.AssertCalled(t, "RecordCounterMetric", subscribeSuccessMetric, 1)
+
+	recordedBody, err := io.ReadAll(responseRecorder.Body)
+	assert.NoError(t, err)
+
+	assert.Equal(t, respStatus, responseRecorder.Code)
+	assert.Equal(t, respBody, recordedBody)
+	assert.Equal(t, http.Header(respHeaders), responseRecorder.Header())
+}
+
+func TestNumberOfSubscribersWhenAnExtensionIsAlreadySubscribed(t *testing.T) {
+	agentName, reqBody, reqHeaders := "extensionName", []byte(`foobar`), map[string][]string{"Key": []string{"VAL1", "VAL2"}}
+	respBody, respStatus, respHeaders := []byte(`"AlreadySubcribed"`), http.StatusOK, map[string][]string{"K": []string{"V1", "V2"}}
+	numSubscribersMetric := telemetry.NumSubscribers
+	subscribeSuccessMetric := telemetry.SubscribeSuccess
+
+	registrationService := core.NewRegistrationService(
+		core.NewInitFlowSynchronization(),
+		core.NewInvokeFlowSynchronization(),
+	)
+
+	agent, err := registrationService.CreateExternalAgent(agentName)
+	assert.NoError(t, err)
+
+	telemetrySubscription := &mockSubscriptionAPI{}
+	telemetrySubscription.On("Subscribe", agentName, bytes.NewReader(reqBody), reqHeaders, mock.MatchedBy(validIPPort)).Return(respBody, respStatus, respHeaders, nil)
+	telemetrySubscription.On("RecordCounterMetric", subscribeSuccessMetric, 1)
+
+	handler := NewRuntimeTelemetrySubscriptionHandler(registrationService, telemetrySubscription)
+	request := httptest.NewRequest("PUT", "/", bytes.NewBuffer(reqBody))
+	for k, vals := range reqHeaders {
+		for _, v := range vals {
+			request.Header.Add(k, v)
+		}
+	}
+
+	request = request.WithContext(context.WithValue(context.Background(), AgentIDCtxKey, agent.ID))
+	responseRecorder := httptest.NewRecorder()
+
+	handler.ServeHTTP(responseRecorder, request)
+
+	telemetrySubscription.AssertCalled(t, "Subscribe", agentName, bytes.NewReader(reqBody), reqHeaders, mock.MatchedBy(validIPPort))
+	telemetrySubscription.AssertCalled(t, "RecordCounterMetric", subscribeSuccessMetric, 1)
+	telemetrySubscription.AssertNotCalled(t, "RecordCounterMetric", numSubscribersMetric, mock.Anything)
 
 	recordedBody, err := io.ReadAll(responseRecorder.Body)
 	assert.NoError(t, err)
@@ -105,7 +198,7 @@ func TestSuccessfulRuntimeLogsResponseProxy(t *testing.T) {
 func TestErrorUnregisteredAgentID(t *testing.T) {
 	invalidAgentID := uuid.New()
 	reqBody, reqHeaders := []byte(`foobar`), map[string][]string{"Key": []string{"VAL1", "VAL2"}}
-	clientErrMetric := logsapi.SubscribeClientErr
+	clientErrMetric := telemetry.SubscribeClientErr
 
 	registrationService := core.NewRegistrationService(
 		core.NewInitFlowSynchronization(),
@@ -143,7 +236,7 @@ func TestErrorUnregisteredAgentID(t *testing.T) {
 func TestErrorTelemetryAPICallFailure(t *testing.T) {
 	agentName, reqBody, reqHeaders := "dummyName", []byte(`foobar`), map[string][]string{"Key": []string{"VAL1", "VAL2"}}
 	apiError := errors.New("Error calling Telemetry API: connection refused")
-	serverErrMetric := logsapi.SubscribeServerErr
+	serverErrMetric := telemetry.SubscribeServerErr
 
 	registrationService := core.NewRegistrationService(
 		core.NewInitFlowSynchronization(),
@@ -154,7 +247,7 @@ func TestErrorTelemetryAPICallFailure(t *testing.T) {
 	assert.NoError(t, err)
 
 	telemetrySubscription := &mockSubscriptionAPI{}
-	telemetrySubscription.On("Subscribe", agentName, bytes.NewReader(reqBody), reqHeaders).Return([]byte(``), http.StatusOK, map[string][]string{}, apiError)
+	telemetrySubscription.On("Subscribe", agentName, bytes.NewReader(reqBody), reqHeaders, mock.MatchedBy(validIPPort)).Return([]byte(``), http.StatusOK, map[string][]string{}, apiError)
 	telemetrySubscription.On("RecordCounterMetric", serverErrMetric, 1)
 
 	handler := NewRuntimeTelemetrySubscriptionHandler(registrationService, telemetrySubscription)
@@ -184,8 +277,8 @@ func TestErrorTelemetryAPICallFailure(t *testing.T) {
 
 func TestRenderLogsSubscriptionClosed(t *testing.T) {
 	agentName, reqBody, reqHeaders := "dummyName", []byte(`foobar`), map[string][]string{"Key": []string{"VAL1", "VAL2"}}
-	apiError := logsapi.ErrTelemetryServiceOff
-	clientErrMetric := logsapi.SubscribeClientErr
+	apiError := telemetry.ErrTelemetryServiceOff
+	clientErrMetric := telemetry.SubscribeClientErr
 
 	registrationService := core.NewRegistrationService(
 		core.NewInitFlowSynchronization(),
@@ -196,7 +289,7 @@ func TestRenderLogsSubscriptionClosed(t *testing.T) {
 	assert.NoError(t, err)
 
 	telemetrySubscription := &mockSubscriptionAPI{}
-	telemetrySubscription.On("Subscribe", agentName, bytes.NewReader(reqBody), reqHeaders).Return([]byte(``), http.StatusOK, map[string][]string{}, apiError)
+	telemetrySubscription.On("Subscribe", agentName, bytes.NewReader(reqBody), reqHeaders, mock.MatchedBy(validIPPort)).Return([]byte(``), http.StatusOK, map[string][]string{}, apiError)
 	telemetrySubscription.On("RecordCounterMetric", clientErrMetric, 1)
 	telemetrySubscription.On("GetServiceClosedErrorMessage").Return("Logs API subscription is closed already")
 	telemetrySubscription.On("GetServiceClosedErrorType").Return("Logs.SubscriptionClosed")
@@ -228,8 +321,8 @@ func TestRenderLogsSubscriptionClosed(t *testing.T) {
 
 func TestRenderTelemetrySubscriptionClosed(t *testing.T) {
 	agentName, reqBody, reqHeaders := "dummyName", []byte(`foobar`), map[string][]string{"Key": []string{"VAL1", "VAL2"}}
-	apiError := logsapi.ErrTelemetryServiceOff
-	clientErrMetric := logsapi.SubscribeClientErr
+	apiError := telemetry.ErrTelemetryServiceOff
+	clientErrMetric := telemetry.SubscribeClientErr
 
 	registrationService := core.NewRegistrationService(
 		core.NewInitFlowSynchronization(),
@@ -240,7 +333,7 @@ func TestRenderTelemetrySubscriptionClosed(t *testing.T) {
 	assert.NoError(t, err)
 
 	telemetrySubscription := &mockSubscriptionAPI{}
-	telemetrySubscription.On("Subscribe", agentName, bytes.NewReader(reqBody), reqHeaders).Return([]byte(``), http.StatusOK, map[string][]string{}, apiError)
+	telemetrySubscription.On("Subscribe", agentName, bytes.NewReader(reqBody), reqHeaders, mock.MatchedBy(validIPPort)).Return([]byte(``), http.StatusOK, map[string][]string{}, apiError)
 	telemetrySubscription.On("RecordCounterMetric", clientErrMetric, 1)
 	telemetrySubscription.On("GetServiceClosedErrorMessage").Return("Telemetry API subscription is closed already")
 	telemetrySubscription.On("GetServiceClosedErrorType").Return("Telemetry.SubscriptionClosed")

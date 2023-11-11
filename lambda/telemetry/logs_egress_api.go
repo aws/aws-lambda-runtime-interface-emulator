@@ -29,3 +29,5 @@ func (s *NoOpLogsEgressAPI) GetRuntimeSockets() (io.Writer, io.Writer, error) {
 	// os.Stderr can not be used for the stderrWriter because stderr is for internal logging (not customer visible).
 	return os.Stdout, os.Stdout, nil
 }
+
+var _ StdLogsEgressAPI = (*NoOpLogsEgressAPI)(nil)

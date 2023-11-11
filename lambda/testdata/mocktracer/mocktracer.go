@@ -5,14 +5,15 @@ package mocktracer
 
 import (
 	"context"
-	"go.amzn.com/lambda/xray"
 	"time"
+
+	"go.amzn.com/lambda/xray"
 )
 
 // MockStartTime is start time set in Start method
 var MockStartTime = time.Now().UnixNano()
 
-//MockEndTime is end time set in End method
+// MockEndTime is end time set in End method
 var MockEndTime = time.Now().UnixNano() + 1
 
 // MockTracer is used for unit tests

@@ -20,10 +20,18 @@ func ListExternalAgentPaths(dir string, root string) []string {
 	}
 	fullDir := path.Join(root, dir)
 	files, err := os.ReadDir(fullDir)
+
 	if err != nil {
-		log.WithError(err).Warning("Cannot list external agents")
+		if os.IsNotExist(err) {
+			log.Infof("The extension's directory %q does not exist, assuming no extensions to be loaded.", fullDir)
+		} else {
+			// TODO - Should this return an error rather than ignore failing to load?
+			log.WithError(err).Error("Cannot list external agents")
+		}
+
 		return agentPaths
 	}
+
 	for _, file := range files {
 		if !file.IsDir() {
 			// The returned path is absolute wrt to `root`. This allows

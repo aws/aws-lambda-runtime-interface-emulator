@@ -10,7 +10,7 @@ import (
 )
 
 func WaitUntilReleaseHandler(w http.ResponseWriter, r *http.Request, s InteropServer) {
-	internalState, err := s.AwaitRelease()
+	releaseAwait, err := s.AwaitRelease()
 	if err != nil {
 		switch err {
 		case rapidcore.ErrInvokeDoneFailed:
@@ -22,10 +22,10 @@ func WaitUntilReleaseHandler(w http.ResponseWriter, r *http.Request, s InteropSe
 			return
 		case rapidcore.ErrInitDoneFailed:
 			w.WriteHeader(DoneFailedHTTPCode)
-			w.Write(internalState.AsJSON())
+			w.Write(releaseAwait.AsJSON())
 			return
 		}
 	}
 
-	w.Write(internalState.AsJSON())
+	w.Write(releaseAwait.AsJSON())
 }

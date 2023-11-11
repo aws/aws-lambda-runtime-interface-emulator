@@ -4,11 +4,14 @@
 package core
 
 import (
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-	"go.amzn.com/lambda/testdata/mockthread"
+	"context"
 	"sync"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"go.amzn.com/lambda/interop"
+	"go.amzn.com/lambda/testdata/mockthread"
 )
 
 func TestRuntimeInitErrorAfterReady(t *testing.T) {
@@ -94,6 +97,34 @@ func TestRuntimeStateTransitionsFromInitErrorState(t *testing.T) {
 	runtime.SetState(runtime.RuntimeInitErrorState)
 	assert.Equal(t, ErrNotAllowed, runtime.InvocationErrorResponse())
 	assert.Equal(t, runtime.RuntimeInitErrorState, runtime.GetState())
+}
+
+func TestRuntimeStateTransitionsFromRestoreErrorState(t *testing.T) {
+	runtime := newRuntime()
+	// RestoreError -> InitError
+	runtime.SetState(runtime.RuntimeRestoreErrorState)
+	assert.Equal(t, ErrNotAllowed, runtime.InitError())
+	assert.Equal(t, runtime.RuntimeRestoreErrorState, runtime.GetState())
+	// RestoreError -> Ready
+	runtime.SetState(runtime.RuntimeRestoreErrorState)
+	assert.Equal(t, ErrNotAllowed, runtime.Ready())
+	assert.Equal(t, runtime.RuntimeRestoreErrorState, runtime.GetState())
+	// RestoreError -> RestoreReady
+	runtime.SetState(runtime.RuntimeRestoreErrorState)
+	assert.Equal(t, ErrNotAllowed, runtime.RestoreReady())
+	assert.Equal(t, runtime.RuntimeRestoreErrorState, runtime.GetState())
+	// RestoreError -> ResponseSent
+	runtime.SetState(runtime.RuntimeRestoreErrorState)
+	assert.Equal(t, ErrNotAllowed, runtime.ResponseSent())
+	assert.Equal(t, runtime.RuntimeRestoreErrorState, runtime.GetState())
+	// RestoreError -> InvocationResponse
+	runtime.SetState(runtime.RuntimeRestoreErrorState)
+	assert.Equal(t, ErrNotAllowed, runtime.InvocationResponse())
+	assert.Equal(t, runtime.RuntimeRestoreErrorState, runtime.GetState())
+	// RestoreError -> InvocationErrorResponse
+	runtime.SetState(runtime.RuntimeRestoreErrorState)
+	assert.Equal(t, ErrNotAllowed, runtime.InvocationErrorResponse())
+	assert.Equal(t, runtime.RuntimeRestoreErrorState, runtime.GetState())
 }
 
 func TestRuntimeStateTransitionsFromReadyState(t *testing.T) {
@@ -266,11 +297,9 @@ func TestRuntimeStateTransitionsFromRestoreReadyState(t *testing.T) {
 }
 
 func TestRuntimeStateTransitionsFromRestoringState(t *testing.T) {
-	runtime := newRuntime()
-	// RestoreRunning -> InitError
+	runtime, mockInitFlow, _ := newRuntimeGetMockFlows()
 	runtime.SetState(runtime.RuntimeRestoringState)
-	assert.NoError(t, runtime.InitError())
-	assert.Equal(t, runtime.RuntimeInitErrorState, runtime.GetState())
+	mockInitFlow.On("CancelWithError", interop.ErrRestoreHookUserError{UserError: interop.FunctionError{}}).Return()
 	// RestoreRunning -> Ready
 	runtime.SetState(runtime.RuntimeRestoringState)
 	assert.NoError(t, runtime.Ready())
@@ -291,6 +320,10 @@ func TestRuntimeStateTransitionsFromRestoringState(t *testing.T) {
 	runtime.SetState(runtime.RuntimeRestoringState)
 	assert.Equal(t, ErrNotAllowed, runtime.InvocationErrorResponse())
 	assert.Equal(t, runtime.RuntimeRestoringState, runtime.GetState())
+	// RestoreRunning -> RestoreError
+	runtime.SetState(runtime.RuntimeRestoringState)
+	assert.NoError(t, runtime.RestoreError(interop.FunctionError{}))
+	assert.Equal(t, runtime.RuntimeRestoreErrorState, runtime.GetState())
 }
 
 func newRuntime() *Runtime {
@@ -300,6 +333,15 @@ func newRuntime() *Runtime {
 	runtime.ManagedThread = &mockthread.MockManagedThread{}
 
 	return runtime
+}
+
+func newRuntimeGetMockFlows() (*Runtime, *mockInitFlowSynchronization, *mockInvokeFlowSynchronization) {
+	initFlow := &mockInitFlowSynchronization{}
+	invokeFlow := &mockInvokeFlowSynchronization{}
+	runtime := NewRuntime(initFlow, invokeFlow)
+	runtime.ManagedThread = &mockthread.MockManagedThread{}
+
+	return runtime, initFlow, invokeFlow
 }
 
 type mockInitFlowSynchronization struct {
@@ -323,6 +365,9 @@ func (s *mockInitFlowSynchronization) ExternalAgentRegistered() error {
 	return nil
 }
 func (s *mockInitFlowSynchronization) AwaitRuntimeReady() error {
+	return nil
+}
+func (s *mockInitFlowSynchronization) AwaitRuntimeReadyWithDeadline(ctx context.Context) error {
 	return nil
 }
 func (s *mockInitFlowSynchronization) AwaitAgentsReady() error {

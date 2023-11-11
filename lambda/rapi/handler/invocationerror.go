@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 
+	"go.amzn.com/lambda/fatalerror"
 	"go.amzn.com/lambda/interop"
 	"go.amzn.com/lambda/rapi/model"
 
@@ -37,7 +38,7 @@ type invocationErrorHandler struct {
 func (h *invocationErrorHandler) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 	appCtx := appctx.FromRequest(request)
 
-	server := appctx.LoadInteropServer(appCtx)
+	server := appctx.LoadResponseSender(appCtx)
 	if server == nil {
 		log.Panic("Invalid state, cannot access interop server")
 	}
@@ -50,7 +51,7 @@ func (h *invocationErrorHandler) ServeHTTP(writer http.ResponseWriter, request *
 		return
 	}
 
-	errorType := h.getErrorType(request.Header)
+	errorType := fatalerror.GetValidRuntimeOrFunctionErrorType(h.getErrorType(request.Header))
 
 	var errorCause json.RawMessage
 	var errorBody []byte
@@ -75,12 +76,15 @@ func (h *invocationErrorHandler) ServeHTTP(writer http.ResponseWriter, request *
 		log.WithError(err).Warn("Failed to parse error body")
 	}
 
-	response := &interop.ErrorResponse{
-		ErrorType:            errorType,
-		Payload:              errorBody,
-		ErrorCause:           errorCause,
+	headers := interop.InvokeResponseHeaders{
 		ContentType:          contentType,
 		FunctionResponseMode: functionResponseMode,
+	}
+
+	response := &interop.ErrorInvokeResponse{
+		Headers:       headers,
+		FunctionError: interop.FunctionError{Type: errorType},
+		Payload:       errorBody,
 	}
 
 	if err := server.SendErrorResponse(chi.URLParam(request, "awsrequestid"), response); err != nil {
@@ -88,7 +92,7 @@ func (h *invocationErrorHandler) ServeHTTP(writer http.ResponseWriter, request *
 		return
 	}
 
-	appctx.StoreErrorResponse(appCtx, response)
+	appctx.StoreInvokeErrorTraceData(appCtx, &interop.InvokeErrorTraceData{ErrorCause: errorCause})
 
 	if err := runtime.ResponseSent(); err != nil {
 		log.Panic(err)

@@ -4,6 +4,7 @@
 package handler
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -19,6 +20,8 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"go.amzn.com/lambda/appctx"
 	"go.amzn.com/lambda/interop"
 	"go.amzn.com/lambda/metering"
@@ -45,57 +48,65 @@ func TestRenderInvokeEmptyHeaders(t *testing.T) {
 	assert.Equal(t, http.StatusOK, responseRecorder.Code)
 }
 
-func TestRenderInvoke(t *testing.T) {
+func TestRenderInvokeHappy(t *testing.T) {
 	flowTest := testdata.NewFlowTest()
 	flowTest.ConfigureForInit()
-	handler := NewInvocationNextHandler(flowTest.RegistrationService, flowTest.RenderingService)
-	responseRecorder := httptest.NewRecorder()
 	appCtx := flowTest.AppCtx
 
 	deadlineNs := 12345
-	invokePayload := "Payload"
 	invoke := &interop.Invoke{
 		TraceID:               "Root=RootID;Parent=LambdaFrontend;Sampled=1",
-		ID:                    "ID",
+		ID:                    "", // updated in loop
 		InvokedFunctionArn:    "InvokedFunctionArn",
 		CognitoIdentityID:     "CognitoIdentityId1",
 		CognitoIdentityPoolID: "CognitoIdentityPoolId1",
 		ClientContext:         "ClientContext",
 		DeadlineNs:            strconv.Itoa(deadlineNs),
 		ContentType:           "image/png",
-		Payload:               strings.NewReader(invokePayload),
+		Payload:               strings.NewReader(""), // updated in loop
 	}
 
 	ctx := telemetry.NewTraceContext(context.Background(), "RootID", "InvocationSubegmentID")
-	flowTest.ConfigureForInvoke(ctx, invoke)
+	var requestBuffer bytes.Buffer
+	for i := 0; i < 6; i++ {
+		handler := NewInvocationNextHandler(flowTest.RegistrationService, flowTest.RenderingService)
+		responseRecorder := httptest.NewRecorder()
+		invoke.ID = fmt.Sprintf("ID-%d", i)
+		invokePayload := string(bytes.Repeat([]byte("a"), (i%3)*128*1024)) // vary payload size up and down across invokes
+		invoke.Payload = strings.NewReader(invokePayload)
 
-	request := appctx.RequestWithAppCtx(httptest.NewRequest("", "/", nil), appCtx)
-	handler.ServeHTTP(responseRecorder, request)
+		flowTest.ConfigureForInvoke(ctx, invoke)
+		flowTest.ConfigureInvokeRenderer(ctx, invoke, &requestBuffer) // reuse request buffer on each invoke
+		request := appctx.RequestWithAppCtx(httptest.NewRequest("", "/", nil), appCtx)
+		handler.ServeHTTP(responseRecorder, request)
 
-	headers := responseRecorder.Header()
-	assert.Equal(t, invoke.InvokedFunctionArn, headers.Get("Lambda-Runtime-Invoked-Function-Arn"))
-	assert.Equal(t, invoke.ID, headers.Get("Lambda-Runtime-Aws-Request-Id"))
-	assert.Equal(t, invoke.ClientContext, headers.Get("Lambda-Runtime-Client-Context"))
-	expectedCognitoIdentityHeader := fmt.Sprintf("{\"cognitoIdentityId\":\"%s\",\"cognitoIdentityPoolId\":\"%s\"}", invoke.CognitoIdentityID, invoke.CognitoIdentityPoolID)
-	assert.JSONEq(t, expectedCognitoIdentityHeader, headers.Get("Lambda-Runtime-Cognito-Identity"))
-	assert.Equal(t, "Root=RootID;Parent=InvocationSubegmentID;Sampled=1", headers.Get("Lambda-Runtime-Trace-Id"))
+		headers := responseRecorder.Header()
+		assert.Equal(t, invoke.InvokedFunctionArn, headers.Get("Lambda-Runtime-Invoked-Function-Arn"))
+		assert.Equal(t, invoke.ID, headers.Get("Lambda-Runtime-Aws-Request-Id"))
+		assert.Equal(t, invoke.ClientContext, headers.Get("Lambda-Runtime-Client-Context"))
+		expectedCognitoIdentityHeader := fmt.Sprintf("{\"cognitoIdentityId\":\"%s\",\"cognitoIdentityPoolId\":\"%s\"}", invoke.CognitoIdentityID, invoke.CognitoIdentityPoolID)
+		assert.JSONEq(t, expectedCognitoIdentityHeader, headers.Get("Lambda-Runtime-Cognito-Identity"))
+		assert.Equal(t, "Root=RootID;Parent=InvocationSubegmentID;Sampled=1", headers.Get("Lambda-Runtime-Trace-Id"))
 
-	// Assert deadline precision. E.g. 1999 ns and 2001 ns having diff of 2 ns
-	// would result in 1ms and 2ms deadline correspondingly.
-	expectedDeadline := metering.MonoToEpoch(int64(deadlineNs)) / int64(time.Millisecond)
-	receivedDeadline, _ := strconv.ParseInt(headers.Get("Lambda-Runtime-Deadline-Ms"), 10, 64)
-	assert.True(t, math.Abs(float64(expectedDeadline-receivedDeadline)) <= float64(1),
-		fmt.Sprintf("Expected: %v, received: %v", expectedDeadline, receivedDeadline))
+		// Assert deadline precision. E.g. 1999 ns and 2001 ns having diff of 2 ns
+		// would result in 1ms and 2ms deadline correspondingly.
+		expectedDeadline := metering.MonoToEpoch(int64(deadlineNs)) / int64(time.Millisecond)
+		receivedDeadline, _ := strconv.ParseInt(headers.Get("Lambda-Runtime-Deadline-Ms"), 10, 64)
+		assert.True(t, math.Abs(float64(expectedDeadline-receivedDeadline)) <= float64(1),
+			fmt.Sprintf("Expected: %v, received: %v", expectedDeadline, receivedDeadline))
 
-	assert.Equal(t, "image/png", headers.Get("Content-Type"))
-	assert.Len(t, headers, 7)
-	assert.Equal(t, invokePayload, responseRecorder.Body.String())
+		assert.Equal(t, "image/png", headers.Get("Content-Type"))
+		assert.Len(t, headers, 7)
+		responsePayload := responseRecorder.Body.String()
+		require.Equalf(t, len(invokePayload), len(responsePayload), "Unexpected payload for request %d", i)
+		assert.Equal(t, invokePayload, responsePayload)
+	}
 }
 
 // Cgo calls removed due to crashes while spawning threads under memory pressure.
 func TestRenderInvokeDoesNotCallCgo(t *testing.T) {
 	cgoCallsBefore := runtime.NumCgoCall()
-	TestRenderInvoke(t)
+	TestRenderInvokeHappy(t)
 	cgoCallsAfter := runtime.NumCgoCall()
 	assert.Equal(t, cgoCallsBefore, cgoCallsAfter)
 }

@@ -6,6 +6,7 @@ package standalone
 import (
 	"fmt"
 	"net/http"
+	"strconv"
 
 	"go.amzn.com/lambda/interop"
 	"go.amzn.com/lambda/metering"
@@ -22,12 +23,30 @@ func InvokeHandler(w http.ResponseWriter, r *http.Request, s InteropServer) {
 		return
 	}
 
+	restoreDurationHeader := r.Header.Get("restore-duration")
+	restoreStartHeader := r.Header.Get("restore-start-time")
+
+	var restoreDurationNs int64 = 0
+	var restoreStartTimeMonotime int64 = 0
+	if restoreDurationHeader != "" && restoreStartHeader != "" {
+		var err1, err2 error
+		restoreDurationNs, err1 = strconv.ParseInt(restoreDurationHeader, 10, 64)
+		restoreStartTimeMonotime, err2 = strconv.ParseInt(restoreStartHeader, 10, 64)
+		if err1 != nil || err2 != nil {
+			log.Errorf("Failed to parse 'restore-duration' from '%s' and/or 'restore-start-time' from '%s'", restoreDurationHeader, restoreStartHeader)
+			restoreDurationNs = 0
+			restoreStartTimeMonotime = 0
+		}
+	}
+
 	invokePayload := &interop.Invoke{
-		TraceID:            r.Header.Get("X-Amzn-Trace-Id"),
-		LambdaSegmentID:    r.Header.Get("X-Amzn-Segment-Id"),
-		Payload:            r.Body,
-		DeadlineNs:         fmt.Sprintf("%d", metering.Monotime()+tok.FunctionTimeout.Nanoseconds()),
-		InvokeReceivedTime: metering.Monotime(),
+		TraceID:                  r.Header.Get("X-Amzn-Trace-Id"),
+		LambdaSegmentID:          r.Header.Get("X-Amzn-Segment-Id"),
+		Payload:                  r.Body,
+		DeadlineNs:               fmt.Sprintf("%d", metering.Monotime()+tok.FunctionTimeout.Nanoseconds()),
+		InvokeReceivedTime:       metering.Monotime(),
+		RestoreDurationNs:        restoreDurationNs,
+		RestoreStartTimeMonotime: restoreStartTimeMonotime,
 	}
 
 	if err := s.AwaitInitialized(); err != nil {

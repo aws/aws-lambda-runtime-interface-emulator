@@ -230,56 +230,6 @@ type ExtensionRegisterResponseWithConfig struct {
 	Configuration map[string]string `json:"configuration"`
 }
 
-var happyPathTests = []struct {
-	testName                     string
-	agentName                    string
-	external                     bool
-	registrationRequest          RegisterRequest
-	functionMetadata             *core.FunctionMetadata
-	expectedRegistrationResponse ExtensionRegisterResponseWithConfig
-}{
-	{
-		testName:            "no-config-internal",
-		agentName:           "internal",
-		external:            false,
-		registrationRequest: RegisterRequest{},
-		expectedRegistrationResponse: ExtensionRegisterResponseWithConfig{
-			ExtensionRegisterResponse: model.ExtensionRegisterResponse{
-				FunctionName:    "my-func",
-				FunctionVersion: "$LATEST",
-				Handler:         "lambda_handler",
-			},
-		},
-	},
-	{
-		testName:            "no-config-external",
-		agentName:           "external",
-		external:            true,
-		registrationRequest: RegisterRequest{},
-		expectedRegistrationResponse: ExtensionRegisterResponseWithConfig{
-			ExtensionRegisterResponse: model.ExtensionRegisterResponse{
-				FunctionName:    "my-func",
-				FunctionVersion: "$LATEST",
-				Handler:         "lambda_handler",
-			},
-		},
-	},
-	{
-		testName:            "function-md-override",
-		agentName:           "external",
-		external:            true,
-		functionMetadata:    &core.FunctionMetadata{FunctionName: "function-name", FunctionVersion: "1", Handler: "myHandler"},
-		registrationRequest: RegisterRequest{},
-		expectedRegistrationResponse: ExtensionRegisterResponseWithConfig{
-			ExtensionRegisterResponse: model.ExtensionRegisterResponse{
-				FunctionName:    "function-name",
-				FunctionVersion: "1",
-				Handler:         "myHandler",
-			},
-		},
-	},
-}
-
 func TestRenderAgentResponse(t *testing.T) {
 	defaultFunctionMetadata := core.FunctionMetadata{
 		FunctionVersion: "$LATEST",
@@ -287,45 +237,160 @@ func TestRenderAgentResponse(t *testing.T) {
 		Handler:         "lambda_handler",
 	}
 
-	for _, tt := range happyPathTests {
-		t.Run(tt.testName, func(t *testing.T) {
+	happyPathTests := map[string]struct {
+		agentName           string
+		external            bool
+		registrationRequest RegisterRequest
+		featuresHeader      string
+		functionMetadata    core.FunctionMetadata
+		expectedResponse    string
+	}{
+		"no-config-internal": {
+			agentName:           "internal",
+			external:            false,
+			functionMetadata:    defaultFunctionMetadata,
+			registrationRequest: RegisterRequest{},
+			expectedResponse: `{
+				"functionName": "my-func",
+				"functionVersion": "$LATEST",
+				"handler": "lambda_handler"
+			}`,
+		},
+		"no-config-external": {
+			agentName:           "external",
+			external:            true,
+			functionMetadata:    defaultFunctionMetadata,
+			registrationRequest: RegisterRequest{},
+			expectedResponse: `{
+				"functionName": "my-func",
+				"functionVersion": "$LATEST",
+				"handler": "lambda_handler"
+			}`,
+		},
+		"function-md-override": {
+			agentName:           "external",
+			external:            true,
+			functionMetadata:    core.FunctionMetadata{FunctionName: "function-name", FunctionVersion: "1", Handler: "myHandler"},
+			registrationRequest: RegisterRequest{},
+			expectedResponse: `{
+				"functionName": "function-name",
+				"functionVersion": "1",
+				"handler": "myHandler"
+			}`,
+		},
+		"internal with account id feature": {
+			agentName: "internal",
+			external:  false,
+			functionMetadata: core.FunctionMetadata{
+				FunctionName:    "function-name",
+				FunctionVersion: "1",
+				Handler:         "myHandler",
+				AccountID:       "0123",
+			},
+			featuresHeader:      "accountId",
+			registrationRequest: RegisterRequest{},
+			expectedResponse: `{
+				"functionName": "function-name",
+				"functionVersion": "1",
+				"handler": "myHandler",
+				"accountId": "0123"
+			}`,
+		},
+		"external with account id feature": {
+			agentName: "external",
+			external:  true,
+			functionMetadata: core.FunctionMetadata{
+				FunctionName:    "function-name",
+				FunctionVersion: "1",
+				Handler:         "myHandler",
+				AccountID:       "0123",
+			},
+			featuresHeader:      "accountId",
+			registrationRequest: RegisterRequest{},
+			expectedResponse: `{
+				"functionName": "function-name",
+				"functionVersion": "1",
+				"handler": "myHandler",
+				"accountId": "0123"
+			}`,
+		},
+		"with non-existing accept feature": {
+			agentName:           "external",
+			external:            true,
+			featuresHeader:      "some_non_existing_feature,",
+			functionMetadata:    defaultFunctionMetadata,
+			registrationRequest: RegisterRequest{},
+			expectedResponse: `{
+				"functionName": "my-func",
+				"functionVersion": "$LATEST",
+				"handler": "lambda_handler"
+			}`,
+		},
+		"account id feature and some non-existing feature": {
+			agentName:      "external",
+			external:       true,
+			featuresHeader: "some_non_existing_feature,accountId,",
+			functionMetadata: core.FunctionMetadata{
+				FunctionName:    "function-name",
+				FunctionVersion: "1",
+				Handler:         "myHandler",
+				AccountID:       "0123",
+			},
+			registrationRequest: RegisterRequest{},
+			expectedResponse: `{
+				"functionName": "function-name",
+				"functionVersion": "1",
+				"handler": "myHandler",
+				"accountId": "0123"
+			}`,
+		},
+		"with empty account id data": {
+			agentName:           "external",
+			external:            true,
+			featuresHeader:      "accountId",
+			functionMetadata:    defaultFunctionMetadata,
+			registrationRequest: RegisterRequest{},
+			expectedResponse: `{
+				"functionName": "my-func",
+				"functionVersion": "$LATEST",
+				"handler": "lambda_handler"
+			}`,
+		},
+	}
+
+	for name, tt := range happyPathTests {
+		t.Run(name, func(t *testing.T) {
 			registrationService := core.NewRegistrationService(
 				core.NewInitFlowSynchronization(),
 				core.NewInvokeFlowSynchronization(),
 			)
 			registrationService.CreateExternalAgent("external") // external agent has to be pre-registered
-			if tt.functionMetadata != nil {
-				registrationService.SetFunctionMetadata(*tt.functionMetadata)
-			} else {
-				registrationService.SetFunctionMetadata(defaultFunctionMetadata)
-			}
+			registrationService.SetFunctionMetadata(tt.functionMetadata)
 
 			handler := NewAgentRegisterHandler(registrationService)
 
 			request := httptest.NewRequest("POST", "/extension/register", registerRequestReader(tt.registrationRequest))
 			request.Header.Add(LambdaAgentName, tt.agentName)
+			if tt.featuresHeader != "" {
+				request.Header.Add(featuresHeader, tt.featuresHeader)
+			}
 			responseRecorder := httptest.NewRecorder()
 
 			handler.ServeHTTP(responseRecorder, request)
-			require.Equal(t, http.StatusOK, responseRecorder.Code)
+			assert.Equal(t, http.StatusOK, responseRecorder.Code)
 
-			registerResponse := ExtensionRegisterResponseWithConfig{}
-			respBody, _ := io.ReadAll(responseRecorder.Body)
-			json.Unmarshal(respBody, &registerResponse)
-			assert.Equal(t, tt.expectedRegistrationResponse.FunctionName, registerResponse.FunctionName)
-			assert.Equal(t, tt.expectedRegistrationResponse.FunctionVersion, registerResponse.FunctionVersion)
-			assert.Equal(t, tt.expectedRegistrationResponse.Handler, registerResponse.Handler)
-
-			require.Len(t, registerResponse.Configuration, 0)
+			respBody, err := io.ReadAll(responseRecorder.Body)
+			require.NoError(t, err)
+			assert.JSONEq(t, tt.expectedResponse, string(respBody))
 
 			if tt.external {
 				agent, found := registrationService.FindExternalAgentByName(tt.agentName)
-				require.True(t, found)
-				require.Equal(t, agent.RegisteredState, agent.GetState())
+				assert.True(t, found)
+				assert.Equal(t, agent.RegisteredState, agent.GetState())
 			} else {
 				agent, found := registrationService.FindInternalAgentByName(tt.agentName)
-				require.True(t, found)
-				require.Equal(t, agent.RegisteredState, agent.GetState())
+				assert.True(t, found)
+				assert.Equal(t, agent.RegisteredState, agent.GetState())
 			}
 		})
 	}

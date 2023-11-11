@@ -17,8 +17,8 @@ import (
 type traceContextKey int
 
 const (
-	traceIDKey traceContextKey = iota
-	documentIDKey
+	TraceIDKey traceContextKey = iota
+	DocumentIDKey
 )
 
 type Tracer interface {
@@ -30,11 +30,14 @@ type Tracer interface {
 	RecordInitStartTime()
 	RecordInitEndTime()
 	SendInitSubsegmentWithRecordedTimesOnce(ctx context.Context)
+	SendRestoreSubsegmentWithRecordedTimesOnce(ctx context.Context)
 	MarkError(ctx context.Context)
 	AttachErrorCause(ctx context.Context, errorCause json.RawMessage)
 	WithErrorCause(ctx context.Context, appCtx appctx.ApplicationContext, criticalFunction func(ctx context.Context) error) func(ctx context.Context) error
 	WithError(ctx context.Context, appCtx appctx.ApplicationContext, criticalFunction func(ctx context.Context) error) func(ctx context.Context) error
-	TracingHeaderParser() func(context.Context, *interop.Invoke) string
+	BuildTracingHeader() func(context.Context) string
+	BuildTracingCtxForStart() *interop.TracingCtx
+	BuildTracingCtxAfterInvokeComplete() *interop.TracingCtx
 }
 
 type NoOpTracer struct{}
@@ -42,28 +45,25 @@ type NoOpTracer struct{}
 func (t *NoOpTracer) Configure(invoke *interop.Invoke) {}
 
 func (t *NoOpTracer) CaptureInvokeSegment(ctx context.Context, criticalFunction func(context.Context) error) error {
-	criticalFunction(ctx)
-	return nil
+	return criticalFunction(ctx)
 }
 
 func (t *NoOpTracer) CaptureInitSubsegment(ctx context.Context, criticalFunction func(context.Context) error) error {
-	criticalFunction(ctx)
-	return nil
+	return criticalFunction(ctx)
 }
 
 func (t *NoOpTracer) CaptureInvokeSubsegment(ctx context.Context, criticalFunction func(context.Context) error) error {
-	criticalFunction(ctx)
-	return nil
+	return criticalFunction(ctx)
 }
 
 func (t *NoOpTracer) CaptureOverheadSubsegment(ctx context.Context, criticalFunction func(context.Context) error) error {
-	criticalFunction(ctx)
-	return nil
+	return criticalFunction(ctx)
 }
 
 func (t *NoOpTracer) RecordInitStartTime()                                             {}
 func (t *NoOpTracer) RecordInitEndTime()                                               {}
 func (t *NoOpTracer) SendInitSubsegmentWithRecordedTimesOnce(ctx context.Context)      {}
+func (t *NoOpTracer) SendRestoreSubsegmentWithRecordedTimesOnce(ctx context.Context)   {}
 func (t *NoOpTracer) MarkError(ctx context.Context)                                    {}
 func (t *NoOpTracer) AttachErrorCause(ctx context.Context, errorCause json.RawMessage) {}
 
@@ -73,8 +73,25 @@ func (t *NoOpTracer) WithErrorCause(ctx context.Context, appCtx appctx.Applicati
 func (t *NoOpTracer) WithError(ctx context.Context, appCtx appctx.ApplicationContext, criticalFunction func(ctx context.Context) error) func(ctx context.Context) error {
 	return criticalFunction
 }
-func (t *NoOpTracer) TracingHeaderParser() func(context.Context, *interop.Invoke) string {
-	return GetCustomerTracingHeader
+func (t *NoOpTracer) BuildTracingHeader() func(context.Context) string {
+	// extract root trace ID and parent from context and build the tracing header
+	return func(ctx context.Context) string {
+		root, _ := ctx.Value(TraceIDKey).(string)
+		parent, _ := ctx.Value(DocumentIDKey).(string)
+
+		if root != "" && parent != "" {
+			return fmt.Sprintf("Root=%s;Parent=%s;Sampled=1", root, parent)
+		}
+
+		return ""
+	}
+}
+
+func (t *NoOpTracer) BuildTracingCtxForStart() *interop.TracingCtx {
+	return nil
+}
+func (t *NoOpTracer) BuildTracingCtxAfterInvokeComplete() *interop.TracingCtx {
+	return nil
 }
 
 func NewNoOpTracer() *NoOpTracer {
@@ -83,49 +100,31 @@ func NewNoOpTracer() *NoOpTracer {
 
 // NewTraceContext returns new derived context with trace config set for testing
 func NewTraceContext(ctx context.Context, root string, parent string) context.Context {
-	ctxWithRoot := context.WithValue(ctx, traceIDKey, root)
-	return context.WithValue(ctxWithRoot, documentIDKey, parent)
+	ctxWithRoot := context.WithValue(ctx, TraceIDKey, root)
+	return context.WithValue(ctxWithRoot, DocumentIDKey, parent)
 }
 
-// GetCustomerTracingHeader extracts the trace config from trace context and constructs header
-func GetCustomerTracingHeader(ctx context.Context, invoke *interop.Invoke) string {
-	var root, parent string
-	var ok bool
-
-	if root, ok = ctx.Value(traceIDKey).(string); !ok {
-		return invoke.TraceID
-	}
-
-	if parent, ok = ctx.Value(documentIDKey).(string); !ok {
-		return invoke.TraceID
-	}
-
-	return fmt.Sprintf("Root=%s;Parent=%s;Sampled=1", root, parent)
-
-}
-
-// ParseTraceID helps client to get TraceID, ParentID, Sampled information from a full trace
-func ParseTraceID(fullTraceID string) (rootID, parentID, sample string) {
-	traceIDInfo := strings.Split(fullTraceID, ";")
-	for i := 0; i < len(traceIDInfo); i++ {
-		if len(traceIDInfo[i]) == 0 {
-			continue
-		} else {
-			var key string
-			var value string
-			keyValuePair := strings.Split(traceIDInfo[i], "=")
-			if len(keyValuePair) == 2 {
-				key = keyValuePair[0]
-				value = keyValuePair[1]
-			}
-			switch key {
-			case "Root":
-				rootID = value
-			case "Parent":
-				parentID = value
-			case "Sampled":
-				sample = value
-			}
+// ParseTracingHeader extracts RootTraceID, ParentID, Sampled, and Lineage from a tracing header.
+// Tracing header format is defined here:
+// https://docs.aws.amazon.com/xray/latest/devguide/xray-concepts.html#xray-concepts-tracingheader
+func ParseTracingHeader(tracingHeader string) (rootID, parentID, sampled, lineage string) {
+	keyValuePairs := strings.Split(tracingHeader, ";")
+	for _, pair := range keyValuePairs {
+		var key, value string
+		keyValue := strings.Split(pair, "=")
+		if len(keyValue) == 2 {
+			key = keyValue[0]
+			value = keyValue[1]
+		}
+		switch key {
+		case "Root":
+			rootID = value
+		case "Parent":
+			parentID = value
+		case "Sampled":
+			sampled = value
+		case "Lineage":
+			lineage = value
 		}
 	}
 	return

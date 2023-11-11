@@ -119,16 +119,16 @@ func UpdateAppCtxWithRuntimeRelease(request *http.Request, appCtx ApplicationCon
 	return false
 }
 
-// StoreErrorResponse stores response in the applicaton context.
-func StoreErrorResponse(appCtx ApplicationContext, errorResponse *interop.ErrorResponse) {
-	appCtx.Store(AppCtxInvokeErrorResponseKey, errorResponse)
+// StoreInvokeErrorTraceData stores invocation error x-ray cause header in the applicaton context.
+func StoreInvokeErrorTraceData(appCtx ApplicationContext, invokeError *interop.InvokeErrorTraceData) {
+	appCtx.Store(AppCtxInvokeErrorTraceDataKey, invokeError)
 }
 
-// LoadErrorResponse retrieves response from the application context.
-func LoadErrorResponse(appCtx ApplicationContext) *interop.ErrorResponse {
-	v, ok := appCtx.Load(AppCtxInvokeErrorResponseKey)
+// LoadInvokeErrorTraceData retrieves invocation error x-ray cause header from the application context.
+func LoadInvokeErrorTraceData(appCtx ApplicationContext) *interop.InvokeErrorTraceData {
+	v, ok := appCtx.Load(AppCtxInvokeErrorTraceDataKey)
 	if ok {
-		return v.(*interop.ErrorResponse)
+		return v.(*interop.InvokeErrorTraceData)
 	}
 	return nil
 }
@@ -143,6 +143,20 @@ func LoadInteropServer(appCtx ApplicationContext) interop.Server {
 	v, ok := appCtx.Load(AppCtxInteropServerKey)
 	if ok {
 		return v.(interop.Server)
+	}
+	return nil
+}
+
+// StoreResponseSender stores a reference to the response sender
+func StoreResponseSender(appCtx ApplicationContext, server interop.InvokeResponseSender) {
+	appCtx.Store(AppCtxResponseSenderKey, server)
+}
+
+// LoadResponseSender retrieves the response sender
+func LoadResponseSender(appCtx ApplicationContext) interop.InvokeResponseSender {
+	v, ok := appCtx.Load(AppCtxResponseSenderKey)
+	if ok {
+		return v.(interop.InvokeResponseSender)
 	}
 	return nil
 }

@@ -4,6 +4,7 @@
 package handler
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -108,7 +109,8 @@ func TestRenderAgentInvokeNextHappy(t *testing.T) {
 	}
 
 	renderingService := rendering.NewRenderingService()
-	renderingService.SetRenderer(rendering.NewInvokeRenderer(context.Background(), invoke, telemetry.GetCustomerTracingHeader))
+	var buf bytes.Buffer
+	renderingService.SetRenderer(rendering.NewInvokeRenderer(context.Background(), invoke, &buf, telemetry.NewNoOpTracer().BuildTracingHeader()))
 
 	handler := NewAgentNextHandler(registrationService, renderingService)
 	request := httptest.NewRequest("GET", "/", nil)
@@ -157,7 +159,8 @@ func TestRenderAgentInternalInvokeNextHappy(t *testing.T) {
 	}
 
 	renderingService := rendering.NewRenderingService()
-	renderingService.SetRenderer(rendering.NewInvokeRenderer(context.Background(), invoke, telemetry.GetCustomerTracingHeader))
+	var buf bytes.Buffer
+	renderingService.SetRenderer(rendering.NewInvokeRenderer(context.Background(), invoke, &buf, telemetry.NewNoOpTracer().BuildTracingHeader()))
 
 	handler := NewAgentNextHandler(registrationService, renderingService)
 	request := httptest.NewRequest("GET", "/", nil)
@@ -287,7 +290,8 @@ func TestRenderAgentInvokeNextHappyEmptyTraceID(t *testing.T) {
 	}
 
 	renderingService := rendering.NewRenderingService()
-	renderingService.SetRenderer(rendering.NewInvokeRenderer(context.Background(), invoke, telemetry.GetCustomerTracingHeader))
+	var buf bytes.Buffer
+	renderingService.SetRenderer(rendering.NewInvokeRenderer(context.Background(), invoke, &buf, telemetry.NewNoOpTracer().BuildTracingHeader()))
 
 	handler := NewAgentNextHandler(registrationService, renderingService)
 	request := httptest.NewRequest("GET", "/", nil)

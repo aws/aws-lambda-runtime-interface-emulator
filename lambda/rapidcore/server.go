@@ -33,12 +33,6 @@ const (
 	resetDefaultTimeoutMs = 2000
 )
 
-const (
-	contentTypeHeader          = "Content-Type"
-	errorTypeHeader            = "Error-Type"
-	functionResponseModeHeader = "Lambda-Runtime-Function-Response-Mode"
-)
-
 type rapidPhase int
 
 const (
@@ -84,7 +78,6 @@ type Server struct {
 	initChanOut             chan *interop.Init
 	interruptedResponseChan chan *interop.Reset
 
-	sendRunningChan  chan *interop.InitStarted
 	sendResponseChan chan *interop.InvokeResponseMetrics
 	doneChan         chan *interop.Done
 
@@ -107,7 +100,7 @@ type Server struct {
 	initContext             interop.InitContext
 	invoker                 interop.InvokeContext
 	initFailures            chan interop.InitFailure
-	cachedInitErrorResponse *interop.ErrorResponse
+	cachedInitErrorResponse *interop.ErrorInvokeResponse
 }
 
 // Validate interface compliance
@@ -266,7 +259,7 @@ func (s *Server) Release() error {
 		s.reservationCancel()
 	}
 
-	s.sandboxContext.SetInvokeReceivedTime(0)
+	s.sandboxContext.SetRuntimeStartedTime(-1)
 	s.sandboxContext.SetInvokeResponseMetrics(nil)
 	s.invokeCtx = nil
 	return nil
@@ -295,7 +288,7 @@ func (s *Server) SetInternalStateGetter(cb interop.InternalStateGetter) {
 	s.InternalStateGetter = cb
 }
 
-func (s *Server) sendResponseUnsafe(invokeID string, additionalHeaders map[string]string, status int, payload io.Reader, trailers http.Header, request *interop.CancellableRequest, runtimeCalledResponse bool) error {
+func (s *Server) sendResponseUnsafe(invokeID string, additionalHeaders map[string]string, payload io.Reader, trailers http.Header, request *interop.CancellableRequest, runtimeCalledResponse bool) error {
 	if s.invokeCtx == nil || invokeID != s.invokeCtx.Token.InvokeID {
 		return interop.ErrInvalidInvokeID
 	}
@@ -310,7 +303,7 @@ func (s *Server) sendResponseUnsafe(invokeID string, additionalHeaders map[strin
 
 	var reportedErr error
 	if s.invokeCtx.Direct {
-		if err := directinvoke.SendDirectInvokeResponse(additionalHeaders, payload, trailers, s.invokeCtx.ReplyStream, s.interruptedResponseChan, s.sendResponseChan, request, runtimeCalledResponse); err != nil {
+		if err := directinvoke.SendDirectInvokeResponse(additionalHeaders, payload, trailers, s.invokeCtx.ReplyStream, s.interruptedResponseChan, s.sendResponseChan, request, runtimeCalledResponse, invokeID); err != nil {
 			// TODO: Do we need to drain the reader in case of a large payload and connection reuse?
 			log.Errorf("Failed to write response to %s: %s", invokeID, err)
 			reportedErr = err
@@ -328,7 +321,7 @@ func (s *Server) sendResponseUnsafe(invokeID string, additionalHeaders map[strin
 		}
 
 		startReadingResponseMonoTimeMs := metering.Monotime()
-		s.invokeCtx.ReplyStream.Header().Add(contentTypeHeader, additionalHeaders[contentTypeHeader])
+		s.invokeCtx.ReplyStream.Header().Add(directinvoke.ContentTypeHeader, additionalHeaders[directinvoke.ContentTypeHeader])
 		written, err := s.invokeCtx.ReplyStream.Write(data)
 		if err != nil {
 			return fmt.Errorf("Failed to write response to %s: %s", invokeID, err)
@@ -355,19 +348,19 @@ func (s *Server) sendResponseUnsafe(invokeID string, additionalHeaders map[strin
 	return reportedErr
 }
 
-func (s *Server) SendResponse(invokeID string, headers map[string]string, reader io.Reader, trailers http.Header, request *interop.CancellableRequest) error {
+func (s *Server) SendResponse(invokeID string, resp *interop.StreamableInvokeResponse) error {
 	s.setRuntimeState(runtimeInvokeResponseSent)
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	runtimeCalledResponse := true
-	return s.sendResponseUnsafe(invokeID, headers, http.StatusOK, reader, trailers, request, runtimeCalledResponse)
+	return s.sendResponseUnsafe(invokeID, resp.Headers, resp.Payload, resp.Trailers, resp.Request, runtimeCalledResponse)
 }
 
-func (s *Server) SendInitErrorResponse(invokeID string, resp *interop.ErrorResponse) error {
-	log.Debugf("Sending Init Error Response: %s", resp.ErrorType)
+func (s *Server) SendInitErrorResponse(resp *interop.ErrorInvokeResponse) error {
+	log.Debugf("Sending Init Error Response: %s", resp.FunctionError.Type)
 	if s.getRapidPhase() == phaseInvoking {
 		// This branch occurs during suppressed init
-		return s.SendErrorResponse(invokeID, resp)
+		return s.SendErrorResponse(s.GetCurrentInvokeID(), resp)
 	}
 
 	// Handle an /init/error outside of the invoke phase
@@ -376,17 +369,20 @@ func (s *Server) SendInitErrorResponse(invokeID string, resp *interop.ErrorRespo
 	return nil
 }
 
-func (s *Server) SendErrorResponse(invokeID string, resp *interop.ErrorResponse) error {
-	log.Debugf("Sending Error Response: %s", resp.ErrorType)
+func (s *Server) SendErrorResponse(invokeID string, resp *interop.ErrorInvokeResponse) error {
+	log.Debugf("Sending Error Response: %s", resp.FunctionError.Type)
 	s.setRuntimeState(runtimeInvokeError)
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	additionalHeaders := map[string]string{contentTypeHeader: resp.ContentType, errorTypeHeader: resp.ErrorType}
-	if functionResponseMode := resp.FunctionResponseMode; functionResponseMode != "" {
-		additionalHeaders[functionResponseModeHeader] = functionResponseMode
+	additionalHeaders := map[string]string{
+		directinvoke.ContentTypeHeader: resp.Headers.ContentType,
+		directinvoke.ErrorTypeHeader:   string(resp.FunctionError.Type),
+	}
+	if functionResponseMode := resp.Headers.FunctionResponseMode; functionResponseMode != "" {
+		additionalHeaders[directinvoke.FunctionResponseModeHeader] = functionResponseMode
 	}
 	runtimeCalledResponse := false // we are sending an error here, so runtime called /error or crashed/timeout
-	return s.sendResponseUnsafe(invokeID, additionalHeaders, http.StatusInternalServerError, bytes.NewReader(resp.Payload), nil, nil, runtimeCalledResponse)
+	return s.sendResponseUnsafe(invokeID, additionalHeaders, bytes.NewReader(resp.Payload), nil, nil, runtimeCalledResponse)
 }
 
 func (s *Server) Reset(reason string, timeoutMs int64) (*statejson.ResetDescription, error) {
@@ -409,10 +405,21 @@ func (s *Server) Reset(reason string, timeoutMs int64) (*statejson.ResetDescript
 		s.setRuntimeState(runtimeNotStarted)
 
 		var meta interop.DoneMetadata
-		if reset.InvokeResponseMetrics != nil {
+		if reset.InvokeResponseMetrics != nil && interop.IsResponseStreamingMetrics(reset.InvokeResponseMetrics) {
 			meta.RuntimeTimeThrottledMs = reset.InvokeResponseMetrics.TimeShapedNs / int64(time.Millisecond)
 			meta.RuntimeProducedBytes = reset.InvokeResponseMetrics.ProducedBytes
 			meta.RuntimeOutboundThroughputBps = reset.InvokeResponseMetrics.OutboundThroughputBps
+			meta.MetricsDimensions = interop.DoneMetadataMetricsDimensions{
+				InvokeResponseMode: reset.InvokeResponseMode,
+			}
+
+			// These metrics aren't present in reset struct, therefore we need to get
+			// them from s.sandboxContext.Reset()  response
+			if resetFailure != nil {
+				meta.RuntimeResponseLatencyMs = resetFailure.ResponseMetrics.RuntimeResponseLatencyMs
+			} else {
+				meta.RuntimeResponseLatencyMs = resetSuccess.ResponseMetrics.RuntimeResponseLatencyMs
+			}
 		}
 
 		if resetFailure != nil {
@@ -431,15 +438,24 @@ func (s *Server) Reset(reason string, timeoutMs int64) (*statejson.ResetDescript
 		return nil, errors.New(string(done.ErrorType))
 	}
 
-	return &statejson.ResetDescription{ExtensionsResetMs: done.Meta.ExtensionsResetMs}, nil
+	return &statejson.ResetDescription{
+		ExtensionsResetMs: done.Meta.ExtensionsResetMs,
+		ResponseMetrics: statejson.ResponseMetrics{
+			RuntimeResponseLatencyMs: done.Meta.RuntimeResponseLatencyMs,
+			Dimensions: statejson.ResponseMetricsDimensions{
+				InvokeResponseMode: statejson.InvokeResponseMode(
+					done.Meta.MetricsDimensions.InvokeResponseMode,
+				),
+			},
+		},
+	}, nil
 }
 
-func NewServer(ctx context.Context) *Server {
+func NewServer() *Server {
 	s := &Server{
 		initChanOut:             make(chan *interop.Init),
 		interruptedResponseChan: make(chan *interop.Reset),
 
-		sendRunningChan:  make(chan *interop.InitStarted),
 		sendResponseChan: make(chan *interop.InvokeResponseMetrics),
 		doneChan:         make(chan *interop.Done),
 
@@ -500,18 +516,15 @@ func (s *Server) Init(i *interop.Init, invokeTimeoutMs int64) error {
 	s.SetInvokeTimeout(time.Duration(invokeTimeoutMs) * time.Millisecond)
 	s.setRapidPhase(phaseInitializing)
 	s.setInitFailuresChan()
-	initStarted, initCtx := s.sandboxContext.Init(i, invokeTimeoutMs)
-	initStarted.Ack <- struct{}{}
+	initCtx := s.sandboxContext.Init(i, invokeTimeoutMs)
 
 	s.initContext = initCtx
 	go s.awaitInitCompletion()
 
-	log.Debugf("Received RUNNING: %v", initStarted)
 	return nil
 }
 
 func (s *Server) FastInvoke(w http.ResponseWriter, i *interop.Invoke, direct bool) error {
-	s.sandboxContext.SetInvokeReceivedTime(i.InvokeReceivedTime)
 	invokeID, err := s.setReplyStream(w, direct)
 	if err != nil {
 		return err
@@ -536,7 +549,7 @@ func (s *Server) FastInvoke(w http.ResponseWriter, i *interop.Invoke, direct boo
 			s.setRuntimeState(runtimeInvokeComplete)
 			return
 		}
-		s.invoker.SendRequest(i)
+		s.invoker.SendRequest(i, s)
 		invokeSuccess, invokeFailure := s.invoker.Wait()
 		if invokeFailure != nil {
 			if invokeFailure.ResetReceived {
@@ -579,19 +592,19 @@ func (s *Server) FastInvoke(w http.ResponseWriter, i *interop.Invoke, direct boo
 	return nil
 }
 
-func (s *Server) setCachedInitErrorResponse(errResp *interop.ErrorResponse) {
+func (s *Server) setCachedInitErrorResponse(errResp *interop.ErrorInvokeResponse) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	s.cachedInitErrorResponse = errResp
 }
 
-func (s *Server) getCachedInitErrorResponse() *interop.ErrorResponse {
+func (s *Server) getCachedInitErrorResponse() *interop.ErrorInvokeResponse {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	return s.cachedInitErrorResponse
 }
 
-func (s *Server) trySendDefaultErrorResponse(resp *interop.ErrorResponse) {
+func (s *Server) trySendDefaultErrorResponse(resp *interop.ErrorInvokeResponse) {
 	if err := s.SendErrorResponse(s.GetCurrentInvokeID(), resp); err != nil {
 		if err != interop.ErrResponseSent {
 			log.Panicf("Failed to send default error response: %s", err)
@@ -658,9 +671,15 @@ func (s *Server) Invoke(responseWriter http.ResponseWriter, invoke *interop.Invo
 					// For init failures, cache the response so they can be checked later
 					// We check if they have not already been set by a call to /init/error by runtime
 					if s.getCachedInitErrorResponse() == nil {
-						errType, errMsg := string(initCompletionResp.InitErrorType), initCompletionResp.InitErrorMessage.Error()
-						s.setCachedInitErrorResponse(&interop.ErrorResponse{ErrorType: errType, ErrorMessage: errMsg})
+						errType, errMsg := initCompletionResp.InitErrorType, initCompletionResp.InitErrorMessage.Error()
+						headers := interop.InvokeResponseHeaders{}
+						fnError := interop.FunctionError{Type: errType, Message: errMsg}
+						s.setCachedInitErrorResponse(&interop.ErrorInvokeResponse{Headers: headers, FunctionError: fnError, Payload: []byte{}})
 					}
+
+					// Init failed, so we explicitly shutdown runtime (cleanup unused extensions).
+					// Because following fast invoke will start new (supressed) Init phase without reset call
+					s.Shutdown(&interop.Shutdown{DeadlineNs: metering.Monotime() + int64(resetDefaultTimeoutMs*1000*1000)})
 				}
 			}
 
@@ -759,7 +778,7 @@ func (s *Server) AwaitInitialized() error {
 	return nil
 }
 
-func (s *Server) AwaitRelease() (*statejson.InternalStateDescription, error) {
+func (s *Server) AwaitRelease() (*statejson.ReleaseResponse, error) {
 	defer func() {
 		s.setRapidPhase(phaseIdle)
 		s.setRuntimeState(runtimeInvokeComplete)
@@ -776,8 +795,20 @@ func (s *Server) AwaitRelease() (*statejson.InternalStateDescription, error) {
 			return nil, ErrInvokeDoneFailed
 		}
 
+		releaseResponse := statejson.ReleaseResponse{
+			InternalStateDescription: &doneWithState.State,
+			ResponseMetrics: statejson.ResponseMetrics{
+				RuntimeResponseLatencyMs: doneWithState.Meta.RuntimeResponseLatencyMs,
+				Dimensions: statejson.ResponseMetricsDimensions{
+					InvokeResponseMode: statejson.InvokeResponseMode(
+						doneWithState.Meta.MetricsDimensions.InvokeResponseMode,
+					),
+				},
+			},
+		}
+
 		s.Release()
-		return &doneWithState.State, nil
+		return &releaseResponse, nil
 
 	case <-s.reservationContext.Done():
 		return nil, ErrReleaseReservationDone
@@ -806,7 +837,7 @@ func (s *Server) InternalState() (*statejson.InternalStateDescription, error) {
 	return &state, nil
 }
 
-func (s *Server) Restore(restore *interop.Restore) error {
+func (s *Server) Restore(restore *interop.Restore) (interop.RestoreResult, error) {
 	return s.sandboxContext.Restore(restore)
 }
 
@@ -822,10 +853,14 @@ func doneFromInvokeSuccess(successMsg interop.InvokeSuccess) *interop.Done {
 
 			InvokeCompletionTimeNs:       successMsg.InvokeCompletionTimeNs,
 			InvokeReceivedTime:           successMsg.InvokeReceivedTime,
+			RuntimeResponseLatencyMs:     successMsg.ResponseMetrics.RuntimeResponseLatencyMs,
 			RuntimeTimeThrottledMs:       successMsg.ResponseMetrics.RuntimeTimeThrottledMs,
 			RuntimeProducedBytes:         successMsg.ResponseMetrics.RuntimeProducedBytes,
 			RuntimeOutboundThroughputBps: successMsg.ResponseMetrics.RuntimeOutboundThroughputBps,
 			LogsAPIMetrics:               successMsg.LogsAPIMetrics,
+			MetricsDimensions: interop.DoneMetadataMetricsDimensions{
+				InvokeResponseMode: successMsg.InvokeResponseMode,
+			},
 		},
 	}
 }
@@ -838,6 +873,7 @@ func doneFailFromInvokeFailure(failureMsg *interop.InvokeFailure) *interop.DoneF
 			NumActiveExtensions: failureMsg.NumActiveExtensions,
 			InvokeReceivedTime:  failureMsg.InvokeReceivedTime,
 
+			RuntimeResponseLatencyMs:     failureMsg.ResponseMetrics.RuntimeResponseLatencyMs,
 			RuntimeTimeThrottledMs:       failureMsg.ResponseMetrics.RuntimeTimeThrottledMs,
 			RuntimeProducedBytes:         failureMsg.ResponseMetrics.RuntimeProducedBytes,
 			RuntimeOutboundThroughputBps: failureMsg.ResponseMetrics.RuntimeOutboundThroughputBps,
@@ -848,6 +884,10 @@ func doneFailFromInvokeFailure(failureMsg *interop.InvokeFailure) *interop.DoneF
 
 			ExtensionNames: failureMsg.ExtensionNames,
 			LogsAPIMetrics: failureMsg.LogsAPIMetrics,
+
+			MetricsDimensions: interop.DoneMetadataMetricsDimensions{
+				InvokeResponseMode: failureMsg.InvokeResponseMode,
+			},
 		},
 	}
 }

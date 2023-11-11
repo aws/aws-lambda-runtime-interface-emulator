@@ -5,9 +5,9 @@ package interop
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
-	"net/http"
 	"strings"
 	"time"
 
@@ -32,8 +32,6 @@ const (
 	MaxResponseBandwidthBurstSize = 64 * 1024 * 1024 // 64 MiB
 )
 
-const functionResponseSizeTooLargeType = "Function.ResponseSizeTooLarge"
-
 // ResponseMode are top-level constants used in combination with the various types of
 // modes we have for responses, such as invoke's response mode and function's response mode.
 // In the future we might have invoke's request mode or similar, so these help set the ground
@@ -52,25 +50,6 @@ var AllInvokeResponseModes = []string{
 	string(InvokeResponseModeBuffered), string(InvokeResponseModeStreaming),
 }
 
-// ConvertToInvokeResponseMode converts the given string to a InvokeResponseMode
-// It is case insensitive and if there is no match, an error is thrown.
-func ConvertToInvokeResponseMode(value string) (InvokeResponseMode, error) {
-	// buffered
-	if strings.EqualFold(value, string(InvokeResponseModeBuffered)) {
-		return InvokeResponseModeBuffered, nil
-	}
-
-	// streaming
-	if strings.EqualFold(value, string(InvokeResponseModeStreaming)) {
-		return InvokeResponseModeStreaming, nil
-	}
-
-	// unknown
-	allowedValues := strings.Join(AllInvokeResponseModes, ", ")
-	log.Errorf("Unlable to map %s to %s.", value, allowedValues)
-	return "", ErrInvalidInvokeResponseMode
-}
-
 // FunctionResponseMode is passed by Runtime to tell whether the response should be
 // streamed or not.
 type FunctionResponseMode string
@@ -82,6 +61,7 @@ var AllFunctionResponseModes = []string{
 	string(FunctionResponseModeBuffered), string(FunctionResponseModeStreaming),
 }
 
+// TODO: move to directinvoke.go as we're trying to deprecate interop.* package
 // ConvertToFunctionResponseMode converts the given string to a FunctionResponseMode
 // It is case insensitive and if there is no match, an error is thrown.
 func ConvertToFunctionResponseMode(value string) (FunctionResponseMode, error) {
@@ -108,55 +88,77 @@ type Message interface{}
 type Invoke struct {
 	// Tracing header.
 	// https://docs.aws.amazon.com/xray/latest/devguide/xray-concepts.html#xray-concepts-tracingheader
-	TraceID               string
-	LambdaSegmentID       string
-	ID                    string
-	InvokedFunctionArn    string
-	CognitoIdentityID     string
-	CognitoIdentityPoolID string
-	DeadlineNs            string
-	ClientContext         string
-	ContentType           string
-	Payload               io.Reader
-	NeedDebugLogs         bool
-	ReservationToken      string
-	VersionID             string
-	InvokeReceivedTime    int64
-	InvokeResponseMetrics *InvokeResponseMetrics
+	TraceID                  string
+	LambdaSegmentID          string
+	ID                       string
+	InvokedFunctionArn       string
+	CognitoIdentityID        string
+	CognitoIdentityPoolID    string
+	DeadlineNs               string
+	ClientContext            string
+	ContentType              string
+	Payload                  io.Reader
+	NeedDebugLogs            bool
+	ReservationToken         string
+	VersionID                string
+	InvokeReceivedTime       int64
+	InvokeResponseMetrics    *InvokeResponseMetrics
+	InvokeResponseMode       InvokeResponseMode
+	RestoreDurationNs        int64 // equals 0 for non-snapstart functions
+	RestoreStartTimeMonotime int64 // equals 0 for non-snapstart functions
 }
 
 type Token struct {
-	ReservationToken string
-	InvokeID         string
-	VersionID        string
-	FunctionTimeout  time.Duration
-	InvackDeadlineNs int64
-	TraceID          string
-	LambdaSegmentID  string
-	InvokeMetadata   string
-	NeedDebugLogs    bool
+	ReservationToken         string
+	InvokeID                 string
+	VersionID                string
+	FunctionTimeout          time.Duration
+	InvackDeadlineNs         int64
+	TraceID                  string
+	LambdaSegmentID          string
+	InvokeMetadata           string
+	NeedDebugLogs            bool
+	RestoreDurationNs        int64
+	RestoreStartTimeMonotime int64
 }
 
-type ErrorResponse struct {
-	// Payload sent via shared memory.
-	Payload              []byte `json:"Payload,omitempty"`
-	ContentType          string `json:"-"`
-	FunctionResponseMode string `json:"-"`
-
-	// When error response body (Payload) is not provided, e.g.
-	// not retrievable, error type and error message will be
-	// used by the Slicer to construct a response json, e.g:
-	//
-	// default error response produced by the Slicer:
-	// '{"errorMessage":"Unknown application error occurred"}',
-	//
-	// when error type is provided, error response becomes:
-	// '{"errorMessage":"Unknown application error occurred","errorType":"ErrorType"}'
-	ErrorType    string `json:"errorType,omitempty"`
-	ErrorMessage string `json:"errorMessage,omitempty"`
-
+// InvokeErrorTraceData is used by the tracer to mark segments as being invocation error
+type InvokeErrorTraceData struct {
 	// Attached to invoke segment
 	ErrorCause json.RawMessage `json:"ErrorCause,omitempty"`
+}
+
+func GetErrorResponseWithFormattedErrorMessage(errorType fatalerror.ErrorType, err error, invokeRequestID string) *ErrorInvokeResponse {
+	var errorMessage string
+	if invokeRequestID != "" {
+		errorMessage = fmt.Sprintf("RequestId: %s Error: %v", invokeRequestID, err)
+	} else {
+		errorMessage = fmt.Sprintf("Error: %v", err)
+	}
+
+	jsonPayload, err := json.Marshal(FunctionError{
+		Type:    errorType,
+		Message: errorMessage,
+	})
+
+	if err != nil {
+		return &ErrorInvokeResponse{
+			Headers: InvokeResponseHeaders{},
+			FunctionError: FunctionError{
+				Type:    fatalerror.SandboxFailure,
+				Message: errorMessage,
+			},
+			Payload: []byte{},
+		}
+	}
+
+	headers := InvokeResponseHeaders{}
+	functionError := FunctionError{
+		Type:    errorType,
+		Message: errorMessage,
+	}
+
+	return &ErrorInvokeResponse{Headers: headers, FunctionError: functionError, Payload: jsonPayload}
 }
 
 // SandboxType identifies sandbox type (PreWarmed vs Classic)
@@ -178,7 +180,7 @@ type DynamicDomainConfig struct {
 	// extra hooks to execute at domain start. Currently used for filesystem and network hooks.
 	// It can be empty.
 	AdditionalStartHooks []model.Hook
-	Mounts               []model.DriveMount
+	Mounts               []model.Mount
 	//TODO: other dynamic configurations for the domain go here
 }
 
@@ -189,14 +191,17 @@ type Reset struct {
 	InvokeResponseMetrics *InvokeResponseMetrics
 	TraceID               string
 	LambdaSegmentID       string
+	InvokeResponseMode    InvokeResponseMode
 }
 
 // Restore message is sent to rapid to restore runtime to make it ready for consecutive invokes
 type Restore struct {
-	AwsKey            string
-	AwsSecret         string
-	AwsSession        string
-	CredentialsExpiry time.Time
+	AwsKey               string
+	AwsSecret            string
+	AwsSession           string
+	CredentialsExpiry    time.Time
+	RestoreHookTimeoutMs int64
+	LogStreamName        string
 }
 
 type Resync struct {
@@ -224,7 +229,10 @@ func MergeSubscriptionMetrics(logsAPIMetrics TelemetrySubscriptionMetrics, telem
 
 // InvokeResponseMetrics are produced while sending streaming invoke response to WP
 type InvokeResponseMetrics struct {
-	StartReadingResponseMonoTimeMs  int64
+	// FIXME: this assumes a value in nanoseconds, let's rename it
+	// to StartReadingResponseMonoTimeNs
+	StartReadingResponseMonoTimeMs int64
+	// Same as the one above
 	FinishReadingResponseMonoTimeMs int64
 	TimeShapedNs                    int64
 	ProducedBytes                   int64
@@ -240,6 +248,22 @@ func IsResponseStreamingMetrics(metrics *InvokeResponseMetrics) bool {
 	return metrics.FunctionResponseMode == FunctionResponseModeStreaming
 }
 
+type DoneMetadataMetricsDimensions struct {
+	InvokeResponseMode InvokeResponseMode
+}
+
+func (dimensions DoneMetadataMetricsDimensions) String() string {
+	var stringDimensions []string
+
+	if dimensions.InvokeResponseMode != "" {
+		dimension := string("invoke_response_mode=" + dimensions.InvokeResponseMode)
+		stringDimensions = append(stringDimensions, dimension)
+	}
+	return strings.ToLower(
+		strings.Join(stringDimensions, ","),
+	)
+}
+
 type DoneMetadata struct {
 	NumActiveExtensions int
 	ExtensionsResetMs   int64
@@ -252,9 +276,11 @@ type DoneMetadata struct {
 	InvokeCompletionTimeNs       int64
 	InvokeReceivedTime           int64
 	RuntimeReadyTime             int64
+	RuntimeResponseLatencyMs     float64
 	RuntimeTimeThrottledMs       int64
 	RuntimeProducedBytes         int64
 	RuntimeOutboundThroughputBps int64
+	MetricsDimensions            DoneMetadataMetricsDimensions
 }
 
 type Done struct {
@@ -332,19 +358,18 @@ func (s *ErrorResponseTooLarge) Error() string {
 	return fmt.Sprintf("Response payload size (%d bytes) exceeded maximum allowed payload size (%d bytes).", s.ResponseSize, s.MaxResponseSize)
 }
 
-// AsErrorResponse generates ErrorResponse from ErrorResponseTooLarge
-func (s *ErrorResponseTooLarge) AsInteropError() *ErrorResponse {
-	resp := ErrorResponse{
-		ErrorType:    functionResponseSizeTooLargeType,
-		ErrorMessage: s.Error(),
+// AsErrorResponse generates ErrorInvokeResponse from ErrorResponseTooLarge
+func (s *ErrorResponseTooLarge) AsErrorResponse() *ErrorInvokeResponse {
+	functionError := FunctionError{
+		Type:    fatalerror.FunctionOversizedResponse,
+		Message: s.Error(),
 	}
-	respJSON, err := json.Marshal(resp)
+	jsonPayload, err := json.Marshal(functionError)
 	if err != nil {
-		panic("Failed to marshal interop.ErrorResponse")
+		panic("Failed to marshal interop.FunctionError")
 	}
-	resp.Payload = respJSON
-	resp.ContentType = "application/json"
-	return &resp
+	headers := InvokeResponseHeaders{ContentType: "application/json"}
+	return &ErrorInvokeResponse{Headers: headers, FunctionError: functionError, Payload: jsonPayload}
 }
 
 // Server used for sending messages and sharing data between the Runtime API handlers and the
@@ -356,21 +381,6 @@ func (s *ErrorResponseTooLarge) AsInteropError() *ErrorResponse {
 // protocol used by the specific implementation
 // TODO: rename this to InvokeResponseContext, used to send responses from handlers to platform-facing server
 type Server interface {
-	// SendResponse sends response.
-	// Errors returned:
-	//   ErrInvalidInvokeID - validation error indicating that provided invokeID doesn't match current invokeID
-	//   ErrResponseSent    - validation error indicating that response with given invokeID was already sent
-	//   Non-nil error      - non-nil error indicating transport failure
-	SendResponse(invokeID string, headers map[string]string, response io.Reader, trailers http.Header, request *CancellableRequest) error
-
-	// SendErrorResponse sends error response.
-	// Errors returned:
-	//   ErrInvalidInvokeID - validation error indicating that provided invokeID doesn't match current invokeID
-	//   ErrResponseSent    - validation error indicating that response with given invokeID was already sent
-	//   Non-nil error      - non-nil error indicating transport failure
-	SendErrorResponse(invokeID string, response *ErrorResponse) error
-	SendInitErrorResponse(invokeID string, response *ErrorResponse) error
-
 	// GetCurrentInvokeID returns current invokeID.
 	// NOTE, in case of INIT, when invokeID is not known in advance (e.g. provisioned concurrency),
 	// returned invokeID will contain empty value.
@@ -381,24 +391,40 @@ type Server interface {
 	// from the time when all extensions have called /next.
 	// TODO: this method is a lifecycle event used only for metrics, and doesn't belong here
 	SendRuntimeReady() error
+
+	// SendInitErrorResponse does two separate things when init/error is called:
+	// a) sends the init error response if called during invoke, and
+	// b) notifies platform of a user fault if called, during both init or invoke
+	// TODO:
+	// separate the two concerns & unify with SendErrorResponse in response sender
+	SendInitErrorResponse(response *ErrorInvokeResponse) error
 }
 
 type InternalStateGetter func() statejson.InternalStateDescription
 
-const OnDemandInitTelemetrySource string = "on-demand"
-const ProvisionedConcurrencyInitTelemetrySource string = "provisioned-concurrency"
-const InitCachingInitTelemetrySource string = "snap-start"
+// ErrRestoreHookTimeout is returned as a response to `RESTORE` message
+// when function's restore hook takes more time to execute thatn
+// the timeout value.
+var ErrRestoreHookTimeout = errors.New("Runtime.RestoreHookUserTimeout")
 
-func InferTelemetryInitSource(initCachingEnabled bool, sandboxType SandboxType) string {
-	initSource := OnDemandInitTelemetrySource
-
-	// ToDo: Unify this selection of SandboxType by using the START message
-	// after having a roadmap on the combination of INIT modes
-	if initCachingEnabled {
-		initSource = InitCachingInitTelemetrySource
-	} else if sandboxType == SandboxPreWarmed {
-		initSource = ProvisionedConcurrencyInitTelemetrySource
-	}
-
-	return initSource
+// ErrRestoreHookUserError is returned as a response to `RESTORE` message
+// when function's restore hook faces with an error on throws an exception.
+// UserError contains the error type that the runtime encountered.
+type ErrRestoreHookUserError struct {
+	UserError FunctionError
 }
+
+func (err ErrRestoreHookUserError) Error() string {
+	return "errRestoreHookUserError"
+}
+
+// ErrRestoreUpdateCredentials is returned as a response to `RESTORE` message
+// if RAPID cannot update the credentials served by credentials API
+// during the RESTORE phase.
+var ErrRestoreUpdateCredentials = errors.New("errRestoreUpdateCredentials")
+
+var ErrCannotParseCredentialsExpiry = errors.New("errCannotParseCredentialsExpiry")
+
+var ErrCannotParseRestoreHookTimeoutMs = errors.New("errCannotParseRestoreHookTimeoutMs")
+
+var ErrMissingRestoreCredentials = errors.New("errMissingRestoreCredentials")

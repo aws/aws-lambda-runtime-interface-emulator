@@ -10,7 +10,7 @@ import (
 	"go.amzn.com/lambda/core/statejson"
 	"go.amzn.com/lambda/interop"
 	"go.amzn.com/lambda/rapidcore"
-	"go.amzn.com/lambda/rapidcore/telemetry"
+	"go.amzn.com/lambda/rapidcore/standalone/telemetry"
 
 	"github.com/go-chi/chi"
 )
@@ -21,14 +21,14 @@ type InteropServer interface {
 	FastInvoke(w http.ResponseWriter, i *interop.Invoke, direct bool) error
 	Reserve(id string, traceID, lambdaSegmentID string) (*rapidcore.ReserveResponse, error)
 	Reset(reason string, timeoutMs int64) (*statejson.ResetDescription, error)
-	AwaitRelease() (*statejson.InternalStateDescription, error)
+	AwaitRelease() (*statejson.ReleaseResponse, error)
 	Shutdown(shutdown *interop.Shutdown) *statejson.InternalStateDescription
 	InternalState() (*statejson.InternalStateDescription, error)
 	CurrentToken() *interop.Token
-	Restore(restore *interop.Restore) error
+	Restore(restore *interop.Restore) (interop.RestoreResult, error)
 }
 
-func NewHTTPRouter(ipcSrv InteropServer, lambdaInvokeAPI rapidcore.LambdaInvokeAPI, eventLog *telemetry.EventLog, shutdownFunc context.CancelFunc, bs interop.Bootstrap) *chi.Mux {
+func NewHTTPRouter(ipcSrv InteropServer, lambdaInvokeAPI rapidcore.LambdaInvokeAPI, eventsAPI *telemetry.StandaloneEventsAPI, shutdownFunc context.CancelFunc, bs interop.Bootstrap) *chi.Mux {
 	r := chi.NewRouter()
 	r.Use(standaloneAccessLogDecorator)
 
@@ -43,7 +43,7 @@ func NewHTTPRouter(ipcSrv InteropServer, lambdaInvokeAPI rapidcore.LambdaInvokeA
 	r.Post("/test/shutdown", func(w http.ResponseWriter, r *http.Request) { ShutdownHandler(w, r, ipcSrv, shutdownFunc) })
 	r.Post("/test/directInvoke/{reservationtoken}", func(w http.ResponseWriter, r *http.Request) { DirectInvokeHandler(w, r, ipcSrv) })
 	r.Get("/test/internalState", func(w http.ResponseWriter, r *http.Request) { InternalStateHandler(w, r, ipcSrv) })
-	r.Get("/test/eventLog", func(w http.ResponseWriter, r *http.Request) { EventLogHandler(w, r, eventLog) })
+	r.Get("/test/eventLog", func(w http.ResponseWriter, r *http.Request) { EventLogHandler(w, r, eventsAPI) })
 	r.Post("/test/restore", func(w http.ResponseWriter, r *http.Request) { RestoreHandler(w, r, ipcSrv) })
 	return r
 }

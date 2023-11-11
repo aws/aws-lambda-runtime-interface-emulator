@@ -4,10 +4,9 @@
 package testdata
 
 import (
+	"bytes"
 	"context"
-	"io"
 	"io/ioutil"
-	"net/http"
 	"time"
 
 	"go.amzn.com/lambda/appctx"
@@ -25,15 +24,15 @@ const (
 
 type MockInteropServer struct {
 	Response             []byte
-	ErrorResponse        *interop.ErrorResponse
+	ErrorResponse        *interop.ErrorInvokeResponse
 	ResponseContentType  string
 	FunctionResponseMode string
 	ActiveInvokeID       string
 }
 
 // SendResponse writes response to a shared memory.
-func (i *MockInteropServer) SendResponse(invokeID string, headers map[string]string, reader io.Reader, trailers http.Header, request *interop.CancellableRequest) error {
-	bytes, err := ioutil.ReadAll(reader)
+func (i *MockInteropServer) SendResponse(invokeID string, resp *interop.StreamableInvokeResponse) error {
+	bytes, err := ioutil.ReadAll(resp.Payload)
 	if err != nil {
 		return err
 	}
@@ -44,23 +43,23 @@ func (i *MockInteropServer) SendResponse(invokeID string, headers map[string]str
 		}
 	}
 	i.Response = bytes
-	i.ResponseContentType = headers[contentTypeHeader]
-	i.FunctionResponseMode = headers[functionResponseModeHeader]
+	i.ResponseContentType = resp.Headers[contentTypeHeader]
+	i.FunctionResponseMode = resp.Headers[functionResponseModeHeader]
 	return nil
 }
 
 // SendErrorResponse writes error response to a shared memory and sends GIRD FAULT.
-func (i *MockInteropServer) SendErrorResponse(invokeID string, response *interop.ErrorResponse) error {
+func (i *MockInteropServer) SendErrorResponse(invokeID string, response *interop.ErrorInvokeResponse) error {
 	i.ErrorResponse = response
-	i.ResponseContentType = response.ContentType
-	i.FunctionResponseMode = response.FunctionResponseMode
+	i.ResponseContentType = response.Headers.ContentType
+	i.FunctionResponseMode = response.Headers.FunctionResponseMode
 	return nil
 }
 
 // SendInitErrorResponse writes error response during init to a shared memory and sends GIRD FAULT.
-func (i *MockInteropServer) SendInitErrorResponse(invokeID string, response *interop.ErrorResponse) error {
+func (i *MockInteropServer) SendInitErrorResponse(response *interop.ErrorInvokeResponse) error {
 	i.ErrorResponse = response
-	i.ResponseContentType = response.ContentType
+	i.ResponseContentType = response.Headers.ContentType
 	return nil
 }
 
@@ -81,7 +80,7 @@ type FlowTest struct {
 	InteropServer         *MockInteropServer
 	TelemetrySubscription *telemetry.NoOpSubscriptionAPI
 	CredentialsService    core.CredentialsService
-	EventsAPI             telemetry.EventsAPI
+	EventsAPI             interop.EventsAPI
 }
 
 // ConfigureForInit initialize synchronization gates and states for init.
@@ -93,10 +92,22 @@ func (s *FlowTest) ConfigureForInit() {
 func (s *FlowTest) ConfigureForInvoke(ctx context.Context, invoke *interop.Invoke) {
 	s.InteropServer.ActiveInvokeID = invoke.ID
 	s.InvokeFlow.InitializeBarriers()
-	s.RenderingService.SetRenderer(rendering.NewInvokeRenderer(ctx, invoke, telemetry.GetCustomerTracingHeader))
+	var buf bytes.Buffer // create default invoke renderer with new request buffer each time
+	s.ConfigureInvokeRenderer(ctx, invoke, &buf)
+}
+
+// ConfigureInvokeRenderer overrides default invoke renderer to reuse request buffers (for benchmarks), etc.
+func (s *FlowTest) ConfigureInvokeRenderer(ctx context.Context, invoke *interop.Invoke, buf *bytes.Buffer) {
+	s.RenderingService.SetRenderer(rendering.NewInvokeRenderer(ctx, invoke, buf, telemetry.NewNoOpTracer().BuildTracingHeader()))
 }
 
 func (s *FlowTest) ConfigureForRestore() {
+	s.RenderingService.SetRenderer(rendering.NewRestoreRenderer())
+}
+
+func (s *FlowTest) ConfigureForRestoring() {
+	s.RegistrationService.PreregisterRuntime(s.Runtime)
+	s.Runtime.SetState(s.Runtime.RuntimeRestoringState)
 	s.RenderingService.SetRenderer(rendering.NewRestoreRenderer())
 }
 
@@ -118,6 +129,8 @@ func NewFlowTest() *FlowTest {
 	interopServer := &MockInteropServer{}
 	eventsAPI := telemetry.NoOpEventsAPI{}
 	appctx.StoreInteropServer(appCtx, interopServer)
+	appctx.StoreResponseSender(appCtx, interopServer)
+
 	return &FlowTest{
 		AppCtx:                appCtx,
 		InitFlow:              initFlow,

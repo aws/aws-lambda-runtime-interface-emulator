@@ -4,7 +4,14 @@
 package extensions
 
 import (
+	"os"
 	"sync/atomic"
+
+	log "github.com/sirupsen/logrus"
+)
+
+const (
+	disableExtensionsFile = "/opt/disable-extensions-jwigqn8j"
 )
 
 var enabled atomic.Value
@@ -26,4 +33,12 @@ func AreEnabled() bool {
 		return false
 	}
 	return val.(bool)
+}
+
+func DisableViaMagicLayer() {
+	_, err := os.Stat(disableExtensionsFile)
+	if err == nil {
+		log.Infof("Extensions disabled by attached layer (%s)", disableExtensionsFile)
+		Disable()
+	}
 }
