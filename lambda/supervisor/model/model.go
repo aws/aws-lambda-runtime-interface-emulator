@@ -4,41 +4,73 @@
 package model
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 	"syscall"
+	"time"
 )
 
-type Supervisor struct {
-	SupervisorClient
-	OperatorConfig DomainConfig
-	RuntimeConfig  DomainConfig
+// Start, Stop and Configure methods are not used in Core anymore.
+// Client interface splitted into Launcher and Executer parts for backward compatibility of dependent packages.
+type ContainerSupervisor interface {
+	Start(context.Context, *StartRequest) error
+	Configure(context.Context, *ConfigureRequest) error
+	Stop(context.Context, *StopRequest) (*StopResponse, error)
+	Freeze(context.Context, *FreezeRequest) (*FreezeResponse, error)
+	Thaw(context.Context, *ThawRequest) error
+	Exit(context.Context)
 }
 
-type DomainConfig struct {
-	// path to the root of the domain within the root mnt namespace
-	RootPath string
+type ProcessSupervisor interface {
+	Exec(context.Context, *ExecRequest) error
+	Terminate(context.Context, *TerminateRequest) error
+	Kill(context.Context, *KillRequest) error
+	Events(context.Context, *EventsRequest) (<-chan Event, error)
 }
 
 type SupervisorClient interface {
-	Start(req *StartRequest) error
-	Configure(req *ConfigureRequest) error
-	Exec(req *ExecRequest) error
-	Terminate(req *TerminateRequest) error
-	Kill(req *KillRequest) error
-	Stop(req *StopRequest) error
-	Freeze(req *FreezeRequest) error
-	Thaw(req *ThawRequest) error
-	Ping() error
-	Events() (<-chan Event, error)
+	ContainerSupervisor
+	ProcessSupervisor
+	Ping(ctx context.Context) error
 }
 
 type StartRequest struct {
 	Domain string `json:"domain"`
-	// name of the cgroup profile to start the domain in
-	CgroupProfile *string `json:"cgroup_profile,omitempty"`
+}
+
+type Mount struct {
+	DriveMount DriveMount
+	BindMount  BindMount
+	MountType  MountType
+}
+
+type MountType int
+
+const (
+	_ MountType = iota
+	MountTypeDrive
+	MountTypeBind
+)
+
+type CgroupProfileName string
+
+const (
+	Throttled   CgroupProfileName = "throttled"
+	Unthrottled CgroupProfileName = "unthrottled"
+)
+
+func (m *Mount) MarshalJSON() ([]byte, error) {
+	switch m.MountType {
+	case MountTypeDrive:
+		return m.DriveMount.MarshalJSON()
+	case MountTypeBind:
+		return m.BindMount.MarshalJSON()
+	default:
+		return nil, fmt.Errorf("invalid mount type: %v", m.MountType)
+	}
 }
 
 // Mount in lockhard::mnt is a Rust enum, an algebraic type, where each case has different set of fields.
@@ -66,6 +98,24 @@ func (m *DriveMount) MarshalJSON() ([]byte, error) {
 	})
 }
 
+type BindMount struct {
+	Source      string   `json:"source,omitempty"`
+	Destination string   `json:"destination,omitempty"`
+	Options     []string `json:"options,omitempty"`
+}
+
+func (m *BindMount) MarshalJSON() ([]byte, error) {
+	type bindMountAlias BindMount
+
+	return json.Marshal(&struct {
+		Type string `json:"type,omitempty"`
+		*bindMountAlias
+	}{
+		Type:           "bind",
+		bindMountAlias: (*bindMountAlias)(m),
+	})
+}
+
 type Capabilities struct {
 	Ambient     []string `json:"ambient,omitempty"`
 	Bounding    []string `json:"bounding,omitempty"`
@@ -74,10 +124,14 @@ type Capabilities struct {
 	Permitted   []string `json:"permitted,omitempty"`
 }
 
-type CgroupProfile struct {
-	Name        string   `json:"name"`
-	CPUPct      *float64 `json:"cpu_pct,omitempty"`
-	MemMaxBytes *uint64  `json:"mem_max,omitempty"`
+type CgroupProfiles struct {
+	Throttled   CgroupProfileConfig `json:"throttled"`
+	Unthrottled CgroupProfileConfig `json:"unthrottled"`
+}
+
+type CgroupProfileConfig struct {
+	CPULimit         float64 `json:"cpu_limit"`
+	MemoryLimitBytes uint64  `json:"memory_limit_bytes"`
 }
 
 type ExecUser struct {
@@ -88,17 +142,24 @@ type ExecUser struct {
 type ConfigureRequest struct {
 	// domain to configure
 	Domain         string        `json:"domain"`
-	Mounts         []DriveMount  `json:"mounts,omitempty"`
+	Mounts         []Mount       `json:"mounts,omitempty"`
 	Capabilities   *Capabilities `json:"capabilities,omitempty"`
 	SeccompFilters []string      `json:"seccomp_filters,omitempty"`
 	// list of cgroup profiles available for the domain
-	// cgroup profiles are set on boot or thaw requests
-	CgroupProfiles []CgroupProfile `json:"cgroup_profiles,omitempty"`
+	// cgroup profiles are set on start and thaw request. Start profile
+	// if configured (as it can vary), thaw profile is always the same (throttled)
+	CgroupProfiles *CgroupProfiles `json:"cgroup_profiles,omitempty"`
+	// name of the cgroup profile to enforce at domain start
+	StartProfile CgroupProfileName `json:"start_profile,omitempty"`
 	// uid and gid of the user the spawned process runs as (w.r.t. the domain user namespace).
 	// If nil, Supervisor will use the ExecUser specified in the domain configuration file
 	ExecUser *ExecUser `json:"exec_user,omitempty"`
 	// additional hooks to execute on domain start
 	AdditionalStartHooks []Hook `json:"additional_start_hooks,omitempty"`
+}
+
+type EventsRequest struct {
+	Domain string `json:"domain"`
 }
 
 type Event struct {
@@ -188,9 +249,6 @@ type Hook struct {
 	Args []string `json:"args,omitempty"`
 	// Map of ENV variables to set when running the hook
 	Env *map[string]string `json:"envs,omitempty"`
-	// Maximum time for the hook to run. The hook will be considered failed
-	// if it takes more than this value (default 10_000)
-	TimeoutMillis *uint64 `json:"timeout_millis,omitempty"`
 }
 
 type ExecRequest struct {
@@ -203,15 +261,37 @@ type ExecRequest struct {
 	Path string   `json:"path"`
 	Args []string `json:"args,omitempty"`
 	// If nil, root of the domain
-	Cwd *string            `json:"cwd,omitempty"`
-	Env *map[string]string `json:"env,omitempty"`
-	// If not nil, points to the socket that Supervisor
-	// uses to get the processes stdout and stderr.
-	LogsSock     *string     `json:"logs_sock,omitempty"`
-	StdoutWriter io.Writer   `json:"-"`
-	StderrWriter io.Writer   `json:"-"`
-	ExtraFiles   *[]*os.File `json:"-"`
+	Cwd          *string            `json:"cwd,omitempty"`
+	Env          *map[string]string `json:"env,omitempty"`
+	Logging      Logging            `json:"log_config"`
+	StdoutWriter io.Writer          `json:"-"`
+	StderrWriter io.Writer          `json:"-"`
+	ExtraFiles   *[]*os.File        `json:"-"`
 }
+
+// Logging specifies where Supervisor should send Command's logs to
+type Logging struct {
+	Managed ManagedLogging `json:"managed"`
+}
+
+type ManagedLogging struct {
+	Topic   ManagedLoggingTopic    `json:"topic"`
+	Formats []ManagedLoggingFormat `json:"formats"`
+}
+
+type ManagedLoggingTopic string
+
+const (
+	RuntimeManagedLoggingTopic     ManagedLoggingTopic = "runtime"
+	RtExtensionManagedLoggingTopic ManagedLoggingTopic = "runtime_extension"
+)
+
+type ManagedLoggingFormat string
+
+const (
+	LineBasedManagedLogging    ManagedLoggingFormat = "line"
+	MessageBasedManagedLogging ManagedLoggingFormat = "message"
+)
 
 type ErrorKind string
 
@@ -243,27 +323,54 @@ type TerminateRequest struct {
 
 // Force terminate a process (SIGKILL)
 // Block until process is exited or timeout
-// If timeout is 0 or nil, block forever
+// Deadline needs to be in the future
 type KillRequest struct {
-	Name    string  `json:"name"`
-	Domain  string  `json:"domain"`
-	Timeout *uint64 `json:",omitempty"`
+	Name     string    `json:"name"`
+	Domain   string    `json:"domain"`
+	Deadline time.Time `json:"deadline"`
 }
 
-// Stop the domain. Supervisor will first try to
-// cleanly terminate the domain's init process. If unsuccessful,
-// within Timeout seconds, it will send SIGKILL.
+// Stop the domain.
 type StopRequest struct {
-	Domain  string  `json:"domain"`
-	Timeout *uint64 `json:",omitempty"`
+	Domain   string    `json:"domain"`
+	Deadline time.Time `json:"deadline"`
+}
+
+type StopResponse struct {
+	CycleDeltaMetrics CycleDeltaMetrics `json:"cycle_delta_metrics"`
 }
 
 type FreezeRequest struct {
 	Domain string `json:"domain"`
 }
 
+type FreezeResponse struct {
+	CycleDeltaMetrics CycleDeltaMetrics `json:"cycle_delta_metrics"`
+}
+
+type MicrovmNetworkInterfaceMetrics struct {
+	ReceivedBytes    uint64 `json:"received_bytes"`
+	TransmittedBytes uint64 `json:"transmitted_bytes"`
+}
+
+type CycleDeltaMetrics struct {
+	// CPU time (in nanoseconds) obtained by domain cgroup from cpuacct.usage
+	// https://www.kernel.org/doc/Documentation/cgroup-v1/cpuacct.txt
+	DomainCPURunNs uint64 `json:"domain_cpu_run_ns"`
+	// time (in nanoseconds) for domain cycle
+	DomainRunNs uint64 `json:"domain_run_ns"`
+	// CPU delta time for service cgroup
+	ServiceCPURunNs uint64 `json:"service_cpu_run_ns"`
+	// Maximum memory used (in bytes) for domain
+	DomainMaxMemoryUsageBytes uint64 `json:"domain_max_memory_usage_bytes"`
+	// CPU delta time (in nanoseconds) obtained from /sys/fs/cgroup/cpu,cpuacct/cpuacct.usage
+	MicrovmCPURunNs uint64 `json:"microvm_cpu_run_ns"`
+	// Map with network interface name as key and network metrics as a value
+	MicrovmNetworksBytes map[string]MicrovmNetworkInterfaceMetrics `json:"microvm_network_interfaces"`
+	// time ( in nanoseconds ) for idle cpu time
+	InvokeIdleCPURunNs uint64 `json:"idle_cpu_run_ns"`
+}
+
 type ThawRequest struct {
 	Domain string `json:"domain"`
-	// if not nil, changes the cgroup profile of the domain upon thawing.
-	CgroupProfile *string `json:"cgroup_profile,omitempty"`
 }

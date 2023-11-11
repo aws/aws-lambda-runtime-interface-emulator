@@ -33,7 +33,7 @@ type SandboxBuilder struct {
 	lambdaInvokeAPI        LambdaInvokeAPI
 	defaultInteropServer   *Server
 	useCustomInteropServer bool
-	shutdownFuncs          []context.CancelFunc
+	shutdownFuncs          []func()
 	handler                string
 }
 
@@ -45,39 +45,42 @@ const (
 )
 
 func NewSandboxBuilder() *SandboxBuilder {
-	defaultInteropServer := NewServer(context.Background())
-	signalCtx, cancelSignalCtx := context.WithCancel(context.Background())
+	defaultInteropServer := NewServer()
 
+	localSv := supervisor.NewLocalSupervisor()
 	b := &SandboxBuilder{
 		sandbox: &rapid.Sandbox{
-			PreLoadTimeNs:      0, // TODO
 			StandaloneMode:     true,
 			LogsEgressAPI:      &telemetry.NoOpLogsEgressAPI{},
 			EnableTelemetryAPI: false,
 			Tracer:             telemetry.NewNoOpTracer(),
-			SignalCtx:          signalCtx,
 			EventsAPI:          &telemetry.NoOpEventsAPI{},
 			InitCachingEnabled: false,
-			Supervisor:         supervisor.NewLocalSupervisor(),
+			Supervisor:         localSv,
+			RuntimeFsRootPath:  localSv.RootPath,
 			RuntimeAPIHost:     "127.0.0.1",
 			RuntimeAPIPort:     9001,
 		},
 		defaultInteropServer: defaultInteropServer,
-		shutdownFuncs:        []context.CancelFunc{},
+		shutdownFuncs:        []func(){},
 		lambdaInvokeAPI:      NewEmulatorAPI(defaultInteropServer),
 	}
 
-	b.AddShutdownFunc(context.CancelFunc(func() {
+	b.AddShutdownFunc(func() {
 		log.Info("Shutting down...")
 		defaultInteropServer.Reset("SandboxTerminated", defaultSigtermResetTimeoutMs)
-		cancelSignalCtx()
-	}))
+	})
 
 	return b
 }
 
-func (b *SandboxBuilder) SetSupervisor(supervisor supvmodel.Supervisor) *SandboxBuilder {
+func (b *SandboxBuilder) SetSupervisor(supervisor supvmodel.ProcessSupervisor) *SandboxBuilder {
 	b.sandbox.Supervisor = supervisor
+	return b
+}
+
+func (b *SandboxBuilder) SetRuntimeFsRootPath(rootPath string) *SandboxBuilder {
+	b.sandbox.RuntimeFsRootPath = rootPath
 	return b
 }
 
@@ -105,7 +108,7 @@ func (b *SandboxBuilder) SetInteropServer(interopServer interop.Server) *Sandbox
 	return b
 }
 
-func (b *SandboxBuilder) SetEventsAPI(eventsAPI telemetry.EventsAPI) *SandboxBuilder {
+func (b *SandboxBuilder) SetEventsAPI(eventsAPI interop.EventsAPI) *SandboxBuilder {
 	b.sandbox.EventsAPI = eventsAPI
 	return b
 }
@@ -134,11 +137,6 @@ func (b *SandboxBuilder) SetInitCachingFlag(initCachingEnabled bool) *SandboxBui
 	return b
 }
 
-func (b *SandboxBuilder) SetPreLoadTimeNs(preLoadTimeNs int64) *SandboxBuilder {
-	b.sandbox.PreLoadTimeNs = preLoadTimeNs
-	return b
-}
-
 func (b *SandboxBuilder) SetTelemetrySubscription(logsSubscriptionAPI telemetry.SubscriptionAPI, telemetrySubscriptionAPI telemetry.SubscriptionAPI) *SandboxBuilder {
 	b.sandbox.EnableTelemetryAPI = true
 	b.sandbox.LogsSubscriptionAPI = logsSubscriptionAPI
@@ -156,7 +154,7 @@ func (b *SandboxBuilder) SetHandler(handler string) *SandboxBuilder {
 	return b
 }
 
-func (b *SandboxBuilder) AddShutdownFunc(shutdownFunc context.CancelFunc) *SandboxBuilder {
+func (b *SandboxBuilder) AddShutdownFunc(shutdownFunc func()) *SandboxBuilder {
 	b.shutdownFuncs = append(b.shutdownFuncs, shutdownFunc)
 	return b
 }
@@ -166,16 +164,20 @@ func (b *SandboxBuilder) Create() (interop.SandboxContext, interop.InternalState
 		b.sandbox.InteropServer = b.defaultInteropServer
 	}
 
-	go signalHandler(b.shutdownFuncs)
+	ctx, cancel := context.WithCancel(context.Background())
 
-	rapidCtx, internalStateFn, runtimeAPIAddr := rapid.Start(b.sandbox)
+	// cancel is called when handling termination signals as a cancellation
+	// signal to the Runtime API sever to terminate gracefully
+	go signalHandler(cancel, b.shutdownFuncs)
+
+	// rapid.Start, among other things, starts the Runtime API server and
+	// terminates it gracefully if the cxt is canceled
+	rapidCtx, internalStateFn, runtimeAPIAddr := rapid.Start(ctx, b.sandbox)
 
 	b.sandboxContext = &SandboxContext{
-		rapidCtx:              rapidCtx,
-		handler:               b.handler,
-		runtimeAPIAddress:     runtimeAPIAddr,
-		InvokeReceivedTime:    int64(0),
-		InvokeResponseMetrics: nil,
+		rapidCtx:          rapidCtx,
+		handler:           b.handler,
+		runtimeAPIAddress: runtimeAPIAddr,
 	}
 
 	return b.sandboxContext, internalStateFn
@@ -205,8 +207,10 @@ func SetInternalLogOutput(w io.Writer) {
 	logging.SetOutput(w)
 }
 
-// Trap SIGINT and SIGTERM signals and call shutdown function
-func signalHandler(shutdownFuncs []context.CancelFunc) {
+// Trap SIGINT and SIGTERM signals, call shutdown function, and cancel the
+// ctx to terminate gracefully the Runtime API server
+func signalHandler(cancel context.CancelFunc, shutdownFuncs []func()) {
+	defer cancel()
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
 	sigReceived := <-sig

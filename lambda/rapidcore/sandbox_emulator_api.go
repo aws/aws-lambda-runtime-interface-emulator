@@ -31,6 +31,7 @@ func NewEmulatorAPI(s *Server) *EmulatorAPI {
 // Init method is only used by the Runtime interface emulator
 func (l *EmulatorAPI) Init(i *interop.Init, timeoutMs int64) {
 	l.server.Init(&interop.Init{
+		AccountID:                    i.AccountID,
 		Handler:                      i.Handler,
 		AwsKey:                       i.AwsKey,
 		AwsSecret:                    i.AwsSecret,

@@ -9,10 +9,10 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"go.amzn.com/lambda/core"
 	"go.amzn.com/lambda/rapi/rendering"
-	"go.amzn.com/lambda/rapidcore/telemetry/logsapi"
 	"go.amzn.com/lambda/telemetry"
 
 	"github.com/google/uuid"
@@ -31,10 +31,10 @@ func (h *runtimeLogsHandler) ServeHTTP(writer http.ResponseWriter, request *http
 		switch err := err.(type) {
 		case *ErrAgentIdentifierUnknown:
 			rendering.RenderForbiddenWithTypeMsg(writer, request, errAgentIdentifierUnknown, "Unknown extension "+err.agentID.String())
-			h.telemetrySubscription.RecordCounterMetric(logsapi.SubscribeClientErr, 1)
+			h.telemetrySubscription.RecordCounterMetric(telemetry.SubscribeClientErr, 1)
 		default:
 			rendering.RenderInternalServerError(writer, request)
-			h.telemetrySubscription.RecordCounterMetric(logsapi.SubscribeServerErr, 1)
+			h.telemetrySubscription.RecordCounterMetric(telemetry.SubscribeServerErr, 1)
 		}
 		return
 	}
@@ -45,21 +45,21 @@ func (h *runtimeLogsHandler) ServeHTTP(writer http.ResponseWriter, request *http
 	if err != nil {
 		log.Error(err)
 		rendering.RenderInternalServerError(writer, request)
-		h.telemetrySubscription.RecordCounterMetric(logsapi.SubscribeServerErr, 1)
+		h.telemetrySubscription.RecordCounterMetric(telemetry.SubscribeServerErr, 1)
 		return
 	}
 
-	respBody, status, headers, err := h.telemetrySubscription.Subscribe(agentName, bytes.NewReader(body), request.Header)
+	respBody, status, headers, err := h.telemetrySubscription.Subscribe(agentName, bytes.NewReader(body), request.Header, request.RemoteAddr)
 	if err != nil {
 		log.Errorf("Telemetry API error: %s", err)
 		switch err {
-		case logsapi.ErrTelemetryServiceOff:
+		case telemetry.ErrTelemetryServiceOff:
 			rendering.RenderForbiddenWithTypeMsg(writer, request,
 				h.telemetrySubscription.GetServiceClosedErrorType(), h.telemetrySubscription.GetServiceClosedErrorMessage())
-			h.telemetrySubscription.RecordCounterMetric(logsapi.SubscribeClientErr, 1)
+			h.telemetrySubscription.RecordCounterMetric(telemetry.SubscribeClientErr, 1)
 		default:
 			rendering.RenderInternalServerError(writer, request)
-			h.telemetrySubscription.RecordCounterMetric(logsapi.SubscribeServerErr, 1)
+			h.telemetrySubscription.RecordCounterMetric(telemetry.SubscribeServerErr, 1)
 		}
 		return
 	}
@@ -67,11 +67,14 @@ func (h *runtimeLogsHandler) ServeHTTP(writer http.ResponseWriter, request *http
 	rendering.RenderRuntimeLogsResponse(writer, respBody, status, headers)
 	switch status / 100 {
 	case 2: // 2xx
-		h.telemetrySubscription.RecordCounterMetric(logsapi.SubscribeSuccess, 1)
+		if strings.Contains(string(respBody), "OK") {
+			h.telemetrySubscription.RecordCounterMetric(telemetry.NumSubscribers, 1)
+		}
+		h.telemetrySubscription.RecordCounterMetric(telemetry.SubscribeSuccess, 1)
 	case 4: // 4xx
-		h.telemetrySubscription.RecordCounterMetric(logsapi.SubscribeClientErr, 1)
+		h.telemetrySubscription.RecordCounterMetric(telemetry.SubscribeClientErr, 1)
 	case 5: // 5xx
-		h.telemetrySubscription.RecordCounterMetric(logsapi.SubscribeServerErr, 1)
+		h.telemetrySubscription.RecordCounterMetric(telemetry.SubscribeServerErr, 1)
 	}
 }
 

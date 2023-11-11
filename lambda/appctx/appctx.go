@@ -13,15 +13,18 @@ type Key int
 type InitType int
 
 const (
-	// AppCtxInvokeErrorResponseKey is used for storing deferred invoke error response.
+	// AppCtxInvokeErrorTraceDataKey is used for storing deferred invoke error cause header value.
 	// Only used by xray. TODO refactor xray interface so it doesn't use appctx
-	AppCtxInvokeErrorResponseKey Key = iota
+	AppCtxInvokeErrorTraceDataKey Key = iota
 
 	// AppCtxRuntimeReleaseKey is used for storing runtime release information (parsed from User_Agent Http header string).
 	AppCtxRuntimeReleaseKey
 
 	// AppCtxInteropServerKey is used to store a reference to the interop server.
 	AppCtxInteropServerKey
+
+	// AppCtxResponseSenderKey is used to store a reference to the response sender
+	AppCtxResponseSenderKey
 
 	// AppCtxFirstFatalErrorKey is used to store first unrecoverable error message encountered to propagate it to slicer with DONE(errortype) or DONEFAIL(errortype)
 	AppCtxFirstFatalErrorKey

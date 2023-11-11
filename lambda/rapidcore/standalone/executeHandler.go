@@ -27,19 +27,21 @@ func Execute(w http.ResponseWriter, r *http.Request, sandbox rapidcore.LambdaInv
 		switch err {
 		// Reserve errors:
 		case rapidcore.ErrAlreadyReserved:
-			log.Errorf("Failed to reserve: %s", err)
+			log.WithError(err).Error("Failed to reserve as it is already reserved.")
 			w.WriteHeader(400)
 		case rapidcore.ErrInternalServerError:
+			log.WithError(err).Error("Failed to reserve from an internal server error.")
 			w.WriteHeader(http.StatusInternalServerError)
 
 		// Invoke errors:
 		case rapidcore.ErrNotReserved, rapidcore.ErrAlreadyReplied, rapidcore.ErrAlreadyInvocating:
-			log.Errorf("Failed to set reply stream: %s", err)
+			log.WithError(err).Error("Failed to invoke from setting the reply stream.")
 			w.WriteHeader(400)
 
 		case rapidcore.ErrInvokeResponseAlreadyWritten:
 			return
 		case rapidcore.ErrInvokeTimeout, rapidcore.ErrInitResetReceived:
+			log.WithError(err).Error("Failed to invoke from an invoke timeout.")
 			w.WriteHeader(http.StatusGatewayTimeout)
 
 		// DONE failures:
@@ -50,6 +52,7 @@ func Execute(w http.ResponseWriter, r *http.Request, sandbox rapidcore.LambdaInv
 			return
 		// Reservation canceled errors
 		case rapidcore.ErrReserveReservationDone, rapidcore.ErrInvokeReservationDone, rapidcore.ErrReleaseReservationDone, rapidcore.ErrInitNotStarted:
+			log.WithError(err).Error("Failed to cancel reservation.")
 			w.WriteHeader(http.StatusGatewayTimeout)
 		}
 

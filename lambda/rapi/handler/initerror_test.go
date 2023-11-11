@@ -12,7 +12,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"go.amzn.com/lambda/appctx"
-
+	"go.amzn.com/lambda/fatalerror"
 	"go.amzn.com/lambda/testdata"
 )
 
@@ -27,7 +27,7 @@ func runTestInitErrorHandler(t *testing.T) {
 	flowTest := testdata.NewFlowTest()
 	flowTest.ConfigureForInit()
 
-	handler := NewInitErrorHandler(flowTest.RegistrationService, flowTest.EventsAPI)
+	handler := NewInitErrorHandler(flowTest.RegistrationService)
 	responseRecorder := httptest.NewRecorder()
 	appCtx := flowTest.AppCtx
 
@@ -60,12 +60,12 @@ func runTestInitErrorHandler(t *testing.T) {
 	// payload is not provided. This fallback is not part
 	// of the RAPID API spec and is not available to
 	// customers.
-	require.Equal(t, "", errorResponse.ErrorMessage)
+	require.Equal(t, "", errorResponse.FunctionError.Message)
 
 	// Slicer falls back to using ErrorType when error
 	// payload is not provided. Customers can set error
 	// type via header to use this fallback.
-	require.Equal(t, errorType, errorResponse.ErrorType)
+	require.Equal(t, fatalerror.RuntimeUnknown, errorResponse.FunctionError.Type)
 
 	// Payload is arbitrary data that customers submit - it's error response body.
 	require.Equal(t, errorBody, errorResponse.Payload)

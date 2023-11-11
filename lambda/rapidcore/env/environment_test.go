@@ -34,7 +34,7 @@ func TestRAPIDInternalConfig(t *testing.T) {
 	os.Setenv("AWS_LAMBDA_FUNCTION_NAME", "a")
 	os.Setenv("_LAMBDA_TELEMETRY_API_PASSPHRASE", "a")
 	os.Setenv("_LAMBDA_DIRECT_INVOKE_SOCKET", "1")
-	NewEnvironment().RAPIDInternalConfig()
+	NewRapidConfig(NewEnvironment())
 }
 
 func TestEnvironmentParsing(t *testing.T) {
@@ -59,11 +59,11 @@ func TestEnvironmentParsing(t *testing.T) {
 	env.StoreRuntimeAPIEnvironmentVariable(runtimeAPIAddress)
 	env.StoreEnvironmentVariablesFromInit(customerEnv, runtimeEnvVal, credsEnvVal, credsEnvVal, credsEnvVal, platformEnvVal, platformEnvVal)
 
-	for _, val := range env.RAPID {
+	for _, val := range env.rapid {
 		assert.Equal(t, internalEnvVal, val)
 	}
 
-	for key, val := range env.Platform {
+	for key, val := range env.platform {
 		if key == runtimeAPIAddressKey {
 			assert.Equal(t, runtimeAPIAddress, val)
 		} else {
@@ -71,16 +71,16 @@ func TestEnvironmentParsing(t *testing.T) {
 		}
 	}
 
-	for _, val := range env.Runtime {
+	for _, val := range env.runtime {
 		assert.Equal(t, runtimeEnvVal, val)
 	}
 
-	for key, val := range env.Credentials {
+	for key, val := range env.credentials {
 		assert.Equal(t, credsEnvVal, val)
 		assert.NotContains(t, env.Customer, key)
 	}
 
-	for _, val := range env.PlatformUnreserved {
+	for _, val := range env.platformUnreserved {
 		assert.Equal(t, customerEnvVal, val)
 	}
 
@@ -94,10 +94,10 @@ func TestEnvironmentParsingUnsetPlatformAndInternalEnvVarKeysAreDeleted(t *testi
 	os.Clearenv()
 	env := NewEnvironment()
 
-	assert.Len(t, env.RAPID, 0)
-	assert.Len(t, env.Platform, 0)
-	assert.Len(t, env.PlatformUnreserved, 0)
-	assert.Len(t, env.Credentials, 0) // uninitialized
+	assert.Len(t, env.rapid, 0)
+	assert.Len(t, env.platform, 0)
+	assert.Len(t, env.platformUnreserved, 0)
+	assert.Len(t, env.credentials, 0) // uninitialized
 	assert.Len(t, env.Customer, 0)    // uninitialized
 }
 
@@ -136,30 +136,30 @@ func TestRuntimeExecEnvironmentVariables(t *testing.T) {
 
 	rapidEnvVarsSlice := envToSlice(rapidEnvVars)
 
-	for key := range env.RAPID {
+	for key := range env.rapid {
 		assert.NotContains(t, rapidEnvKeys, key)
 	}
 
-	for key, val := range env.Runtime {
+	for key, val := range env.runtime {
 		assert.Contains(t, rapidEnvVarsSlice, key+"="+val)
 	}
 
-	for key, val := range env.Platform {
+	for key, val := range env.platform {
 		assert.Contains(t, rapidEnvVarsSlice, key+"="+val)
 	}
 
-	for key, val := range env.PlatformUnreserved {
+	for key, val := range env.platformUnreserved {
 		assert.Contains(t, rapidEnvVarsSlice, key+"="+val)
 		assert.NotContains(t, env.Customer, key)
 	}
 
-	for key, val := range env.Credentials {
+	for key, val := range env.credentials {
 		assert.Contains(t, rapidEnvVarsSlice, key+"="+val)
 	}
 
 	for key, val := range env.Customer {
 		assert.Contains(t, rapidEnvVarsSlice, key+"="+val)
-		assert.NotContains(t, env.PlatformUnreserved, key)
+		assert.NotContains(t, env.platformUnreserved, key)
 	}
 }
 
@@ -195,11 +195,11 @@ func TestRuntimeExecEnvironmentVariablesPriority(t *testing.T) {
 	env.StoreEnvironmentVariablesFromCLIOptions(cliOptionsEnv)
 	env.StoreEnvironmentVariablesFromInit(customerEnv, runtimeEnvVal, credsEnvVal, credsEnvVal, credsEnvVal, platformEnvVal, platformEnvVal)
 
-	assert.Equal(t, len(predefinedPlatformEnvVarKeys()), len(env.Platform))
-	assert.Equal(t, len(predefinedCredentialsEnvVarKeys()), len(env.Credentials))
-	assert.Equal(t, len(predefinedPlatformUnreservedEnvVarKeys()), len(env.PlatformUnreserved))
-	assert.Equal(t, len(predefinedInternalEnvVarKeys()), len(env.RAPID))
-	assert.Equal(t, len(predefinedRuntimeEnvVarKeys()), len(env.Runtime))
+	assert.Equal(t, len(predefinedPlatformEnvVarKeys()), len(env.platform))
+	assert.Equal(t, len(predefinedCredentialsEnvVarKeys()), len(env.credentials))
+	assert.Equal(t, len(predefinedPlatformUnreservedEnvVarKeys()), len(env.platformUnreserved))
+	assert.Equal(t, len(predefinedInternalEnvVarKeys()), len(env.rapid))
+	assert.Equal(t, len(predefinedRuntimeEnvVarKeys()), len(env.runtime))
 
 	rapidEnvVars := envToSlice(env.RuntimeExecEnv())
 
@@ -266,15 +266,15 @@ func TestAgentExecEnvironmentVariables(t *testing.T) {
 
 	agentEnvVarsSlice := envToSlice(agentEnvVars)
 
-	for key := range env.RAPID {
+	for key := range env.rapid {
 		assert.NotContains(t, agentEnvKeys, key)
 	}
 
-	for key, val := range env.Runtime {
+	for key, val := range env.runtime {
 		assert.NotContains(t, agentEnvVarsSlice, key+"="+val)
 	}
 
-	for key := range env.Platform {
+	for key := range env.platform {
 		assert.Contains(t, agentEnvKeys, key)
 	}
 
@@ -282,11 +282,11 @@ func TestAgentExecEnvironmentVariables(t *testing.T) {
 		assert.Contains(t, agentEnvKeys, key)
 	}
 
-	for key, val := range env.Credentials {
+	for key, val := range env.credentials {
 		assert.Contains(t, agentEnvVarsSlice, key+"="+val)
 	}
 
-	assert.Contains(t, agentEnvVarsSlice, runtimeAPIAddressKey+"="+env.Platform[runtimeAPIAddressKey])
+	assert.Contains(t, agentEnvVarsSlice, runtimeAPIAddressKey+"="+env.platform[runtimeAPIAddressKey])
 }
 
 func TestStoreEnvironmentVariablesFromInitCaching(t *testing.T) {
@@ -301,11 +301,11 @@ func TestStoreEnvironmentVariablesFromInitCaching(t *testing.T) {
 
 	env.StoreEnvironmentVariablesFromInitForInitCaching("samplehost", 1234, customerEnv, handler, funcName, funcVer, token)
 
-	assert.Equal(t, fmt.Sprintf("http://%s:%d/2021-04-23/credentials", host, port), env.Credentials["AWS_CONTAINER_CREDENTIALS_FULL_URI"])
-	assert.Equal(t, token, env.Credentials["AWS_CONTAINER_AUTHORIZATION_TOKEN"])
-	assert.Equal(t, funcName, env.Platform["AWS_LAMBDA_FUNCTION_NAME"])
-	assert.Equal(t, funcVer, env.Platform["AWS_LAMBDA_FUNCTION_VERSION"])
-	assert.Equal(t, handler, env.Runtime["_HANDLER"])
+	assert.Equal(t, fmt.Sprintf("http://%s:%d/2021-04-23/credentials", host, port), env.credentials["AWS_CONTAINER_CREDENTIALS_FULL_URI"])
+	assert.Equal(t, token, env.credentials["AWS_CONTAINER_AUTHORIZATION_TOKEN"])
+	assert.Equal(t, funcName, env.platform["AWS_LAMBDA_FUNCTION_NAME"])
+	assert.Equal(t, funcVer, env.platform["AWS_LAMBDA_FUNCTION_VERSION"])
+	assert.Equal(t, handler, env.runtime["_HANDLER"])
 }
 
 func setAll(keys map[string]bool, value string) {

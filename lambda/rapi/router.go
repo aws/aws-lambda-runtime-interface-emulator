@@ -19,7 +19,7 @@ import (
 
 // NewRouter returns a new instance of chi router implementing
 // Runtime API specification.
-func NewRouter(appCtx appctx.ApplicationContext, registrationService core.RegistrationService, renderingService *rendering.EventRenderingService, eventsAPI telemetry.EventsAPI) http.Handler {
+func NewRouter(appCtx appctx.ApplicationContext, registrationService core.RegistrationService, renderingService *rendering.EventRenderingService) http.Handler {
 
 	router := chi.NewRouter()
 	router.Use(middleware.AppCtxMiddleware(appCtx))
@@ -45,11 +45,11 @@ func NewRouter(appCtx appctx.ApplicationContext, registrationService core.Regist
 		middleware.AwsRequestIDValidator(
 			handler.NewInvocationErrorHandler(registrationService)).ServeHTTP)
 
-	router.Post("/runtime/init/error",
-		handler.NewInitErrorHandler(registrationService, eventsAPI).ServeHTTP)
+	router.Post("/runtime/init/error", handler.NewInitErrorHandler(registrationService).ServeHTTP)
 
 	if appctx.LoadInitType(appCtx) == appctx.InitCaching {
 		router.Get("/runtime/restore/next", handler.NewRestoreNextHandler(registrationService, renderingService).ServeHTTP)
+		router.Post("/runtime/restore/error", handler.NewRestoreErrorHandler(registrationService).ServeHTTP)
 	}
 
 	return router

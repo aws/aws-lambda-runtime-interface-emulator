@@ -6,8 +6,9 @@ package rendering
 import (
 	"bytes"
 	"encoding/json"
-	log "github.com/sirupsen/logrus"
 	"net/http"
+
+	log "github.com/sirupsen/logrus"
 )
 
 // RenderJSON:
@@ -15,6 +16,7 @@ import (
 // - sets the Content-Type as application/json
 // - sets the HTTP response status code
 // - returns an error if it occurred before writing to response
+// TODO: r *http.Request is not used, remove it
 func RenderJSON(status int, w http.ResponseWriter, r *http.Request, v interface{}) error {
 	buf := &bytes.Buffer{}
 	enc := json.NewEncoder(buf)

@@ -16,4 +16,5 @@ const (
 	RuntimeInvocationResponseStateName      = "InvocationResponse"
 	RuntimeInvocationErrorResponseStateName = "InvocationErrorResponse"
 	RuntimeResponseSentStateName            = "RuntimeResponseSentState"
+	RuntimeRestoreErrorStateName            = "RuntimeRestoreErrorState"
 )
