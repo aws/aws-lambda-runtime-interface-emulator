@@ -70,10 +70,12 @@ type AgentInfo struct {
 
 // FunctionMetadata holds static information regarding the function (Name, Version, Handler)
 type FunctionMetadata struct {
-	FunctionName    string
-	FunctionVersion string
-	Handler         string
-	RuntimeInfo     interop.RuntimeInfo
+	AccountID         string
+	FunctionName      string
+	FunctionVersion   string
+	InstanceMaxMemory uint64
+	Handler           string
+	RuntimeInfo       interop.RuntimeInfo
 }
 
 // RegistrationService keeps track of registered parties, including external agents, threads, and runtime.

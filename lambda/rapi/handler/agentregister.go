@@ -8,6 +8,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"strings"
 
 	log "github.com/sirupsen/logrus"
 	"go.amzn.com/lambda/core"
@@ -23,6 +24,20 @@ type agentRegisterHandler struct {
 type RegisterRequest struct {
 	Events []core.Event `json:"events"`
 }
+
+const featuresHeader = "Lambda-Extension-Accept-Feature"
+
+type registrationFeature int
+
+const (
+	accountFeature registrationFeature = iota + 1
+)
+
+var allowedFeatures = map[string]registrationFeature{
+	"accountId": accountFeature,
+}
+
+type responseModifier func(*model.ExtensionRegisterResponse)
 
 func parseRegister(request *http.Request) (*RegisterRequest, error) {
 	body, err := io.ReadAll(request.Body)
@@ -53,6 +68,13 @@ func (h *agentRegisterHandler) ServeHTTP(writer http.ResponseWriter, request *ht
 		return
 	}
 
+	var responseModifiers []responseModifier
+	for _, f := range parseRegistrationFeatures(request) {
+		if f == accountFeature {
+			responseModifiers = append(responseModifiers, h.respondWithAccountID())
+		}
+	}
+
 	registerRequest, err := parseRegister(request)
 	if err != nil {
 		rendering.RenderForbiddenWithTypeMsg(writer, request, errInvalidRequestFormat, err.Error())
@@ -60,23 +82,50 @@ func (h *agentRegisterHandler) ServeHTTP(writer http.ResponseWriter, request *ht
 	}
 
 	agent, found := h.registrationService.FindExternalAgentByName(agentName)
-
 	if found {
-		h.registerExternalAgent(agent, registerRequest, writer, request)
+		h.registerExternalAgent(agent, registerRequest, writer, request, responseModifiers...)
 	} else {
-		h.registerInternalAgent(agentName, registerRequest, writer, request)
+		h.registerInternalAgent(agentName, registerRequest, writer, request, responseModifiers...)
 	}
 }
 
-func (h *agentRegisterHandler) renderResponse(agentID string, writer http.ResponseWriter, request *http.Request) {
+func (h *agentRegisterHandler) respondWithAccountID() responseModifier {
+	return func(resp *model.ExtensionRegisterResponse) {
+		resp.AccountID = h.registrationService.GetFunctionMetadata().AccountID
+	}
+}
+
+func parseRegistrationFeatures(request *http.Request) []registrationFeature {
+	rawFeatures := strings.Split(request.Header.Get(featuresHeader), ",")
+
+	var features []registrationFeature
+	for _, feature := range rawFeatures {
+		feature = strings.TrimSpace(feature)
+		if v, found := allowedFeatures[feature]; found {
+			features = append(features, v)
+		}
+	}
+
+	return features
+}
+
+func (h *agentRegisterHandler) renderResponse(
+	agentID string,
+	writer http.ResponseWriter,
+	request *http.Request,
+	respModifiers ...responseModifier,
+) {
 	writer.Header().Set(LambdaAgentIdentifier, agentID)
 
 	metadata := h.registrationService.GetFunctionMetadata()
-
 	resp := &model.ExtensionRegisterResponse{
 		FunctionVersion: metadata.FunctionVersion,
 		FunctionName:    metadata.FunctionName,
 		Handler:         metadata.Handler,
+	}
+
+	for _, mod := range respModifiers {
+		mod(resp)
 	}
 
 	if err := rendering.RenderJSON(http.StatusOK, writer, request, resp); err != nil {
@@ -85,7 +134,13 @@ func (h *agentRegisterHandler) renderResponse(agentID string, writer http.Respon
 	}
 }
 
-func (h *agentRegisterHandler) registerExternalAgent(agent *core.ExternalAgent, registerRequest *RegisterRequest, writer http.ResponseWriter, request *http.Request) {
+func (h *agentRegisterHandler) registerExternalAgent(
+	agent *core.ExternalAgent,
+	registerRequest *RegisterRequest,
+	writer http.ResponseWriter,
+	request *http.Request,
+	respModifiers ...responseModifier,
+) {
 	for _, e := range registerRequest.Events {
 		if err := core.ValidateExternalAgentEvent(e); err != nil {
 			log.Warnf("Failed to register %s: event %s: %s", agent.Name, e, err)
@@ -101,11 +156,17 @@ func (h *agentRegisterHandler) registerExternalAgent(agent *core.ExternalAgent, 
 		return
 	}
 
-	h.renderResponse(agent.ID.String(), writer, request)
+	h.renderResponse(agent.ID.String(), writer, request, respModifiers...)
 	log.Infof("External agent %s registered, subscribed to %v", agent.String(), registerRequest.Events)
 }
 
-func (h *agentRegisterHandler) registerInternalAgent(agentName string, registerRequest *RegisterRequest, writer http.ResponseWriter, request *http.Request) {
+func (h *agentRegisterHandler) registerInternalAgent(
+	agentName string,
+	registerRequest *RegisterRequest,
+	writer http.ResponseWriter,
+	request *http.Request,
+	respModifiers ...responseModifier,
+) {
 	for _, e := range registerRequest.Events {
 		if err := core.ValidateInternalAgentEvent(e); err != nil {
 			log.Warnf("Failed to register %s: event %s: %s", agentName, e, err)
@@ -142,7 +203,7 @@ func (h *agentRegisterHandler) registerInternalAgent(agentName string, registerR
 		return
 	}
 
-	h.renderResponse(agent.ID.String(), writer, request)
+	h.renderResponse(agent.ID.String(), writer, request, respModifiers...)
 	log.Infof("Internal agent %s registered, subscribed to %v", agent.String(), registerRequest.Events)
 }
 

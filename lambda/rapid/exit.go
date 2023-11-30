@@ -4,31 +4,22 @@
 package rapid
 
 import (
-	"fmt"
 	"time"
 
 	"go.amzn.com/lambda/appctx"
 	"go.amzn.com/lambda/extensions"
 	"go.amzn.com/lambda/fatalerror"
 	"go.amzn.com/lambda/interop"
-	"go.amzn.com/lambda/rapi/model"
+	"go.amzn.com/lambda/telemetry"
 
 	log "github.com/sirupsen/logrus"
 )
 
 func handleInvokeError(execCtx *rapidContext, invokeRequest *interop.Invoke, invokeMx *invokeMetrics, err error) *interop.InvokeFailure {
 	invokeFailure := newInvokeFailureMsg(execCtx, invokeRequest, invokeMx, err)
-	resp := model.ErrorResponse{
-		ErrorType:    string(invokeFailure.ErrorType),
-		ErrorMessage: fmt.Sprintf("Error: %v", invokeFailure.ErrorMessage),
-	}
-
-	if invokeRequest.ID != "" {
-		resp.ErrorMessage = fmt.Sprintf("RequestId: %s Error: %v", invokeRequest.ID, invokeFailure.ErrorMessage)
-	}
 
 	// This is the default error response that gets sent back as the function response in failure cases
-	invokeFailure.DefaultErrorResponse = resp.AsInteropError()
+	invokeFailure.DefaultErrorResponse = interop.GetErrorResponseWithFormattedErrorMessage(invokeFailure.ErrorType, invokeFailure.ErrorMessage, invokeRequest.ID)
 
 	// Invoke with extensions disabled maintains behaviour parity with pre-extensions rapid
 	if !extensions.AreEnabled() {
@@ -50,7 +41,7 @@ func handleInvokeError(execCtx *rapidContext, invokeRequest *interop.Invoke, inv
 func newInvokeFailureMsg(execCtx *rapidContext, invokeRequest *interop.Invoke, invokeMx *invokeMetrics, err error) *interop.InvokeFailure {
 	errorType, found := appctx.LoadFirstFatalError(execCtx.appCtx)
 	if !found {
-		errorType = fatalerror.Unknown
+		errorType = fatalerror.SandboxFailure
 	}
 
 	invokeFailure := &interop.InvokeFailure{
@@ -64,6 +55,7 @@ func newInvokeFailureMsg(execCtx *rapidContext, invokeRequest *interop.Invoke, i
 	}
 
 	if invokeRequest.InvokeResponseMetrics != nil && interop.IsResponseStreamingMetrics(invokeRequest.InvokeResponseMetrics) {
+		invokeFailure.ResponseMetrics.RuntimeResponseLatencyMs = telemetry.CalculateDuration(execCtx.RuntimeStartedTime, invokeRequest.InvokeResponseMetrics.StartReadingResponseMonoTimeMs)
 		invokeFailure.ResponseMetrics.RuntimeTimeThrottledMs = invokeRequest.InvokeResponseMetrics.TimeShapedNs / int64(time.Millisecond)
 		invokeFailure.ResponseMetrics.RuntimeProducedBytes = invokeRequest.InvokeResponseMetrics.ProducedBytes
 		invokeFailure.ResponseMetrics.RuntimeOutboundThroughputBps = invokeRequest.InvokeResponseMetrics.OutboundThroughputBps
@@ -80,13 +72,15 @@ func newInvokeFailureMsg(execCtx *rapidContext, invokeRequest *interop.Invoke, i
 		invokeFailure.LogsAPIMetrics = interop.MergeSubscriptionMetrics(execCtx.logsSubscriptionAPI.FlushMetrics(), execCtx.telemetrySubscriptionAPI.FlushMetrics())
 	}
 
+	invokeFailure.InvokeResponseMode = invokeRequest.InvokeResponseMode
+
 	return invokeFailure
 }
 
 func generateInitFailureMsg(execCtx *rapidContext, err error) interop.InitFailure {
 	errorType, found := appctx.LoadFirstFatalError(execCtx.appCtx)
 	if !found {
-		errorType = fatalerror.Unknown
+		errorType = fatalerror.SandboxFailure
 	}
 
 	initFailureMsg := interop.InitFailure{

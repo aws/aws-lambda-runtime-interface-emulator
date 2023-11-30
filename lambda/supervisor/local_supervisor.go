@@ -4,9 +4,11 @@
 package supervisor
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os/exec"
+	"runtime"
 	"sync"
 	"syscall"
 	"time"
@@ -27,33 +29,31 @@ type process struct {
 }
 
 type LocalSupervisor struct {
-	events         chan model.Event
-	processMapLock sync.Mutex
-	processMap     map[string]process
+	events               chan model.Event
+	processMapLock       sync.Mutex
+	processMap           map[string]process
+	freezeThawCycleStart time.Time
+
+	RootPath string
 }
 
-func NewLocalSupervisor() model.Supervisor {
-	return model.Supervisor{
-		SupervisorClient: &LocalSupervisor{
-			events:     make(chan model.Event),
-			processMap: make(map[string]process),
-		},
-		OperatorConfig: model.DomainConfig{
-			RootPath: "/",
-		},
-		RuntimeConfig: model.DomainConfig{
-			RootPath: "/",
-		},
+func NewLocalSupervisor() *LocalSupervisor {
+	return &LocalSupervisor{
+		events:     make(chan model.Event),
+		processMap: make(map[string]process),
+		RootPath:   "/",
 	}
 }
 
-func (*LocalSupervisor) Start(req *model.StartRequest) error {
+func (*LocalSupervisor) Start(ctx context.Context, req *model.StartRequest) error {
 	return nil
 }
-func (*LocalSupervisor) Configure(req *model.ConfigureRequest) error {
+func (*LocalSupervisor) Configure(ctx context.Context, req *model.ConfigureRequest) error {
 	return nil
 }
-func (s *LocalSupervisor) Exec(req *model.ExecRequest) error {
+func (*LocalSupervisor) Exit(ctx context.Context) {}
+
+func (s *LocalSupervisor) Exec(ctx context.Context, req *model.ExecRequest) error {
 	if req.Domain != "runtime" {
 		log.Debug("Exec is a no op if domain != runtime")
 		return nil
@@ -96,6 +96,9 @@ func (s *LocalSupervisor) Exec(req *model.ExecRequest) error {
 		termination: termination,
 	}
 	s.processMapLock.Unlock()
+
+	// The first freeze thaw cycle starts on Exec() at init time
+	s.freezeThawCycleStart = time.Now()
 
 	go func() {
 		err = command.Wait()
@@ -141,11 +144,11 @@ func (s *LocalSupervisor) Exec(req *model.ExecRequest) error {
 	return nil
 }
 
-func kill(p process, name string, timeout *time.Duration) error {
+func kill(p process, name string, deadline time.Time) error {
 	// kill should report success if the process terminated by the time
 	//supervisor receives the request.
 	select {
-	// ifthis case is selected, the channel is closed,
+	// if this case is selected, the channel is closed,
 	// which means the process is terminated
 	case <-p.termination:
 		log.Debugf("Process %s already terminated.", name)
@@ -154,8 +157,8 @@ func kill(p process, name string, timeout *time.Duration) error {
 		log.Infof("Sending SIGKILL to %s(%d).", name, p.pid)
 	}
 
-	if timeout != nil && *timeout <= 0 {
-		return fmt.Errorf("Timed out while trying to SIGKILL %s", name)
+	if (time.Since(deadline)) > 0 {
+		return fmt.Errorf("invalid timeout while killing %s", name)
 	}
 
 	pgid, err := syscall.Getpgid(p.pid)
@@ -167,23 +170,20 @@ func kill(p process, name string, timeout *time.Duration) error {
 		syscall.Kill(p.pid, syscall.SIGKILL)
 	}
 
-	// the nil channel blocks forever
-	var timer <-chan time.Time
-	if timeout != nil {
-		timer = time.After(*timeout)
-	}
+	ctx, cancel := context.WithDeadline(context.Background(), deadline)
+	defer cancel()
 
 	// block until the (main) process exits
 	// or the timeout fires
 	select {
 	case <-p.termination:
 		return nil
-	case <-timer:
-		return fmt.Errorf("Timed out while trying to SIGKILL %s", name)
+	case <-ctx.Done():
+		return fmt.Errorf("timed out while trying to SIGKILL %s", name)
 	}
 }
 
-func (s *LocalSupervisor) Kill(req *model.KillRequest) error {
+func (s *LocalSupervisor) Kill(ctx context.Context, req *model.KillRequest) error {
 	if req.Domain != "runtime" {
 		log.Debug("Kill is a no op if domain != runtime")
 		return nil
@@ -198,12 +198,11 @@ func (s *LocalSupervisor) Kill(req *model.KillRequest) error {
 			Message: &msg,
 		}
 	}
-	timeout := convertTimeout(req.Timeout)
 
-	return kill(process, req.Name, timeout)
+	return kill(process, req.Name, req.Deadline)
 }
 
-func (s *LocalSupervisor) Terminate(req *model.TerminateRequest) error {
+func (s *LocalSupervisor) Terminate(ctx context.Context, req *model.TerminateRequest) error {
 	if req.Domain != "runtime" {
 		log.Debug("Terminate is no op if domain != runtime")
 		return nil
@@ -235,12 +234,11 @@ func (s *LocalSupervisor) Terminate(req *model.TerminateRequest) error {
 	return nil
 }
 
-func (s *LocalSupervisor) Stop(req *model.StopRequest) error {
+func (s *LocalSupervisor) Stop(ctx context.Context, req *model.StopRequest) (*model.StopResponse, error) {
 	if req.Domain != "runtime" {
 		log.Debug("Shutdown is no op if domain != runtime")
-		return nil
+		return &model.StopResponse{}, nil
 	}
-	timeout := convertTimeout(req.Timeout)
 
 	// shut down kills all the processes in the map
 	s.processMapLock.Lock()
@@ -253,7 +251,7 @@ func (s *LocalSupervisor) Stop(req *model.StopRequest) error {
 	for name, proc := range s.processMap {
 		go func(n string, p process) {
 			log.Debugf("Killing %s", n)
-			err := kill(p, n, timeout)
+			err := kill(p, n, req.Deadline)
 			if err != nil {
 				errors <- err
 			} else {
@@ -269,34 +267,37 @@ func (s *LocalSupervisor) Stop(req *model.StopRequest) error {
 		case <-successes:
 		case e := <-errors:
 			if err == nil {
-				err = fmt.Errorf("Shutdown failed: %s", e.Error())
+				err = fmt.Errorf("shutdown failed: %s", e.Error())
 			}
 		}
 
 	}
 
 	s.processMap = make(map[string]process)
-	return err
+	return nil, err
 }
-func (*LocalSupervisor) Freeze(req *model.FreezeRequest) error {
+
+func (s *LocalSupervisor) Freeze(ctx context.Context, req *model.FreezeRequest) (*model.FreezeResponse, error) {
+	// We return mocked freeze/thaw cycle metrics to mimic usage metrics in standalone mode
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+	return &model.FreezeResponse{
+		CycleDeltaMetrics: model.CycleDeltaMetrics{
+			DomainCPURunNs:            uint64(time.Since(s.freezeThawCycleStart).Nanoseconds()),
+			DomainRunNs:               uint64(time.Since(s.freezeThawCycleStart).Nanoseconds()),
+			DomainMaxMemoryUsageBytes: m.Alloc,
+			MicrovmCPURunNs:           uint64(time.Since(s.freezeThawCycleStart).Nanoseconds()),
+		},
+	}, nil
+}
+func (s *LocalSupervisor) Thaw(ctx context.Context, req *model.ThawRequest) error {
+	s.freezeThawCycleStart = time.Now()
 	return nil
 }
-func (*LocalSupervisor) Thaw(req *model.ThawRequest) error {
-	return nil
-}
-func (s *LocalSupervisor) Ping() error {
+func (s *LocalSupervisor) Ping(ctx context.Context) error {
 	return nil
 }
 
-func (s *LocalSupervisor) Events() (<-chan model.Event, error) {
+func (s *LocalSupervisor) Events(ctx context.Context, req *model.EventsRequest) (<-chan model.Event, error) {
 	return s.events, nil
-}
-
-func convertTimeout(millis *uint64) *time.Duration {
-	var timeout *time.Duration
-	if millis != nil {
-		t := time.Duration(*millis) * time.Millisecond
-		timeout = &t
-	}
-	return timeout
 }

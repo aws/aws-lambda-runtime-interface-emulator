@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/go-chi/chi"
 	"go.amzn.com/lambda/core/bandwidthlimiter"
@@ -27,6 +28,7 @@ const (
 	CustomerHeadersHeader            = "Customer-Headers"
 	ContentTypeHeader                = "Content-Type"
 	MaxPayloadSizeHeader             = "MaxPayloadSize"
+	InvokeResponseModeHeader         = "InvokeResponseMode"
 	ResponseBandwidthRateHeader      = "ResponseBandwidthRate"
 	ResponseBandwidthBurstSizeHeader = "ResponseBandwidthBurstSize"
 	FunctionResponseModeHeader       = "Lambda-Runtime-Function-Response-Mode"
@@ -53,6 +55,10 @@ var MaxDirectResponseSize int64 = interop.MaxPayloadSize // this is intentionall
 var ResponseBandwidthRate int64 = interop.ResponseBandwidthRate
 var ResponseBandwidthBurstSize int64 = interop.ResponseBandwidthBurstSize
 
+// InvokeResponseMode controls the context in which the invoke is. Since this was introduced
+// in Streaming invokes, we default it to Buffered.
+var InvokeResponseMode interop.InvokeResponseMode = interop.InvokeResponseModeBuffered
+
 func renderBadRequest(w http.ResponseWriter, r *http.Request, errorType string) {
 	w.Header().Set(ErrorTypeHeader, errorType)
 	w.WriteHeader(http.StatusBadRequest)
@@ -65,9 +71,29 @@ func renderInternalServerError(w http.ResponseWriter, errorType string) {
 	w.Header().Set(EndOfResponseTrailer, EndOfResponseComplete)
 }
 
+// convertToInvokeResponseMode converts the given string to a InvokeResponseMode
+// It is case insensitive and if there is no match, an error is thrown.
+func convertToInvokeResponseMode(value string) (interop.InvokeResponseMode, error) {
+	// buffered
+	if strings.EqualFold(value, string(interop.InvokeResponseModeBuffered)) {
+		return interop.InvokeResponseModeBuffered, nil
+	}
+
+	// streaming
+	if strings.EqualFold(value, string(interop.InvokeResponseModeStreaming)) {
+		return interop.InvokeResponseModeStreaming, nil
+	}
+
+	// unknown
+	allowedValues := strings.Join(interop.AllInvokeResponseModes, ", ")
+	log.Errorf("Unable to map %s to %s.", value, allowedValues)
+	return "", interop.ErrInvalidInvokeResponseMode
+}
+
 // ReceiveDirectInvoke parses invoke and verifies it against Token message. Uses deadline provided by Token
 // Renders BadRequest in case of error
 func ReceiveDirectInvoke(w http.ResponseWriter, r *http.Request, token interop.Token) (*interop.Invoke, error) {
+	log.Infof("Received Invoke(invokeID: %s) Request", token.InvokeID)
 	w.Header().Set("Trailer", EndOfResponseTrailer)
 
 	custHeaders := CustomerHeaders{}
@@ -89,9 +115,29 @@ func ReceiveDirectInvoke(w http.ResponseWriter, r *http.Request, token interop.T
 		}
 	}
 
-	if MaxDirectResponseSize == -1 {
+	if valueFromHeader := r.Header.Get(InvokeResponseModeHeader); valueFromHeader != "" {
+		invokeResponseMode, err := convertToInvokeResponseMode(valueFromHeader)
+		if err != nil {
+			log.Errorf(
+				"InvokeResponseMode header is not a valid string. Was: %#v, Allowed: %#v.",
+				valueFromHeader,
+				strings.Join(interop.AllInvokeResponseModes, ", "),
+			)
+			renderBadRequest(w, r, err.Error())
+			return nil, err
+		}
+		InvokeResponseMode = invokeResponseMode
+	}
+
+	// TODO: stop using `MaxDirectResponseSize`
+	if isStreamingInvoke(int(MaxDirectResponseSize), InvokeResponseMode) {
 		w.Header().Add("Trailer", FunctionErrorTypeTrailer)
 		w.Header().Add("Trailer", FunctionErrorBodyTrailer)
+
+		// FIXME
+		// Until WorkerProxy stops sending MaxDirectResponseSize == -1 to identify streaming
+		// invokes, we need to override InvokeResponseMode to avoid setting InvokeResponseMode to buffered (default) for a streaming invoke (MaxDirectResponseSize == -1).
+		InvokeResponseMode = interop.InvokeResponseModeStreaming
 
 		ResponseBandwidthRate = interop.ResponseBandwidthRate
 		if responseBandwidthRate := r.Header.Get(ResponseBandwidthRateHeader); responseBandwidthRate != "" {
@@ -119,20 +165,23 @@ func ReceiveDirectInvoke(w http.ResponseWriter, r *http.Request, token interop.T
 	}
 
 	inv := &interop.Invoke{
-		ID:                    r.Header.Get(InvokeIDHeader),
-		ReservationToken:      chi.URLParam(r, "reservationtoken"),
-		InvokedFunctionArn:    r.Header.Get(InvokedFunctionArnHeader),
-		VersionID:             r.Header.Get(VersionIDHeader),
-		ContentType:           r.Header.Get(ContentTypeHeader),
-		CognitoIdentityID:     custHeaders.CognitoIdentityID,
-		CognitoIdentityPoolID: custHeaders.CognitoIdentityPoolID,
-		TraceID:               token.TraceID,
-		LambdaSegmentID:       token.LambdaSegmentID,
-		ClientContext:         custHeaders.ClientContext,
-		Payload:               r.Body,
-		DeadlineNs:            fmt.Sprintf("%d", now+token.FunctionTimeout.Nanoseconds()),
-		NeedDebugLogs:         token.NeedDebugLogs,
-		InvokeReceivedTime:    now,
+		ID:                       r.Header.Get(InvokeIDHeader),
+		ReservationToken:         chi.URLParam(r, "reservationtoken"),
+		InvokedFunctionArn:       r.Header.Get(InvokedFunctionArnHeader),
+		VersionID:                r.Header.Get(VersionIDHeader),
+		ContentType:              r.Header.Get(ContentTypeHeader),
+		CognitoIdentityID:        custHeaders.CognitoIdentityID,
+		CognitoIdentityPoolID:    custHeaders.CognitoIdentityPoolID,
+		TraceID:                  token.TraceID,
+		LambdaSegmentID:          token.LambdaSegmentID,
+		ClientContext:            custHeaders.ClientContext,
+		Payload:                  r.Body,
+		DeadlineNs:               fmt.Sprintf("%d", now+token.FunctionTimeout.Nanoseconds()),
+		NeedDebugLogs:            token.NeedDebugLogs,
+		InvokeReceivedTime:       now,
+		InvokeResponseMode:       InvokeResponseMode,
+		RestoreDurationNs:        token.RestoreDurationNs,
+		RestoreStartTimeMonotime: token.RestoreStartTimeMonotime,
 	}
 
 	if inv.ID != token.InvokeID {
@@ -170,7 +219,7 @@ type CopyDoneResult struct {
 func getErrorTypeFromResetReason(resetReason string) fatalerror.ErrorType {
 	errorTypeTrailer, ok := ResetReasonMap[resetReason]
 	if !ok {
-		errorTypeTrailer = fatalerror.Unknown
+		errorTypeTrailer = fatalerror.SandboxFailure
 	}
 	return errorTypeTrailer
 }
@@ -180,8 +229,11 @@ func isErrorResponse(additionalHeaders map[string]string) (isErrorResponse bool)
 	return
 }
 
-func isStreamingInvoke() bool {
-	return MaxDirectResponseSize == -1
+// isStreamingInvoke checks whether the invoke mode is streaming or not.
+// `maxDirectResponseSize == -1` is used as it was the first check we did when we released
+// streaming invokes.
+func isStreamingInvoke(maxDirectResponseSize int, invokeResponseMode interop.InvokeResponseMode) bool {
+	return maxDirectResponseSize == -1 || invokeResponseMode == interop.InvokeResponseModeStreaming
 }
 
 func asyncPayloadCopy(w http.ResponseWriter, payload io.Reader) (copyDone chan CopyDoneResult, cancel context.CancelFunc, err error) {
@@ -190,10 +242,34 @@ func asyncPayloadCopy(w http.ResponseWriter, payload io.Reader) (copyDone chan C
 	if err != nil {
 		return nil, nil, &interop.ErrInternalPlatformError{}
 	}
+
 	go func() { // copy payload in a separate go routine
-		_, copyError := bandwidthlimiter.BandwidthLimitingCopy(streamedResponseWriter, payload)
+		// -1 size indicates the payload size is unlimited.
+		isPayloadsSizeRestricted := MaxDirectResponseSize != -1
+
+		if isPayloadsSizeRestricted {
+			// Setting the limit to MaxDirectResponseSize + 1 so we can do
+			// readBytes > MaxDirectResponseSize to check if the response is oversized.
+			// As the response is allowed to be of the size MaxDirectResponseSize but not larger than it.
+			payload = io.LimitReader(payload, MaxDirectResponseSize+1)
+		}
+
+		// FIXME: inject bandwidthlimiter as a dependency, so that we can mock it in tests
+		copiedBytes, copyError := bandwidthlimiter.BandwidthLimitingCopy(streamedResponseWriter, payload)
+
+		isPayloadsSizeOversized := copiedBytes > MaxDirectResponseSize
+
 		if copyError != nil {
 			w.Header().Set(EndOfResponseTrailer, EndOfResponseTruncated)
+			copyError = &interop.ErrTruncatedResponse{}
+		} else if isPayloadsSizeRestricted && isPayloadsSizeOversized {
+			w.Header().Set(EndOfResponseTrailer, EndOfResponseOversized)
+			copyError = &interop.ErrorResponseTooLargeDI{
+				ErrorResponseTooLarge: interop.ErrorResponseTooLarge{
+					ResponseSize:    int(copiedBytes),
+					MaxResponseSize: int(MaxDirectResponseSize),
+				},
+			}
 		} else {
 			w.Header().Set(EndOfResponseTrailer, EndOfResponseComplete)
 		}
@@ -227,8 +303,8 @@ func sendStreamingInvokeResponse(payload io.Reader, trailers http.Header, w http
 	case copyDoneResult = <-copyDone: // copy finished
 		errorTypeTrailer = trailers.Get(FunctionErrorTypeTrailer)
 		errorBodyTrailer = trailers.Get(FunctionErrorBodyTrailer)
-		if copyDoneResult.Error != nil && errorTypeTrailer == "" { // truncated payload, error type not known
-			errorTypeTrailer = string(fatalerror.TruncatedResponse)
+		if copyDoneResult.Error != nil && errorTypeTrailer == "" {
+			errorTypeTrailer = string(mapCopyDoneResultErrorToErrorType(copyDoneResult.Error))
 		}
 	case reset := <-interruptedResponseChan: // reset initiated
 		cancel()
@@ -247,6 +323,7 @@ func sendStreamingInvokeResponse(payload io.Reader, trailers http.Header, w http
 		}
 		copyDoneResult = <-copyDone
 		reset.InvokeResponseMetrics = copyDoneResult.Metrics
+		reset.InvokeResponseMode = InvokeResponseMode
 		interruptedResponseChan <- nil
 		errorTypeTrailer = string(getErrorTypeFromResetReason(reset.Reason))
 	}
@@ -258,9 +335,21 @@ func sendStreamingInvokeResponse(payload io.Reader, trailers http.Header, w http
 
 	if copyDoneResult.Error != nil {
 		log.Errorf("Error while streaming response payload: %s", copyDoneResult.Error)
-		err = &interop.ErrTruncatedResponse{}
+		err = copyDoneResult.Error
 	}
 	return
+}
+
+// mapCopyDoneResultErrorToErrorType map a copyDoneResult error into a fatalerror
+func mapCopyDoneResultErrorToErrorType(err interface{}) fatalerror.ErrorType {
+	switch err.(type) {
+	case *interop.ErrTruncatedResponse:
+		return fatalerror.TruncatedResponse
+	case *interop.ErrorResponseTooLargeDI:
+		return fatalerror.FunctionOversizedResponse
+	default:
+		return fatalerror.SandboxFailure
+	}
 }
 
 func sendStreamingInvokeErrorResponse(payload io.Reader, w http.ResponseWriter,
@@ -279,6 +368,7 @@ func sendStreamingInvokeErrorResponse(payload io.Reader, w http.ResponseWriter,
 		cancel()
 		copyDoneResult = <-copyDone
 		reset.InvokeResponseMetrics = copyDoneResult.Metrics
+		reset.InvokeResponseMode = InvokeResponseMode
 		interruptedResponseChan <- nil
 	}
 
@@ -287,8 +377,9 @@ func sendStreamingInvokeErrorResponse(payload io.Reader, w http.ResponseWriter,
 
 	if copyDoneResult.Error != nil {
 		log.Errorf("Error while streaming error response payload: %s", copyDoneResult.Error)
-		err = &interop.ErrTruncatedResponse{}
+		err = copyDoneResult.Error
 	}
+
 	return
 }
 
@@ -317,7 +408,10 @@ func sendPayloadLimitedResponse(payload io.Reader, trailers http.Header, w http.
 	}
 
 	startReadingResponseMonoTimeMs := metering.Monotime()
-	written, err := io.Copy(w, io.LimitReader(payload, MaxDirectResponseSize+1)) // +1 because we do allow 10MB but not 10MB + 1 byte
+	// Setting the limit to MaxDirectResponseSize + 1 so we can do
+	// readBytes > MaxDirectResponseSize to check if the response is oversized.
+	// As the response is allowed to be of the size MaxDirectResponseSize but not larger than it.
+	written, err := io.Copy(w, io.LimitReader(payload, MaxDirectResponseSize+1))
 
 	// non-streaming invoke request but runtime is streaming: set response trailers
 	if functionResponseMode == interop.FunctionResponseModeStreaming {
@@ -325,10 +419,12 @@ func sendPayloadLimitedResponse(payload io.Reader, trailers http.Header, w http.
 		w.Header().Set(FunctionErrorBodyTrailer, trailers.Get(FunctionErrorBodyTrailer))
 	}
 
+	isNotStreamingInvoke := InvokeResponseMode != interop.InvokeResponseModeStreaming
+
 	if err != nil {
 		w.Header().Set(EndOfResponseTrailer, EndOfResponseTruncated)
 		err = &interop.ErrTruncatedResponse{}
-	} else if MaxDirectResponseSize != -1 && written == MaxDirectResponseSize+1 {
+	} else if isNotStreamingInvoke && written == MaxDirectResponseSize+1 {
 		w.Header().Set(EndOfResponseTrailer, EndOfResponseOversized)
 		err = &interop.ErrorResponseTooLargeDI{
 			ErrorResponseTooLarge: interop.ErrorResponseTooLarge{
@@ -358,19 +454,33 @@ func sendPayloadLimitedResponse(payload io.Reader, trailers http.Header, w http.
 
 func SendDirectInvokeResponse(additionalHeaders map[string]string, payload io.Reader, trailers http.Header,
 	w http.ResponseWriter, interruptedResponseChan chan *interop.Reset,
-	sendResponseChan chan *interop.InvokeResponseMetrics, request *interop.CancellableRequest, runtimeCalledResponse bool) error {
+	sendResponseChan chan *interop.InvokeResponseMetrics, request *interop.CancellableRequest, runtimeCalledResponse bool, invokeID string) error {
 
 	for k, v := range additionalHeaders {
 		w.Header().Add(k, v)
 	}
 
-	if isStreamingInvoke() { // unlimited payload; response streaming mode
-		if isErrorResponse(additionalHeaders) { // send streamed error response when runtime called /error
-			return sendStreamingInvokeErrorResponse(payload, w, interruptedResponseChan, sendResponseChan, runtimeCalledResponse)
+	var err error
+	log.Infof("Started sending response (mode: %s, requestID: %s)", InvokeResponseMode, invokeID)
+	if InvokeResponseMode == interop.InvokeResponseModeStreaming {
+		// send streamed error response when runtime called /error
+		if isErrorResponse(additionalHeaders) {
+			err = sendStreamingInvokeErrorResponse(payload, w, interruptedResponseChan, sendResponseChan, runtimeCalledResponse)
+			if err != nil {
+				log.Infof("Error in sending error response (mode: %s, requestID: %s, error: %v)", InvokeResponseMode, invokeID, err)
+			}
+			return err
 		}
 		// send streamed response when runtime called /response
-		return sendStreamingInvokeResponse(payload, trailers, w, interruptedResponseChan, sendResponseChan, request, runtimeCalledResponse)
+		err = sendStreamingInvokeResponse(payload, trailers, w, interruptedResponseChan, sendResponseChan, request, runtimeCalledResponse)
+	} else {
+		err = sendPayloadLimitedResponse(payload, trailers, w, sendResponseChan, runtimeCalledResponse)
 	}
 
-	return sendPayloadLimitedResponse(payload, trailers, w, sendResponseChan, runtimeCalledResponse)
+	if err != nil {
+		log.Infof("Error in sending response (mode: %s, requestID: %s, error: %v)", InvokeResponseMode, invokeID, err)
+	} else {
+		log.Infof("Completed sending response (mode: %s, requestID: %s)", InvokeResponseMode, invokeID)
+	}
+	return err
 }

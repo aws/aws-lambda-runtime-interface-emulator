@@ -4,10 +4,10 @@
 package rendering
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"strconv"
@@ -50,6 +50,13 @@ type EventRenderingService struct {
 	currentState RendererState
 }
 
+// NewRenderingService returns new EventRenderingService.
+func NewRenderingService() *EventRenderingService {
+	return &EventRenderingService{
+		mutex: &sync.RWMutex{},
+	}
+}
+
 // SetRenderer set current state
 func (s *EventRenderingService) SetRenderer(state RendererState) {
 	s.mutex.Lock()
@@ -77,11 +84,19 @@ func (s *EventRenderingService) RenderRuntimeEvent(w http.ResponseWriter, r *htt
 	return s.currentState.RenderRuntimeEvent(w, r)
 }
 
-// NewRenderingService returns new EventRenderingService.
-func NewRenderingService() *EventRenderingService {
-	return &EventRenderingService{
-		mutex: &sync.RWMutex{},
-	}
+type RestoreRenderer struct{}
+
+func NewRestoreRenderer() *RestoreRenderer {
+	return &RestoreRenderer{}
+}
+
+func (s *RestoreRenderer) RenderRuntimeEvent(writer http.ResponseWriter, request *http.Request) error {
+	writer.WriteHeader(http.StatusOK)
+	return nil
+}
+
+func (s *RestoreRenderer) RenderAgentEvent(writer http.ResponseWriter, request *http.Request) error {
+	return nil
 }
 
 // InvokeRendererMetrics contains metrics of invoke request
@@ -94,17 +109,26 @@ type InvokeRendererMetrics struct {
 type InvokeRenderer struct {
 	ctx                 context.Context
 	invoke              *interop.Invoke
-	tracingHeaderParser func(context.Context, *interop.Invoke) string
-	requestBuffer       []byte
+	tracingHeaderParser func(context.Context) string
+	requestBuffer       *bytes.Buffer
 	requestMutex        sync.Mutex
 	metrics             InvokeRendererMetrics
 }
 
-type RestoreRenderer struct {
+// NewInvokeRenderer returns new invoke event renderer
+func NewInvokeRenderer(ctx context.Context, invoke *interop.Invoke, requestBuffer *bytes.Buffer, traceParser func(context.Context) string) *InvokeRenderer {
+	requestBuffer.Reset() // clear request buffer, since this can be reused across invokes
+	return &InvokeRenderer{
+		invoke:              invoke,
+		ctx:                 ctx,
+		tracingHeaderParser: traceParser,
+		requestBuffer:       requestBuffer,
+		requestMutex:        sync.Mutex{},
+	}
 }
 
-// NewAgentInvokeEvent forms a new AgentInvokeEvent from INVOKE request
-func NewAgentInvokeEvent(req *interop.Invoke) (*model.AgentInvokeEvent, error) {
+// newAgentInvokeEvent forms a new AgentInvokeEvent from INVOKE request
+func newAgentInvokeEvent(req *interop.Invoke) (*model.AgentInvokeEvent, error) {
 	deadlineMono, err := strconv.ParseInt(req.DeadlineNs, 10, 64)
 	if err != nil {
 		return nil, err
@@ -123,7 +147,7 @@ func NewAgentInvokeEvent(req *interop.Invoke) (*model.AgentInvokeEvent, error) {
 
 // RenderAgentEvent renders invoke event json for agent.
 func (s *InvokeRenderer) RenderAgentEvent(writer http.ResponseWriter, request *http.Request) error {
-	event, err := NewAgentInvokeEvent(s.invoke)
+	event, err := newAgentInvokeEvent(s.invoke)
 	if err != nil {
 		return err
 	}
@@ -133,7 +157,11 @@ func (s *InvokeRenderer) RenderAgentEvent(writer http.ResponseWriter, request *h
 		return err
 	}
 
-	renderAgentInvokeHeaders(writer, uuid.New()) // TODO: check this thing
+	eventID := uuid.New()
+	headers := writer.Header()
+	headers.Set("Lambda-Extension-Event-Identifier", eventID.String())
+	headers.Set("Content-Type", "application/json")
+	writer.WriteHeader(http.StatusOK)
 
 	if _, err := writer.Write(bytes); err != nil {
 		return err
@@ -145,13 +173,13 @@ func (s *InvokeRenderer) bufferInvokeRequest() error {
 	s.requestMutex.Lock()
 	defer s.requestMutex.Unlock()
 	var err error = nil
-	if nil == s.requestBuffer {
+	if s.requestBuffer.Len() == 0 {
 		reader := io.LimitReader(s.invoke.Payload, interop.MaxPayloadSize)
 		start := time.Now()
-		s.requestBuffer, err = io.ReadAll(reader)
+		_, err = s.requestBuffer.ReadFrom(reader)
 		s.metrics = InvokeRendererMetrics{
 			ReadTime:  time.Since(start),
-			SizeBytes: len(s.requestBuffer),
+			SizeBytes: s.requestBuffer.Len(),
 		}
 	}
 	return err
@@ -160,7 +188,7 @@ func (s *InvokeRenderer) bufferInvokeRequest() error {
 // RenderRuntimeEvent renders invoke payload for runtime.
 func (s *InvokeRenderer) RenderRuntimeEvent(writer http.ResponseWriter, request *http.Request) error {
 	invoke := s.invoke
-	customerTraceID := s.tracingHeaderParser(s.ctx, s.invoke)
+	customerTraceID := s.tracingHeaderParser(s.ctx)
 
 	cognitoIdentityJSON := ""
 	if len(invoke.CognitoIdentityID) != 0 || len(invoke.CognitoIdentityPoolID) != 0 {
@@ -189,35 +217,11 @@ func (s *InvokeRenderer) RenderRuntimeEvent(writer http.ResponseWriter, request 
 		if err := s.bufferInvokeRequest(); err != nil {
 			return err
 		}
-		_, err := writer.Write(s.requestBuffer)
+		_, err := writer.Write(s.requestBuffer.Bytes())
 		return err
 	}
 
 	return nil
-}
-
-func (s *RestoreRenderer) RenderRuntimeEvent(writer http.ResponseWriter, request *http.Request) error {
-	writer.WriteHeader(http.StatusOK)
-	return nil
-}
-
-func (s *RestoreRenderer) RenderAgentEvent(writer http.ResponseWriter, request *http.Request) error {
-	return nil
-}
-
-// NewInvokeRenderer returns new invoke event renderer
-func NewInvokeRenderer(ctx context.Context, invoke *interop.Invoke, traceParser func(context.Context, *interop.Invoke) string) *InvokeRenderer {
-	return &InvokeRenderer{
-		invoke:              invoke,
-		ctx:                 ctx,
-		tracingHeaderParser: traceParser,
-		requestBuffer:       nil,
-		requestMutex:        sync.Mutex{},
-	}
-}
-
-func NewRestoreRenderer() *RestoreRenderer {
-	return &RestoreRenderer{}
 }
 
 func (s *InvokeRenderer) GetMetrics() InvokeRendererMetrics {
@@ -248,22 +252,15 @@ func (s *ShutdownRenderer) RenderRuntimeEvent(w http.ResponseWriter, r *http.Req
 	panic("We should SIGTERM runtime")
 }
 
-func setHeaderIfNotEmpty(headers http.Header, key string, value string) {
-	if len(value) != 0 {
-		headers.Set(key, value)
-	}
-}
-
-func setHeaderOrDefault(headers http.Header, key, val, defaultVal string) {
-	if val == "" {
-		headers.Set(key, defaultVal)
-		return
-	}
-	headers.Set(key, val)
-}
-
 func renderInvokeHeaders(writer http.ResponseWriter, invokeID string, customerTraceID string, clientContext string,
 	cognitoIdentity string, invokedFunctionArn string, deadlineMs string, contentType string) {
+
+	setHeaderIfNotEmpty := func(headers http.Header, key string, value string) {
+		if value != "" {
+			headers.Set(key, value)
+		}
+	}
+
 	headers := writer.Header()
 	setHeaderIfNotEmpty(headers, "Lambda-Runtime-Aws-Request-Id", invokeID)
 	setHeaderIfNotEmpty(headers, "Lambda-Runtime-Trace-Id", customerTraceID)
@@ -271,7 +268,10 @@ func renderInvokeHeaders(writer http.ResponseWriter, invokeID string, customerTr
 	setHeaderIfNotEmpty(headers, "Lambda-Runtime-Cognito-Identity", cognitoIdentity)
 	setHeaderIfNotEmpty(headers, "Lambda-Runtime-Invoked-Function-Arn", invokedFunctionArn)
 	setHeaderIfNotEmpty(headers, "Lambda-Runtime-Deadline-Ms", deadlineMs)
-	setHeaderOrDefault(headers, "Content-Type", contentType, "application/json")
+	if contentType == "" {
+		contentType = "application/json"
+	}
+	headers.Set("Content-Type", contentType)
 	writer.WriteHeader(http.StatusOK)
 }
 
@@ -290,79 +290,6 @@ func RenderRuntimeLogsResponse(w http.ResponseWriter, respBody []byte, status in
 	return err
 }
 
-func renderAgentInvokeHeaders(writer http.ResponseWriter, eventID uuid.UUID) {
-	headers := writer.Header()
-	headers.Set("Lambda-Extension-Event-Identifier", eventID.String())
-	headers.Set("Content-Type", "application/json")
-	writer.WriteHeader(http.StatusOK)
-}
-
-// RenderForbiddenWithTypeMsg method for rendering error response
-func RenderForbiddenWithTypeMsg(w http.ResponseWriter, r *http.Request, errorType string, format string, args ...interface{}) {
-	if err := RenderJSON(http.StatusForbidden, w, r, &model.ErrorResponse{
-		ErrorType:    errorType,
-		ErrorMessage: fmt.Sprintf(format, args...),
-	}); err != nil {
-		log.WithError(err).Warn("Error while rendering response")
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
-}
-
-// RenderInternalServerError method for rendering error response
-func RenderInternalServerError(w http.ResponseWriter, r *http.Request) {
-	if err := RenderJSON(http.StatusInternalServerError, w, r, &model.ErrorResponse{
-		ErrorMessage: "Internal Server Error",
-		ErrorType:    ErrorTypeInternalServerError,
-	}); err != nil {
-		log.WithError(err).Warn("Error while rendering response")
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
-}
-
-// RenderRequestEntityTooLarge method for rendering error response
-func RenderRequestEntityTooLarge(w http.ResponseWriter, r *http.Request) {
-	if err := RenderJSON(http.StatusRequestEntityTooLarge, w, r, &model.ErrorResponse{
-		ErrorMessage: fmt.Sprintf("Exceeded maximum allowed payload size (%d bytes).", interop.MaxPayloadSize),
-		ErrorType:    ErrorTypeRequestEntityTooLarge,
-	}); err != nil {
-		log.WithError(err).Warn("Error while rendering response")
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
-}
-
-// RenderTruncatedHTTPRequestError method for rendering error response
-func RenderTruncatedHTTPRequestError(w http.ResponseWriter, r *http.Request) {
-	if err := RenderJSON(http.StatusBadRequest, w, r, &model.ErrorResponse{
-		ErrorMessage: "HTTP request detected as truncated",
-		ErrorType:    ErrorTypeTruncatedHTTPRequest,
-	}); err != nil {
-		log.WithError(err).Warn("Error while rendering response")
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
-}
-
-// RenderInvalidRequestID renders invalid request ID error response
-func RenderInvalidRequestID(w http.ResponseWriter, r *http.Request) {
-	if err := RenderJSON(http.StatusBadRequest, w, r, &model.ErrorResponse{
-		ErrorMessage: "Invalid request ID",
-		ErrorType:    "InvalidRequestID",
-	}); err != nil {
-		log.WithError(err).Warn("Error while rendering response")
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
-}
-
-// RenderInvalidFunctionResponseMode renders invalid function response mode response
-func RenderInvalidFunctionResponseMode(w http.ResponseWriter, r *http.Request) {
-	if err := RenderJSON(http.StatusBadRequest, w, r, &model.ErrorResponse{
-		ErrorMessage: "Invalid function response mode",
-		ErrorType:    "InvalidFunctionResponseMode",
-	}); err != nil {
-		log.WithError(err).Warn("Error while rendering response")
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
-}
-
 // RenderAccepted method for rendering accepted status response
 func RenderAccepted(w http.ResponseWriter, r *http.Request) {
 	if err := RenderJSON(http.StatusAccepted, w, r, &model.StatusResponse{
@@ -370,14 +297,5 @@ func RenderAccepted(w http.ResponseWriter, r *http.Request) {
 	}); err != nil {
 		log.WithError(err).Warn("Error while rendering response")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
-}
-
-// RenderInteropError is a convenience method for interpreting interop errors
-func RenderInteropError(writer http.ResponseWriter, request *http.Request, err error) {
-	if err == interop.ErrInvalidInvokeID || err == interop.ErrResponseSent {
-		RenderInvalidRequestID(writer, request)
-	} else {
-		log.Panic(err)
 	}
 }

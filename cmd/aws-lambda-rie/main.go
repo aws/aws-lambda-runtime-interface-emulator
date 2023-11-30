@@ -11,6 +11,7 @@ import (
 	"runtime/debug"
 
 	"github.com/jessevdk/go-flags"
+	"go.amzn.com/lambda/interop"
 	"go.amzn.com/lambda/rapidcore"
 
 	log "github.com/sirupsen/logrus"
@@ -103,7 +104,7 @@ func isBootstrapFileExist(filePath string) bool {
 	return !os.IsNotExist(err) && !file.IsDir()
 }
 
-func getBootstrap(args []string, opts options) (*rapidcore.Bootstrap, string) {
+func getBootstrap(args []string, opts options) (interop.Bootstrap, string) {
 	var bootstrapLookupCmd []string
 	var handler string
 	currentWorkingDir := "/var/task" // default value
@@ -149,5 +150,5 @@ func getBootstrap(args []string, opts options) (*rapidcore.Bootstrap, string) {
 		log.Panic("insufficient arguments: bootstrap not provided")
 	}
 
-	return rapidcore.NewBootstrapSingleCmd(bootstrapLookupCmd, currentWorkingDir, ""), handler
+	return NewSimpleBootstrap(bootstrapLookupCmd, currentWorkingDir), handler
 }

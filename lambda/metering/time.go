@@ -12,13 +12,17 @@ import (
 //go:linkname Monotime runtime.nanotime
 func Monotime() int64
 
-// MonoToEpoch converts monotonic time nanos to epoch time nanos.
+// MonoToEpoch converts monotonic time nanos to unix epoch time nanos.
 func MonoToEpoch(t int64) int64 {
 	monoNsec := Monotime()
 	wallNsec := time.Now().UnixNano()
-
 	clockOffset := wallNsec - monoNsec
 	return t + clockOffset
+}
+
+func TimeToMono(t time.Time) int64 {
+	durNs := time.Since(t).Nanoseconds()
+	return Monotime() - durNs
 }
 
 type ExtensionsResetDurationProfiler struct {

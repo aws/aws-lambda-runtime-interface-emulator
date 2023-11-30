@@ -20,7 +20,7 @@ func TestInvokeValidId(t *testing.T) {
 
 	flowTest := testdata.NewFlowTest()
 	flowTest.ConfigureForInit()
-	router := NewRouter(flowTest.AppCtx, flowTest.RegistrationService, flowTest.RenderingService, flowTest.EventsAPI)
+	router := NewRouter(flowTest.AppCtx, flowTest.RegistrationService, flowTest.RenderingService)
 
 	flowTest.ConfigureForInvoke(context.Background(), createInvoke("InvokeA"))
 
@@ -53,7 +53,7 @@ func TestSecurityInvokeResponseBadRequestId(t *testing.T) {
 
 	flowTest := testdata.NewFlowTest()
 	flowTest.ConfigureForInit()
-	router := NewRouter(flowTest.AppCtx, flowTest.RegistrationService, flowTest.RenderingService, flowTest.EventsAPI)
+	router := NewRouter(flowTest.AppCtx, flowTest.RegistrationService, flowTest.RenderingService)
 
 	flowTest.ConfigureForInvoke(context.Background(), createInvoke("InvokeA"))
 
@@ -100,7 +100,7 @@ func TestSecurityInvokeErrorBadRequestId(t *testing.T) {
 
 	flowTest := testdata.NewFlowTest()
 	flowTest.ConfigureForInit()
-	router := NewRouter(flowTest.AppCtx, flowTest.RegistrationService, flowTest.RenderingService, flowTest.EventsAPI)
+	router := NewRouter(flowTest.AppCtx, flowTest.RegistrationService, flowTest.RenderingService)
 
 	flowTest.ConfigureForInvoke(context.Background(), createInvoke("InvokeA"))
 

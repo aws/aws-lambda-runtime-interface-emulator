@@ -17,6 +17,7 @@ import (
 	"github.com/aws/aws-lambda-go/events/test"
 	"github.com/stretchr/testify/assert"
 	"go.amzn.com/lambda/appctx"
+	"go.amzn.com/lambda/fatalerror"
 	"go.amzn.com/lambda/interop"
 	"go.amzn.com/lambda/testdata"
 )
@@ -62,13 +63,13 @@ func TestResponseTooLarge(t *testing.T) {
 	errorResponse := flowTest.InteropServer.ErrorResponse
 	assert.NotNil(t, errorResponse)
 	assert.Nil(t, flowTest.InteropServer.Response)
-	assert.Equal(t, "Function.ResponseSizeTooLarge", errorResponse.ErrorType)
-	assert.Equal(t, "Response payload size (6291557 bytes) exceeded maximum allowed payload size (6291556 bytes).", errorResponse.ErrorMessage)
+	assert.Equal(t, fatalerror.FunctionOversizedResponse, errorResponse.FunctionError.Type)
+	assert.Equal(t, "Response payload size (6291557 bytes) exceeded maximum allowed payload size (6291556 bytes).", errorResponse.FunctionError.Message)
 
 	var errorPayload map[string]interface{}
 	assert.NoError(t, json.Unmarshal(errorResponse.Payload, &errorPayload))
-	assert.Equal(t, errorResponse.ErrorType, errorPayload["errorType"])
-	assert.Equal(t, errorResponse.ErrorMessage, errorPayload["errorMessage"])
+	assert.Equal(t, string(errorResponse.FunctionError.Type), errorPayload["errorType"])
+	assert.Equal(t, errorResponse.FunctionError.Message, errorPayload["errorMessage"])
 }
 
 func TestResponseAccepted(t *testing.T) {
@@ -193,7 +194,7 @@ func TestResponseWithDifferentFunctionResponseModes(t *testing.T) {
 		if testCase.expectedErrorResponse {
 			assert.NotNil(t, flowTest.InteropServer.ErrorResponse)
 			assert.Nil(t, flowTest.InteropServer.Response)
-			assert.Equal(t, "Runtime.InvalidResponseModeHeader", flowTest.InteropServer.ErrorResponse.ErrorType)
+			assert.Equal(t, fatalerror.RuntimeInvalidResponseModeHeader, flowTest.InteropServer.ErrorResponse.FunctionError.Type)
 		} else {
 			assert.NotNil(t, flowTest.InteropServer.Response)
 			assert.Nil(t, flowTest.InteropServer.ErrorResponse)

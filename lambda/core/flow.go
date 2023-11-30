@@ -3,6 +3,12 @@
 
 package core
 
+import (
+	"context"
+
+	"go.amzn.com/lambda/interop"
+)
+
 // InitFlowSynchronization wraps init flow barriers.
 type InitFlowSynchronization interface {
 	SetExternalAgentsRegisterCount(uint16) error
@@ -13,6 +19,7 @@ type InitFlowSynchronization interface {
 
 	RuntimeReady() error
 	AwaitRuntimeReady() error
+	AwaitRuntimeReadyWithDeadline(context.Context) error
 
 	AgentReady() error
 	AwaitAgentsReady() error
@@ -45,6 +52,26 @@ func (s *initFlowSynchronizationImpl) SetAgentsReadyCount(agentCount uint16) err
 // AwaitRuntimeReady awaits runtime ready state
 func (s *initFlowSynchronizationImpl) AwaitRuntimeReady() error {
 	return s.runtimeReadyGate.AwaitGateCondition()
+}
+
+func (s *initFlowSynchronizationImpl) AwaitRuntimeReadyWithDeadline(ctx context.Context) error {
+	var err error
+	errorChan := make(chan error)
+
+	go func() {
+		errorChan <- s.runtimeReadyGate.AwaitGateCondition()
+	}()
+
+	select {
+	case err = <-errorChan:
+		break
+	case <-ctx.Done():
+		err = interop.ErrRestoreHookTimeout
+		s.CancelWithError(err)
+		break
+	}
+
+	return err
 }
 
 // AwaitRuntimeRestoreReady awaits runtime restore ready state (/restore/next is called by runtime)

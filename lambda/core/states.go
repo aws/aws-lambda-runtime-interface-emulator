@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"go.amzn.com/lambda/core/statejson"
+	"go.amzn.com/lambda/interop"
 )
 
 // Suspendable on operator condition.
@@ -76,6 +77,7 @@ type RuntimeState interface {
 	InvocationResponse() error
 	InvocationErrorResponse() error
 	ResponseSent() error
+	RestoreError(interop.FunctionError) error
 	Name() string
 }
 
@@ -87,6 +89,9 @@ func (s *disallowEveryTransitionByDefault) RestoreReady() error            { ret
 func (s *disallowEveryTransitionByDefault) InvocationResponse() error      { return ErrNotAllowed }
 func (s *disallowEveryTransitionByDefault) InvocationErrorResponse() error { return ErrNotAllowed }
 func (s *disallowEveryTransitionByDefault) ResponseSent() error            { return ErrNotAllowed }
+func (s *disallowEveryTransitionByDefault) RestoreError(interop.FunctionError) error {
+	return ErrNotAllowed
+}
 
 // Runtime is runtime object.
 type Runtime struct {
@@ -105,6 +110,7 @@ type Runtime struct {
 	RuntimeInvocationResponseState      RuntimeState
 	RuntimeInvocationErrorResponseState RuntimeState
 	RuntimeResponseSentState            RuntimeState
+	RuntimeRestoreErrorState            RuntimeState
 }
 
 // Release ...
@@ -176,6 +182,12 @@ func (s *Runtime) ResponseSent() error {
 	return err
 }
 
+func (s *Runtime) RestoreError(UserError interop.FunctionError) error {
+	s.ManagedThread.Lock()
+	defer s.ManagedThread.Unlock()
+	return s.currentState.RestoreError(UserError)
+}
+
 // GetRuntimeDescription returns runtime description object for debugging purposes
 func (s *Runtime) GetRuntimeDescription() statejson.RuntimeDescription {
 	s.ManagedThread.Lock()
@@ -207,6 +219,7 @@ func NewRuntime(initFlow InitFlowSynchronization, invokeFlow InvokeFlowSynchroni
 	runtime.RuntimeResponseSentState = &RuntimeResponseSentState{runtime: runtime, invokeFlow: invokeFlow}
 	runtime.RuntimeRestoreReadyState = &RuntimeRestoreReadyState{}
 	runtime.RuntimeRestoringState = &RuntimeRestoringState{runtime: runtime, initFlow: initFlow}
+	runtime.RuntimeRestoreErrorState = &RuntimeRestoreErrorState{runtime: runtime, initFlow: initFlow}
 
 	runtime.setStateUnsafe(runtime.RuntimeStartedState)
 	return runtime
@@ -292,9 +305,9 @@ func (s *RuntimeRestoringState) Ready() error {
 	return nil
 }
 
-// Runtime has thrown an exception when executing restore hooks and called /init/error
-func (s *RuntimeRestoringState) InitError() error {
-	s.runtime.setStateUnsafe(s.runtime.RuntimeInitErrorState)
+func (s *RuntimeRestoringState) RestoreError(userError interop.FunctionError) error {
+	s.runtime.setStateUnsafe(s.runtime.RuntimeRestoreErrorState)
+	s.initFlow.CancelWithError(interop.ErrRestoreHookUserError{UserError: userError})
 	return nil
 }
 
@@ -435,4 +448,14 @@ func (s *RuntimeResponseSentState) Ready() error {
 // Name ...
 func (s *RuntimeResponseSentState) Name() string {
 	return RuntimeResponseSentStateName
+}
+
+type RuntimeRestoreErrorState struct {
+	disallowEveryTransitionByDefault
+	runtime  *Runtime
+	initFlow InitFlowSynchronization
+}
+
+func (s *RuntimeRestoreErrorState) Name() string {
+	return RuntimeRestoreErrorStateName
 }

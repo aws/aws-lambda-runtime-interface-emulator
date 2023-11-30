@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	"go.amzn.com/lambda/appctx"
+	"go.amzn.com/lambda/fatalerror"
 	"go.amzn.com/lambda/interop"
 	"go.amzn.com/lambda/rapi/model"
 	"go.amzn.com/lambda/testdata"
@@ -87,12 +88,12 @@ func runTestInvocationErrorHandler(t *testing.T) {
 	// payload is not provided. This fallback is not part
 	// of the RAPID API spec and is not available to
 	// customers.
-	assert.Equal(t, "", errorResponse.ErrorMessage)
+	assert.Equal(t, "", errorResponse.FunctionError.Message)
 
 	// Slicer falls back to using ErrorType when error
 	// payload is not provided. Customers can set error
 	// type header to use this fallback.
-	assert.Equal(t, errorType, errorResponse.ErrorType)
+	assert.Equal(t, fatalerror.RuntimeUnknown, errorResponse.FunctionError.Type)
 
 	// Payload is arbitrary data that customers submit - it's error response body.
 	assert.Equal(t, errorBody, errorResponse.Payload)
@@ -176,10 +177,10 @@ func TestInvocationErrorHandlerSendsErrorCauseToXRayForContentTypeErrorCause(t *
 	handler.ServeHTTP(responseRecorder, appctx.RequestWithAppCtx(request, appCtx))
 
 	// Assert error response contains error cause
-	errorResponse := flowTest.InteropServer.ErrorResponse
-	assert.NotNil(t, errorResponse)
+	invokeErrorTraceData := appctx.LoadInvokeErrorTraceData(appCtx)
+	assert.NotNil(t, invokeErrorTraceData)
 	assert.Nil(t, flowTest.InteropServer.Response)
-	assert.JSONEq(t, string(errorCause), string(errorResponse.ErrorCause))
+	assert.JSONEq(t, string(errorCause), string(invokeErrorTraceData.ErrorCause))
 }
 
 func TestInvocationErrorHandlerSendsNullErrorCauseWhenErrorCauseFormatIsInvalidOrEmptyForContentTypeErrorCause(t *testing.T) {
@@ -213,10 +214,10 @@ func TestInvocationErrorHandlerSendsNullErrorCauseWhenErrorCauseFormatIsInvalidO
 		// Run
 		NewInvocationErrorHandler(flowTest.RegistrationService).ServeHTTP(httptest.NewRecorder(), appctx.RequestWithAppCtx(request, appCtx))
 
-		errorResponse := flowTest.InteropServer.ErrorResponse
-		assert.NotNil(t, errorResponse)
+		invokeErrorTraceData := appctx.LoadInvokeErrorTraceData(appCtx)
+		assert.NotNil(t, invokeErrorTraceData)
 		assert.Nil(t, flowTest.InteropServer.Response)
-		assert.Equal(t, json.RawMessage(nil), errorResponse.ErrorCause)
+		assert.Equal(t, json.RawMessage(nil), invokeErrorTraceData.ErrorCause)
 	}
 }
 
@@ -248,11 +249,11 @@ func TestInvocationErrorHandlerSendsCompactedErrorCauseWhenErrorCauseIsTooLargeF
 	// Run
 	NewInvocationErrorHandler(flowTest.RegistrationService).ServeHTTP(httptest.NewRecorder(), appctx.RequestWithAppCtx(request, appCtx))
 
-	errorResponse := flowTest.InteropServer.ErrorResponse
-	assert.NotNil(t, errorResponse)
+	invokeErrorTraceData := appctx.LoadInvokeErrorTraceData(appCtx)
+	assert.NotNil(t, invokeErrorTraceData)
 	assert.Nil(t, flowTest.InteropServer.Response)
 
-	errorCauseJSON, err := model.ValidatedErrorCauseJSON(errorResponse.ErrorCause)
+	errorCauseJSON, err := model.ValidatedErrorCauseJSON(invokeErrorTraceData.ErrorCause)
 	assert.NoError(t, err, "expected cause sent x-ray to be valid")
 	assert.True(t, len(errorCauseJSON) < model.MaxErrorCauseSizeBytes, "expected cause to be compacted to size")
 }
@@ -277,12 +278,13 @@ func TestInvocationResponsePayloadIsDefaultErrorMessageWhenRequestParsingFailsFo
 	// Run
 	NewInvocationErrorHandler(flowTest.RegistrationService).ServeHTTP(httptest.NewRecorder(), appctx.RequestWithAppCtx(request, appCtx))
 
-	errorResponse := flowTest.InteropServer.ErrorResponse
-	assert.NotNil(t, errorResponse)
+	invokeErrorTraceData := appctx.LoadInvokeErrorTraceData(appCtx)
+	assert.NotNil(t, invokeErrorTraceData)
 	assert.Nil(t, flowTest.InteropServer.Response)
 	assert.Equal(t, "application/octet-stream", flowTest.InteropServer.ResponseContentType)
 	assert.Equal(t, "function-response-mode", flowTest.InteropServer.FunctionResponseMode)
 
+	errorResponse := flowTest.InteropServer.ErrorResponse
 	invokeResponsePayload := errorResponse.Payload
 
 	expectedResponse, _ := json.Marshal(invalidErrorBodyMessage)
@@ -311,10 +313,10 @@ func TestInvocationErrorHandlerSendsErrorCauseToXRayWhenXRayErrorCauseHeaderIsSe
 	// Run
 	NewInvocationErrorHandler(flowTest.RegistrationService).ServeHTTP(httptest.NewRecorder(), appctx.RequestWithAppCtx(request, appCtx))
 
-	errorResponse := flowTest.InteropServer.ErrorResponse
-	assert.NotNil(t, errorResponse)
+	invokeErrorTraceData := appctx.LoadInvokeErrorTraceData(appCtx)
+	assert.NotNil(t, invokeErrorTraceData)
 	assert.Nil(t, flowTest.InteropServer.Response)
-	assert.JSONEq(t, string(errorCause), string(errorResponse.ErrorCause))
+	assert.JSONEq(t, string(errorCause), string(invokeErrorTraceData.ErrorCause))
 }
 
 func TestInvocationErrorHandlerSendsNilCauseToXRayWhenXRayErrorCauseHeaderContainsInvalidCause(t *testing.T) {
@@ -340,10 +342,10 @@ func TestInvocationErrorHandlerSendsNilCauseToXRayWhenXRayErrorCauseHeaderContai
 		// Run
 		NewInvocationErrorHandler(flowTest.RegistrationService).ServeHTTP(httptest.NewRecorder(), appctx.RequestWithAppCtx(request, appCtx))
 
-		errorResponse := flowTest.InteropServer.ErrorResponse
-		assert.NotNil(t, errorResponse)
+		invokeErrorTraceData := appctx.LoadInvokeErrorTraceData(appCtx)
+		assert.NotNil(t, invokeErrorTraceData)
 		assert.Nil(t, flowTest.InteropServer.Response)
-		assert.Equal(t, json.RawMessage(nil), errorResponse.ErrorCause)
+		assert.Equal(t, json.RawMessage(nil), invokeErrorTraceData.ErrorCause)
 	}
 }
 
@@ -366,11 +368,11 @@ func TestInvocationErrorHandlerSendsCompactedErrorCauseToXRayWhenXRayErrorCauseI
 	// Run
 	NewInvocationErrorHandler(flowTest.RegistrationService).ServeHTTP(httptest.NewRecorder(), appctx.RequestWithAppCtx(request, appCtx))
 
-	errorResponse := flowTest.InteropServer.ErrorResponse
-	assert.NotNil(t, errorResponse)
+	invokeErrorTraceData := appctx.LoadInvokeErrorTraceData(appCtx)
+	assert.NotNil(t, invokeErrorTraceData)
 	assert.Nil(t, flowTest.InteropServer.Response)
 
-	errorCauseJSON, err := model.ValidatedErrorCauseJSON(errorResponse.ErrorCause)
+	errorCauseJSON, err := model.ValidatedErrorCauseJSON(invokeErrorTraceData.ErrorCause)
 	assert.NoError(t, err, "expected cause sent x-ray to be valid")
 	assert.True(t, len(errorCauseJSON) < model.MaxErrorCauseSizeBytes, "expected cause to be compacted to size")
 }
@@ -391,10 +393,10 @@ func TestInvocationErrorHandlerSendsNilToXRayWhenXRayErrorCauseHeaderIsNotSet(t 
 	// Run
 	NewInvocationErrorHandler(flowTest.RegistrationService).ServeHTTP(httptest.NewRecorder(), appctx.RequestWithAppCtx(request, appCtx))
 
-	errorResponse := flowTest.InteropServer.ErrorResponse
-	assert.NotNil(t, errorResponse)
+	invokeErrorTraceData := appctx.LoadInvokeErrorTraceData(appCtx)
+	assert.NotNil(t, invokeErrorTraceData)
 	assert.Nil(t, flowTest.InteropServer.Response)
-	assert.Nil(t, errorResponse.ErrorCause)
+	assert.Nil(t, invokeErrorTraceData.ErrorCause)
 }
 
 func TestInvocationErrorHandlerSendsErrorCauseToXRayWhenXRayErrorCauseContainsUTF8Characters(t *testing.T) {
@@ -416,8 +418,8 @@ func TestInvocationErrorHandlerSendsErrorCauseToXRayWhenXRayErrorCauseContainsUT
 	// Run
 	NewInvocationErrorHandler(flowTest.RegistrationService).ServeHTTP(httptest.NewRecorder(), appctx.RequestWithAppCtx(request, appCtx))
 
-	errorResponse := flowTest.InteropServer.ErrorResponse
-	assert.NotNil(t, errorResponse)
+	invokeErrorTraceData := appctx.LoadInvokeErrorTraceData(appCtx)
+	assert.NotNil(t, invokeErrorTraceData)
 	assert.Nil(t, flowTest.InteropServer.Response)
-	assert.JSONEq(t, string(errorCause), string(errorResponse.ErrorCause))
+	assert.JSONEq(t, string(errorCause), string(invokeErrorTraceData.ErrorCause))
 }

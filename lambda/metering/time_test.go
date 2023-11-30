@@ -19,6 +19,14 @@ func TestMonoToEpochPrecision(t *testing.T) {
 	assert.True(t, math.Abs(float64(a-b)) < float64(time.Millisecond))
 }
 
+func TestEpochToMonoPrecision(t *testing.T) {
+	a := Monotime()
+	b := TimeToMono(time.Now())
+
+	// Conversion error is less than a millisecond.
+	assert.Less(t, math.Abs(float64(b-a)), float64(1*time.Millisecond))
+}
+
 func TestExtensionsResetDurationProfilerForExtensionsResetWithNoExtensions(t *testing.T) {
 	mono := Monotime()
 	profiler := ExtensionsResetDurationProfiler{}

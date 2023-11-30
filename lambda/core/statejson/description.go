@@ -5,8 +5,23 @@ package statejson
 
 import (
 	"encoding/json"
+
 	log "github.com/sirupsen/logrus"
 )
+
+// ResponseMode are top-level constants used in combination with the various types of
+// modes we have for responses, such as invoke's response mode and function's response mode.
+// In the future we might have invoke's request mode or similar, so these help set the ground
+// for consistency.
+type ResponseMode string
+
+const ResponseModeBuffered = "Buffered"
+const ResponseModeStreaming = "Streaming"
+
+type InvokeResponseMode string
+
+const InvokeResponseModeBuffered InvokeResponseMode = ResponseModeBuffered
+const InvokeResponseModeStreaming InvokeResponseMode = ResponseModeStreaming
 
 // StateDescription ...
 type StateDescription struct {
@@ -35,9 +50,24 @@ type InternalStateDescription struct {
 	FirstFatalError string                 `json:"firstFatalError"`
 }
 
+type ResponseMetricsDimensions struct {
+	InvokeResponseMode InvokeResponseMode `json:"invokeResponseMode"`
+}
+
+type ResponseMetrics struct {
+	RuntimeResponseLatencyMs float64                   `json:"runtimeResponseLatencyMs"`
+	Dimensions               ResponseMetricsDimensions `json:"dimensions"`
+}
+
+type ReleaseResponse struct {
+	*InternalStateDescription
+	ResponseMetrics ResponseMetrics `json:"responseMetrics"`
+}
+
 // ResetDescription describes fields of the response to an INVOKE API request
 type ResetDescription struct {
-	ExtensionsResetMs int64 `json:"extensionsResetMs"`
+	ExtensionsResetMs int64           `json:"extensionsResetMs"`
+	ResponseMetrics   ResponseMetrics `json:"responseMetrics"`
 }
 
 func (s *InternalStateDescription) AsJSON() []byte {
@@ -52,6 +82,14 @@ func (s *ResetDescription) AsJSON() []byte {
 	bytes, err := json.Marshal(s)
 	if err != nil {
 		log.Panicf("Failed to marshall reset description: %s", err)
+	}
+	return bytes
+}
+
+func (s *ReleaseResponse) AsJSON() []byte {
+	bytes, err := json.Marshal(s)
+	if err != nil {
+		log.Panicf("Failed to marshall release response: %s", err)
 	}
 	return bytes
 }

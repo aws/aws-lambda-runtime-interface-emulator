@@ -12,7 +12,7 @@ import (
 
 // SubscriptionAPI represents interface that implementations of Telemetry API have to satisfy to be RAPID-compatible
 type SubscriptionAPI interface {
-	Subscribe(agentName string, body io.Reader, headers map[string][]string) (resp []byte, status int, respHeaders map[string][]string, err error)
+	Subscribe(agentName string, body io.Reader, headers map[string][]string, remoteAddr string) (resp []byte, status int, respHeaders map[string][]string, err error)
 	RecordCounterMetric(metricName string, count int)
 	FlushMetrics() interop.TelemetrySubscriptionMetrics
 	Clear()
@@ -25,7 +25,7 @@ type SubscriptionAPI interface {
 type NoOpSubscriptionAPI struct{}
 
 // Subscribe writes response to a shared memory
-func (m *NoOpSubscriptionAPI) Subscribe(agentName string, body io.Reader, headers map[string][]string) ([]byte, int, map[string][]string, error) {
+func (m *NoOpSubscriptionAPI) Subscribe(agentName string, body io.Reader, headers map[string][]string, remoteAddr string) ([]byte, int, map[string][]string, error) {
 	return []byte(`{}`), http.StatusOK, map[string][]string{}, nil
 }
 
