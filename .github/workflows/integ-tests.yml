@@ -9,7 +9,7 @@ jobs:
   integ-tests:
     runs-on: ubuntu-latest
     environment:
-      name: integ-tests
+      name: prod
     steps:
         - uses: actions/checkout@v3
         - uses: actions/setup-python@v5
