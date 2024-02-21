@@ -15,7 +15,7 @@ jobs:
         - uses: actions/setup-python@v5
           with:
             python-version: '3.11'
-        - name: allows us to build amr64 images
+        - name: allows us to build arm64 images
           run: docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
         - name: run integration tests
           run: sudo make integ-tests-with-docker
