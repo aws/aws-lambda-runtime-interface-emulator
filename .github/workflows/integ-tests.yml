@@ -18,4 +18,4 @@ jobs:
         - name: allows us to build arm64 images
           run: docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
         - name: run integration tests
-          run: sudo make integ-tests-with-docker
+          run: make integ-tests-with-docker
