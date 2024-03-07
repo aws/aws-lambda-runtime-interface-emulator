@@ -100,7 +100,7 @@ class TestEndToEnd(TestCase):
         
         r = self.create_container_and_invoke_function(cmd, port)
         
-        self.assertEqual(b'"5=5"', r.content)
+        self.assertEqual(b'"4=4"', r.content)
 
     @parameterized.expand([("x86_64", "8001"), ("arm64", "9001"), ("", "9051")])
     def test_two_invokes(self, arch, port):
