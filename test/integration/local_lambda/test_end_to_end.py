@@ -72,20 +72,34 @@ class TestEndToEnd(TestCase):
 
     def get_tag(self, architecture):
         return "" if architecture == "" else str(f"-{architecture}")
+    
+    def run_command(self, cmd):
+        Popen(cmd.split(" ")).communicate()
+    
+    def sleep_1s(self):
+        time.sleep(SLEEP_TIME)
+        
+    def invoke_function(self, port):
+        return requests.post(
+            f"http://localhost:{port}/2015-03-31/functions/function/invocations", json={}
+        )
+        
+    def create_container_and_invoke_function(self, cmd, port):
+        self.run_command(cmd)
+        
+        # sleep 1s to give enough time for the endpoint to be up to curl
+        self.sleep_1s()
+        
+        return self.invoke_function(port)
 
     @parameterized.expand([("x86_64", "8000"), ("arm64", "9000"), ("", "9050")])
     def test_env_var_with_equal_sign(self, arch, port):
         image, rie, image_name = self.tagged_name("envvarcheck", arch)
 
         cmd = f"docker run --name {image} -d -v {self.path_to_binary}:/local-lambda-runtime-server -p {port}:8080 --entrypoint /local-lambda-runtime-server/{rie} {image_name} {DEFAULT_1P_ENTRYPOINT} main.check_env_var_handler"
-        Popen(cmd.split(" ")).communicate()
-
-        # sleep 1s to give enough time for the endpoint to be up to curl
-        time.sleep(SLEEP_TIME)
-
-        r = requests.post(
-            f"http://localhost:{port}/2015-03-31/functions/function/invocations", json={}
-        )
+        
+        r = self.create_container_and_invoke_function(cmd, port)
+        
         self.assertEqual(b'"4=4"', r.content)
 
     @parameterized.expand([("x86_64", "8001"), ("arm64", "9001"), ("", "9051")])
@@ -94,20 +108,13 @@ class TestEndToEnd(TestCase):
 
         cmd = f"docker run --name {image} -d -v {self.path_to_binary}:/local-lambda-runtime-server -p {port}:8080 --entrypoint /local-lambda-runtime-server/{rie} {image_name} {DEFAULT_1P_ENTRYPOINT} main.success_handler"
 
-        Popen(cmd.split(" ")).communicate()
-
-        # sleep 1s to give enough time for the endpoint to be up to curl
-        time.sleep(SLEEP_TIME)
-
-        r = requests.post(
-            f"http://localhost:{port}/2015-03-31/functions/function/invocations", json={}
-        )
+        r = self.create_container_and_invoke_function(cmd, port)
+        
         self.assertEqual(b'"My lambda ran succesfully"', r.content)
 
         # Make sure we can invoke the function twice
-        r = requests.post(
-            f"http://localhost:{port}/2015-03-31/functions/function/invocations", json={}
-        )
+        r = self.invoke_function(port)
+        
         self.assertEqual(b'"My lambda ran succesfully"', r.content)
 
     @parameterized.expand([("x86_64", "8002"), ("arm64", "9002"), ("", "9052")])
@@ -116,14 +123,8 @@ class TestEndToEnd(TestCase):
 
         cmd = f"docker run --name {image} -d -v {self.path_to_binary}:/local-lambda-runtime-server -p {port}:8080 --entrypoint /local-lambda-runtime-server/{rie} {image_name} {DEFAULT_1P_ENTRYPOINT} main.assert_lambda_arn_in_context"
 
-        Popen(cmd.split(" ")).communicate()
-
-        # sleep 1s to give enough time for the endpoint to be up to curl
-        time.sleep(SLEEP_TIME)
-
-        r = requests.post(
-            f"http://localhost:{port}/2015-03-31/functions/function/invocations", json={}
-        )
+        r = self.create_container_and_invoke_function(cmd, port)
+        
         self.assertEqual(b'"My lambda ran succesfully"', r.content)
 
     @parameterized.expand([("x86_64", "8003"), ("arm64", "9003"), ("", "9053")])
@@ -131,14 +132,9 @@ class TestEndToEnd(TestCase):
         image, rie, image_name = self.tagged_name("customname", arch)
 
         cmd = f"docker run --name {image} --env AWS_LAMBDA_FUNCTION_NAME=MyCoolName -d -v {self.path_to_binary}:/local-lambda-runtime-server -p {port}:8080 --entrypoint /local-lambda-runtime-server/{rie} {image_name} {DEFAULT_1P_ENTRYPOINT} main.assert_lambda_arn_in_context"
-        Popen(cmd.split(" ")).communicate()
-
-        # sleep 1s to give enough time for the endpoint to be up to curl
-        time.sleep(SLEEP_TIME)
-
-        r = requests.post(
-            f"http://localhost:{port}/2015-03-31/functions/function/invocations", json={}
-        )
+        
+        r = self.create_container_and_invoke_function(cmd, port)
+        
         self.assertEqual(b'"My lambda ran succesfully"', r.content)
 
     @parameterized.expand([("x86_64", "8004"), ("arm64", "9004"), ("", "9054")])
@@ -147,14 +143,8 @@ class TestEndToEnd(TestCase):
 
         cmd = f"docker run --name {image} -d --env AWS_LAMBDA_FUNCTION_TIMEOUT=1 -v {self.path_to_binary}:/local-lambda-runtime-server -p {port}:8080 --entrypoint /local-lambda-runtime-server/{rie} {image_name} {DEFAULT_1P_ENTRYPOINT} main.sleep_handler"
 
-        Popen(cmd.split(" ")).communicate()
-
-        # sleep 1s to give enough time for the endpoint to be up to curl
-        time.sleep(SLEEP_TIME)
-
-        r = requests.post(
-            f"http://localhost:{port}/2015-03-31/functions/function/invocations", json={}
-        )
+        r = self.create_container_and_invoke_function(cmd, port)
+        
         self.assertEqual(b"Task timed out after 1.00 seconds", r.content)
 
     @parameterized.expand([("x86_64", "8005"), ("arm64", "9005"), ("", "9055")])
@@ -163,14 +153,8 @@ class TestEndToEnd(TestCase):
 
         cmd = f"docker run --name {image} -d -v {self.path_to_binary}:/local-lambda-runtime-server -p {port}:8080 --entrypoint /local-lambda-runtime-server/{rie} {image_name} {DEFAULT_1P_ENTRYPOINT} main.exception_handler"
 
-        Popen(cmd.split(" ")).communicate()
-
-        # sleep 1s to give enough time for the endpoint to be up to curl
-        time.sleep(SLEEP_TIME)
-
-        r = requests.post(
-            f"http://localhost:{port}/2015-03-31/functions/function/invocations", json={}
-        )
+        r = self.create_container_and_invoke_function(cmd, port)
+        
         self.assertEqual(
             b'{"errorMessage": "Raising an exception", "errorType": "Exception", "stackTrace": ["  File \\"/var/task/main.py\\", line 13, in exception_handler\\n    raise Exception(\\"Raising an exception\\")\\n"]}',
             r.content,
@@ -182,15 +166,8 @@ class TestEndToEnd(TestCase):
 
         cmd = f"docker run --name {image} -d --env AWS_LAMBDA_FUNCTION_TIMEOUT=3 -v {self.path_to_binary}:/local-lambda-runtime-server -p {port}:8080 --entrypoint /local-lambda-runtime-server/{rie} {image_name} {DEFAULT_1P_ENTRYPOINT} main.check_remaining_time_handler"
 
-        Popen(cmd.split(' ')).communicate()
-
-        # sleep 1s to give enough time for the endpoint to be up to curl
-        time.sleep(SLEEP_TIME)
-
-        r = requests.post(
-            f"http://localhost:{port}/2015-03-31/functions/function/invocations", json={}
-        )
-
+        r = self.create_container_and_invoke_function(cmd, port)
+        
         # Execution time is not decided, 1.0s ~ 3.0s is a good estimation
         self.assertLess(int(r.content), 3000)
         self.assertGreater(int(r.content), 1000)
@@ -201,15 +178,8 @@ class TestEndToEnd(TestCase):
 
         cmd = f"docker run --name {image} -d --env AWS_LAMBDA_FUNCTION_TIMEOUT=10 -v {self.path_to_binary}:/local-lambda-runtime-server -p {port}:8080 --entrypoint /local-lambda-runtime-server/{rie} {image_name} {DEFAULT_1P_ENTRYPOINT} main.check_remaining_time_handler"
 
-        Popen(cmd.split(' ')).communicate()
-
-        # sleep 1s to give enough time for the endpoint to be up to curl
-        time.sleep(SLEEP_TIME)
-
-        r = requests.post(
-            f"http://localhost:{port}/2015-03-31/functions/function/invocations", json={}
-        )
-
+        r = self.create_container_and_invoke_function(cmd, port)
+        
         # Execution time is not decided, 8.0s ~ 10.0s is a good estimation
         self.assertLess(int(r.content), 10000)
         self.assertGreater(int(r.content), 8000)
@@ -220,14 +190,7 @@ class TestEndToEnd(TestCase):
 
         cmd = f"docker run --name {image} -d -v {self.path_to_binary}:/local-lambda-runtime-server -p {port}:8080 --entrypoint /local-lambda-runtime-server/{rie} {image_name} {DEFAULT_1P_ENTRYPOINT} main.check_remaining_time_handler"
 
-        Popen(cmd.split(' ')).communicate()
-
-        # sleep 1s to give enough time for the endpoint to be up to curl
-        time.sleep(SLEEP_TIME)
-
-        r = requests.post(
-            f"http://localhost:{port}/2015-03-31/functions/function/invocations", json={}
-        )
+        r = self.create_container_and_invoke_function(cmd, port)
 
         # Executation time is not decided, 298.0s ~ 300.0s is a good estimation
         self.assertLess(int(r.content), 300000)
@@ -239,14 +202,8 @@ class TestEndToEnd(TestCase):
 
         cmd = f"docker run --name {image} -d -v {self.path_to_binary}:/local-lambda-runtime-server -p {port}:8080 --entrypoint /local-lambda-runtime-server/{rie} {image_name} {DEFAULT_1P_ENTRYPOINT} main.success_handler"
 
-        Popen(cmd.split(" ")).communicate()
-
-        # sleep 1s to give enough time for the endpoint to be up to curl
-        time.sleep(SLEEP_TIME)
-
-        r = requests.post(
-            f"http://localhost:{port}/2015-03-31/functions/function/invocations", json={}
-        )
+        r = self.create_container_and_invoke_function(cmd, port)
+        
         self.assertEqual(b'"My lambda ran succesfully"', r.content)
 
     @parameterized.expand([("x86_64", "8010"), ("arm64", "9010"), ("", "9060")])
@@ -255,14 +212,8 @@ class TestEndToEnd(TestCase):
 
         cmd = f"docker run --name {image} -d --env AWS_LAMBDA_FUNCTION_NAME=MyCoolName -v {self.path_to_binary}:/local-lambda-runtime-server -p {port}:8080 --entrypoint /local-lambda-runtime-server/{rie} {image_name} {DEFAULT_1P_ENTRYPOINT} main.assert_env_var_is_overwritten"
 
-        Popen(cmd.split(" ")).communicate()
-
-        # sleep 1s to give enough time for the endpoint to be up to curl
-        time.sleep(SLEEP_TIME)
-
-        r = requests.post(
-            f"http://localhost:{port}/2015-03-31/functions/function/invocations", json={}
-        )
+        r = self.create_container_and_invoke_function(cmd, port)
+        
         self.assertEqual(b'"My lambda ran succesfully"', r.content)
 
     @parameterized.expand([("x86_64", "8011"), ("arm64", "9011"), ("", "9061")])
@@ -272,14 +223,8 @@ class TestEndToEnd(TestCase):
         # Use port 8081 inside the container instead of 8080
         cmd = f"docker run --name {image} -d -v {self.path_to_binary}:/local-lambda-runtime-server -p {port}:8081 --entrypoint /local-lambda-runtime-server/{rie} {image_name} {DEFAULT_1P_ENTRYPOINT} main.success_handler --runtime-interface-emulator-address 0.0.0.0:8081"
 
-        Popen(cmd.split(" ")).communicate()
-
-        # sleep 1s to give enough time for the endpoint to be up to curl
-        time.sleep(SLEEP_TIME)
-
-        r = requests.post(
-            f"http://localhost:{port}/2015-03-31/functions/function/invocations", json={}
-        )
+        r = self.create_container_and_invoke_function(cmd, port)
+        
         self.assertEqual(b'"My lambda ran succesfully"', r.content)
 
 
