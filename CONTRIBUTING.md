@@ -21,7 +21,7 @@ reported the issue. Please try to include as much information as you can. Detail
 
 
 ## Contributing via Pull Requests
-This repository contains the source code and examples for the Runtime Interface Emulator. We will accept pull requests on documentation, examples, bug fixes and the Dockerfiles. We will also accept pull requests, issues and feedback on improvements to the Runtime Interface Emulator. However, our priority will be to maintain fidelity with AWS Lambda’s Runtime Interface on the cloud. 
+This repository contains the source code and examples for the Runtime Interface Emulator. We will accept pull requests on documentation, examples, bug fixes and the Dockerfiles. We will also accept pull requests, issues and feedback on improvements to the Runtime Interface Emulator. However, our priority will be to maintain fidelity with AWS Lambda’s Runtime Interface on the cloud.
 
 Contributions via pull requests are much appreciated. Before sending us a pull request, please ensure that:
 
@@ -41,6 +41,86 @@ To send us a pull request, please:
 GitHub provides additional document on [forking a repository](https://help.github.com/articles/fork-a-repo/) and
 [creating a pull request](https://help.github.com/articles/creating-a-pull-request/).
 
+## How to Run Locally
+1. [Install go](https://go.dev/doc/install)
+2. Build
+```bash
+make compile-lambda-linux # Outputs binary to ./bin/aws-lambda-rie-x86_64
+```
+3. [Create an alternative base image](https://docs.aws.amazon.com/lambda/latest/dg/images-create.html#images-create-from-alt)
+4. [Build RIE into this alternative base image](https://docs.aws.amazon.com/lambda/latest/dg/images-test.html#images-test-alternative)
+- ./app/app.py
+```python
+import typing
+
+def handler(event: typing.Any, context: typing.Any):
+  print("Received event:", event, "content:", context)
+  return "Test Complete"
+```
+- ./Dockerfile
+```
+# Define function directory
+ARG FUNCTION_DIR="/function"
+
+FROM python:buster as build-image
+
+# Install aws-lambda-cpp build dependencies
+RUN apt-get update && \
+  apt-get install -y \
+  g++ \
+  make \
+  cmake \
+  unzip \
+  libcurl4-openssl-dev
+
+# Include global arg in this stage of the build
+ARG FUNCTION_DIR
+# Create function directory
+RUN mkdir -p ${FUNCTION_DIR}
+
+# Copy function code
+COPY app/* ${FUNCTION_DIR}
+
+# Install the runtime interface client
+RUN pip install \
+        --target ${FUNCTION_DIR} \
+        awslambdaric
+
+# Multi-stage build: grab a fresh copy of the base image
+FROM python:buster
+
+# Include global arg in this stage of the build
+ARG FUNCTION_DIR
+# Set working directory to function root directory
+WORKDIR ${FUNCTION_DIR}
+
+# Copy in the build image dependencies
+COPY --from=build-image ${FUNCTION_DIR} ${FUNCTION_DIR}
+
+COPY ./entry_script.sh /entry_script.sh
+ADD bin/aws-lambda-rie-x86_64 /usr/local/bin/aws-lambda-rie
+ENTRYPOINT [ "/entry_script.sh" ]
+
+CMD [ "app.handler" ]
+```
+- ./entry_script.sh
+```bash
+#!/bin/sh
+if [ -z "${AWS_LAMBDA_RUNTIME_API}" ]; then
+  exec /usr/local/bin/aws-lambda-rie /usr/local/bin/python -m awslambdaric $@
+else
+  exec /usr/local/bin/python -m awslambdaric $@
+fi
+```
+5. Build and run the image
+```bash
+docker build -t hello-world
+docker run -p 9000:8080 hello-world
+```
+6. Send a test request and see that your changes are hit
+```bash
+curl -XPOST "http://localhost:9000/2015-03-31/functions/function/invocations" -d '{}'
+```
 
 ## Finding contributions to work on
 Looking at the existing issues is a great way to find something to contribute on. As our projects, by default, use the default GitHub issue labels (enhancement/bug/duplicate/help wanted/invalid/question/wontfix), looking at any 'help wanted' issues is a great place to start.
