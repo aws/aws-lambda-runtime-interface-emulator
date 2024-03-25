@@ -4,6 +4,7 @@
 package supervisor
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"syscall"
@@ -18,7 +19,7 @@ import (
 
 func TestRuntimeDomainExec(t *testing.T) {
 	supv := NewLocalSupervisor()
-	err := supv.Exec(&model.ExecRequest{
+	err := supv.Exec(context.Background(), &model.ExecRequest{
 		Domain: "runtime",
 		Name:   "agent",
 		Path:   "/bin/bash",
@@ -29,7 +30,7 @@ func TestRuntimeDomainExec(t *testing.T) {
 
 func TestInvalidRuntimeDomainExec(t *testing.T) {
 	supv := NewLocalSupervisor()
-	err := supv.Exec(&model.ExecRequest{
+	err := supv.Exec(context.Background(), &model.ExecRequest{
 		Domain: "runtime",
 		Name:   "agent",
 		Path:   "/bin/none",
@@ -40,10 +41,14 @@ func TestInvalidRuntimeDomainExec(t *testing.T) {
 
 func TestEvents(t *testing.T) {
 	supv := NewLocalSupervisor()
-	client := supv.SupervisorClient.(*LocalSupervisor)
 	sync := make(chan struct{})
 	go func() {
-		evt, ok := <-client.events
+		eventCh, err := supv.Events(context.Background(), &model.EventsRequest{
+			Domain: "runtime",
+		})
+		require.NoError(t, err)
+
+		evt, ok := <-eventCh
 		require.True(t, ok)
 		termination := evt.Event.ProcessTerminated()
 		require.NotNil(t, termination)
@@ -52,7 +57,7 @@ func TestEvents(t *testing.T) {
 		sync <- struct{}{}
 	}()
 
-	err := supv.Exec(&model.ExecRequest{
+	err := supv.Exec(context.Background(), &model.ExecRequest{
 		Domain: "runtime",
 		Name:   "agent",
 		Path:   "/bin/bash",
@@ -63,8 +68,7 @@ func TestEvents(t *testing.T) {
 
 func TestTerminate(t *testing.T) {
 	supv := NewLocalSupervisor()
-	client := supv.SupervisorClient.(*LocalSupervisor)
-	err := supv.Exec(&model.ExecRequest{
+	err := supv.Exec(context.Background(), &model.ExecRequest{
 		Domain: "runtime",
 		Name:   "agent",
 		Path:   "/bin/bash",
@@ -72,13 +76,18 @@ func TestTerminate(t *testing.T) {
 	})
 	require.NoError(t, err)
 	time.Sleep(100 * time.Millisecond)
-	err = supv.Terminate(&model.TerminateRequest{
+	err = supv.Terminate(context.Background(), &model.TerminateRequest{
 		Domain: "runtime",
 		Name:   "agent",
 	})
 	require.NoError(t, err)
 	// wait for process exit notification
-	ev := <-client.events
+	eventCh, err := supv.Events(context.Background(), &model.EventsRequest{
+		Domain: "runtime",
+	})
+	require.NoError(t, err)
+	ev := <-eventCh
+
 	require.NotNil(t, ev.Event.ProcessTerminated())
 	term := *ev.Event.ProcessTerminated()
 	require.Nil(t, term.Exited())
@@ -89,7 +98,7 @@ func TestTerminate(t *testing.T) {
 // Termiante should not fail if the message is not delivered
 func TestTerminateExited(t *testing.T) {
 	supv := NewLocalSupervisor()
-	err := supv.Exec(&model.ExecRequest{
+	err := supv.Exec(context.Background(), &model.ExecRequest{
 		Domain: "runtime",
 		Name:   "agent",
 		Path:   "/bin/bash",
@@ -97,7 +106,7 @@ func TestTerminateExited(t *testing.T) {
 	require.NoError(t, err)
 	// wait a short bit for bash to exit
 	time.Sleep(100 * time.Millisecond)
-	err = supv.Terminate(&model.TerminateRequest{
+	err = supv.Terminate(context.Background(), &model.TerminateRequest{
 		Domain: "runtime",
 		Name:   "agent",
 	})
@@ -106,22 +115,27 @@ func TestTerminateExited(t *testing.T) {
 
 func TestKill(t *testing.T) {
 	supv := NewLocalSupervisor()
-	client := supv.SupervisorClient.(*LocalSupervisor)
-	err := supv.Exec(&model.ExecRequest{
+	err := supv.Exec(context.Background(), &model.ExecRequest{
 		Domain: "runtime",
 		Name:   "agent",
 		Path:   "/bin/bash",
 		Args:   []string{"-c", "sleep 10s"},
 	})
 	require.NoError(t, err)
-	err = supv.Kill(&model.KillRequest{
-		Domain: "runtime",
-		Name:   "agent",
+	err = supv.Kill(context.Background(), &model.KillRequest{
+		Domain:   "runtime",
+		Name:     "agent",
+		Deadline: time.Now().Add(time.Second),
 	})
 	require.NoError(t, err)
 	timer := time.NewTimer(50 * time.Millisecond)
+	eventCh, err := supv.Events(context.Background(), &model.EventsRequest{
+		Domain: "runtime",
+	})
+	require.NoError(t, err)
+
 	select {
-	case _, ok := <-client.events:
+	case _, ok := <-eventCh:
 		assert.True(t, ok)
 	case <-timer.C:
 		require.Fail(t, "Process should have exited by the time kill returns")
@@ -130,27 +144,32 @@ func TestKill(t *testing.T) {
 
 func TestKillExited(t *testing.T) {
 	supv := NewLocalSupervisor()
-	client := supv.SupervisorClient.(*LocalSupervisor)
-	err := supv.Exec(&model.ExecRequest{
+	err := supv.Exec(context.Background(), &model.ExecRequest{
 		Domain: "runtime",
 		Name:   "agent",
 		Path:   "/bin/bash",
 	})
 	require.NoError(t, err)
 	//wait for natural exit event
-	<-client.events
-	err = supv.Kill(&model.KillRequest{
+	eventCh, err := supv.Events(context.Background(), &model.EventsRequest{
 		Domain: "runtime",
-		Name:   "agent",
+	})
+	require.NoError(t, err)
+	<-eventCh
+	err = supv.Kill(context.Background(), &model.KillRequest{
+		Domain:   "runtime",
+		Name:     "agent",
+		Deadline: time.Now().Add(time.Second),
 	})
 	require.NoError(t, err, "Kill should succeed for exited processes")
 }
 
 func TestKillUnknown(t *testing.T) {
 	supv := NewLocalSupervisor()
-	err := supv.Kill(&model.KillRequest{
-		Domain: "runtime",
-		Name:   "unknown",
+	err := supv.Kill(context.Background(), &model.KillRequest{
+		Domain:   "runtime",
+		Name:     "unknown",
+		Deadline: time.Now().Add(time.Second),
 	})
 	require.Error(t, err)
 	var supvError *model.SupervisorError
@@ -160,10 +179,9 @@ func TestKillUnknown(t *testing.T) {
 
 func TestShutdown(t *testing.T) {
 	supv := NewLocalSupervisor()
-	client := supv.SupervisorClient.(*LocalSupervisor)
 	log.Debug("hello")
 	// start a bunch of processes, some short running, some longer running
-	err := supv.Exec(&model.ExecRequest{
+	err := supv.Exec(context.Background(), &model.ExecRequest{
 		Domain: "runtime",
 		Name:   "agent-0",
 		Path:   "/bin/bash",
@@ -171,14 +189,14 @@ func TestShutdown(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	err = supv.Exec(&model.ExecRequest{
+	err = supv.Exec(context.Background(), &model.ExecRequest{
 		Domain: "runtime",
 		Name:   "agent-1",
 		Path:   "/bin/bash",
 	})
 	require.NoError(t, err)
 
-	err = supv.Exec(&model.ExecRequest{
+	err = supv.Exec(context.Background(), &model.ExecRequest{
 		Domain: "runtime",
 		Name:   "agent-2",
 		Path:   "/bin/bash",
@@ -186,8 +204,9 @@ func TestShutdown(t *testing.T) {
 	})
 	require.NoError(t, err)
 	time.Sleep(100 * time.Millisecond)
-	err = supv.Stop(&model.StopRequest{
-		Domain: "runtime",
+	_, err = supv.Stop(context.Background(), &model.StopRequest{
+		Domain:   "runtime",
+		Deadline: time.Now().Add(time.Second),
 	})
 	require.NoError(t, err)
 	// Shutdown is expected to block untill all processes have exited
@@ -198,9 +217,13 @@ func TestShutdown(t *testing.T) {
 	}
 	done := false
 	timer := time.NewTimer(200 * time.Millisecond)
+	eventCh, err := supv.Events(context.Background(), &model.EventsRequest{
+		Domain: "runtime",
+	})
+	require.NoError(t, err)
 	for !done {
 		select {
-		case ev := <-client.events:
+		case ev := <-eventCh:
 			data := ev.Event.ProcessTerminated()
 			assert.NotNil(t, data)
 			_, ok := expected[*data.Name]

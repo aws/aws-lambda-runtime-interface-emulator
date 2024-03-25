@@ -46,16 +46,22 @@ func SaveConnInContext(ctx context.Context, c net.Conn) context.Context {
 // should happen before provided runtime is started.
 //
 // When port is 0, OS will dynamically allocate the listening port.
-func NewServer(host string, port int, appCtx appctx.ApplicationContext,
+func NewServer(
+	host string,
+	port int,
+	appCtx appctx.ApplicationContext,
 	registrationService core.RegistrationService,
 	renderingService *rendering.EventRenderingService,
 	telemetryAPIEnabled bool,
-	logsSubscriptionAPI telemetry.SubscriptionAPI, telemetrySubscriptionAPI telemetry.SubscriptionAPI, credentialsService core.CredentialsService, eventsAPI telemetry.EventsAPI) *Server {
+	logsSubscriptionAPI telemetry.SubscriptionAPI,
+	telemetrySubscriptionAPI telemetry.SubscriptionAPI,
+	credentialsService core.CredentialsService,
+) *Server {
 
 	exitErrors := make(chan error, 1)
 
 	router := chi.NewRouter()
-	router.Mount(version20180601, NewRouter(appCtx, registrationService, renderingService, eventsAPI))
+	router.Mount(version20180601, NewRouter(appCtx, registrationService, renderingService))
 	router.Mount(version20200101, ExtensionsRouter(appCtx, registrationService, renderingService))
 
 	if telemetryAPIEnabled {

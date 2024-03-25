@@ -8,6 +8,7 @@ import (
 
 	"go.amzn.com/lambda/appctx"
 	"go.amzn.com/lambda/core"
+	"go.amzn.com/lambda/fatalerror"
 	"go.amzn.com/lambda/interop"
 	"go.amzn.com/lambda/rapi/rendering"
 
@@ -17,7 +18,6 @@ import (
 
 const (
 	StreamingFunctionResponseMode = "streaming"
-	ErrInvalidResponseModeHeader  = "Runtime.InvalidResponseModeHeader"
 )
 
 type invocationResponseHandler struct {
@@ -27,7 +27,7 @@ type invocationResponseHandler struct {
 func (h *invocationResponseHandler) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 	appCtx := appctx.FromRequest(request)
 
-	server := appctx.LoadInteropServer(appCtx)
+	server := appctx.LoadResponseSender(appCtx)
 	if server == nil {
 		log.Panic("Invalid state, cannot access interop server")
 	}
@@ -48,25 +48,38 @@ func (h *invocationResponseHandler) ServeHTTP(writer http.ResponseWriter, reques
 		case StreamingFunctionResponseMode:
 			headers[functionResponseModeHeader] = functionResponseMode
 		default:
-			errorResponse := &interop.ErrorResponse{
-				ErrorType:   ErrInvalidResponseModeHeader,
+			errHeaders := interop.InvokeResponseHeaders{
 				ContentType: request.Header.Get(contentTypeHeader),
 			}
-			_ = server.SendErrorResponse(chi.URLParam(request, "awsrequestid"), errorResponse)
+			fnError := interop.FunctionError{Type: fatalerror.RuntimeInvalidResponseModeHeader}
+			response := &interop.ErrorInvokeResponse{
+				Headers:       errHeaders,
+				FunctionError: fnError,
+				Payload:       []byte{},
+			}
+
+			_ = server.SendErrorResponse(chi.URLParam(request, "awsrequestid"), response)
 			rendering.RenderInvalidFunctionResponseMode(writer, request)
 			return
 		}
 	}
 
-	if err := server.SendResponse(invokeID, headers, request.Body, request.Trailer, &interop.CancellableRequest{Request: request}); err != nil {
+	response := &interop.StreamableInvokeResponse{
+		Headers:  headers,
+		Payload:  request.Body,
+		Trailers: request.Trailer,
+		Request:  &interop.CancellableRequest{Request: request},
+	}
+
+	if err := server.SendResponse(invokeID, response); err != nil {
 		switch err := err.(type) {
 		case *interop.ErrorResponseTooLarge:
-			if server.SendErrorResponse(invokeID, err.AsInteropError()) != nil {
+			if server.SendErrorResponse(invokeID, err.AsErrorResponse()) != nil {
 				rendering.RenderInteropError(writer, request, err)
 				return
 			}
 
-			appctx.StoreErrorResponse(appCtx, err.AsInteropError())
+			appctx.StoreInvokeErrorTraceData(appCtx, &interop.InvokeErrorTraceData{})
 
 			if err := runtime.ResponseSent(); err != nil {
 				log.Panic(err)

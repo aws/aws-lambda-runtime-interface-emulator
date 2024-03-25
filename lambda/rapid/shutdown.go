@@ -5,6 +5,8 @@
 package rapid
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -21,18 +23,20 @@ import (
 
 const (
 	// supervisor shutdown and kill operations block until the exit status of the
-	// interested process has been collected, or until the specified timeotuw
-	// expires (in which case the operation fails).
-	// Note that this timeout is mainly relevant when any of the domain
+	// interested process has been collected, or until the specified deadline expires
+	// Note that this deadline is mainly relevant when any of the domain
 	// processes are in uninterruptible sleep state (notable examples: syscall
-	// to read/write a newtorked driver)
+	// to read/write a networked driver)
 	//
 	// We set a non nil value for these timeouts so that RAPID doesn't block
 	// forever in one of the cases above.
 	supervisorBlockingMaxMillis = 9000
 	runtimeDeadlineShare        = 0.3
+
+	maxProcessExitWait = 2 * time.Second
 )
 
+// TODO: aggregate struct's methods into an interface, so that we can mock in tests
 type shutdownContext struct {
 	// Adding a mutex around shuttingDown because there may be concurrent reads/writes.
 	// Because the code in shutdown() and the seperate go routine created in setupEventsWatcher()
@@ -130,11 +134,15 @@ func (s *shutdownContext) createExitedChannel(name string) {
 
 // Blocks until all the processes in the runtime domain generation have exited.
 // This helps us have a nice sync point on Shutdown where we know for sure that
-// all the processes have exited and the state has been cleared.
+// all the processes have exited and the state has been cleared. The exception
+// to that rule is that if any of the processes don't exit within
+// maxProcessExitWait from the beginning of the waiting period, an error is
+// returned, in order to prevent it from waiting forever if any of the processes
+// cannot be killed.
 //
 // It is OK not to hold the lock because we know that this is called only during
 // shutdown and nobody will start a new process during shutdown
-func (s *shutdownContext) clearExitedChannel() {
+func (s *shutdownContext) clearExitedChannel() error {
 	s.runtimeDomainExitedMutex.Lock()
 	mapLen := len(s.runtimeDomainExited)
 	channels := make([]chan struct{}, 0, mapLen)
@@ -143,26 +151,32 @@ func (s *shutdownContext) clearExitedChannel() {
 	}
 	s.runtimeDomainExitedMutex.Unlock()
 
+	exitTimeout := time.After(maxProcessExitWait)
 	for _, v := range channels {
-		<-v
+		select {
+		case <-v:
+		case <-exitTimeout:
+			return errors.New("timed out waiting for runtime processes to exit")
+		}
 	}
 
 	s.runtimeDomainExitedMutex.Lock()
 	s.runtimeDomainExited = make(map[string]chan struct{}, mapLen)
 	s.runtimeDomainExitedMutex.Unlock()
+	return nil
 }
 
 func (s *shutdownContext) shutdownRuntime(execCtx *rapidContext, start time.Time, deadline time.Time) {
 	// If runtime is started:
-	// 1. SIGTERM and wait until timeout
-	// 2. SIGKILL on timeout
+	// 1. SIGTERM and wait until deadline
+	// 2. SIGKILL on deadline
 	log.Debug("Shutting down the runtime.")
 	name := fmt.Sprintf("%s-%d", runtimeProcessName, execCtx.runtimeDomainGeneration)
 	exitedChannel, found := s.getExitedChannel(name)
 
 	if found {
 
-		err := execCtx.supervisor.Terminate(&supvmodel.TerminateRequest{
+		err := execCtx.supervisor.Terminate(context.Background(), &supvmodel.TerminateRequest{
 			Domain: RuntimeDomain,
 			Name:   name,
 		})
@@ -172,17 +186,17 @@ func (s *shutdownContext) shutdownRuntime(execCtx *rapidContext, start time.Time
 			log.WithError(err).Warn("Failed sending Termination signal to runtime")
 		}
 
-		runtimeTimeout := deadline.Sub(start)
-		log.Tracef("The runtime timeout is %v.", runtimeTimeout)
-		runtimeTimer := time.NewTimer(runtimeTimeout)
+		ctx, cancel := context.WithDeadline(context.Background(), deadline)
+		defer cancel()
+
 		select {
-		case <-runtimeTimer.C:
-			log.Warnf("Timeout: The runtime did not exit after %d ms; Killing it.", int64(runtimeTimeout/time.Millisecond))
-			supervisorBlockingMaxMillis := uint64(supervisorBlockingMaxMillis)
-			err = execCtx.supervisor.Kill(&supvmodel.KillRequest{
-				Domain:  RuntimeDomain,
-				Name:    name,
-				Timeout: &supervisorBlockingMaxMillis,
+		case <-ctx.Done():
+			log.Warnf("Deadline: The runtime did not exit after deadline %s; Killing it.", deadline)
+
+			err = execCtx.supervisor.Kill(context.Background(), &supvmodel.KillRequest{
+				Domain:   RuntimeDomain,
+				Name:     name,
+				Deadline: time.Now().Add(time.Millisecond * supervisorBlockingMaxMillis),
 			})
 
 			if err != nil {
@@ -201,8 +215,8 @@ func (s *shutdownContext) shutdownRuntime(execCtx *rapidContext, start time.Time
 func (s *shutdownContext) shutdownAgents(execCtx *rapidContext, start time.Time, deadline time.Time, reason string) {
 	// For each external agent, if agent is launched:
 	// 1. Send Shutdown event if subscribed for it, else send SIGKILL to process group
-	// 2. Wait for all Shutdown-subscribed agents to exit with timeout
-	// 3. Send SIGKILL to process group for Shutdown-subscribed agents on timeout
+	// 2. Wait for all Shutdown-subscribed agents to exit with deadline
+	// 3. Send SIGKILL to process group for Shutdown-subscribed agents on deadline
 
 	log.Debug("Shutting down the agents.")
 	execCtx.renderingService.SetRenderer(
@@ -224,7 +238,6 @@ func (s *shutdownContext) shutdownAgents(execCtx *rapidContext, start time.Time,
 	for _, a := range execCtx.registrationService.GetExternalAgents() {
 		name := fmt.Sprintf("extension-%s-%d", a.Name, execCtx.runtimeDomainGeneration)
 		exitedChannel, found := s.getExitedChannel(name)
-		supervisorBlockingMaxMillis := uint64(supervisorBlockingMaxMillis)
 
 		if !found {
 			log.Warnf("Agent %s failed to launch, therefore skipping shutting it down.", a)
@@ -242,24 +255,25 @@ func (s *shutdownContext) shutdownAgents(execCtx *rapidContext, start time.Time,
 
 				agent.Release()
 
-				agentTimeout := deadline.Sub(start)
-				var agentTimeoutChan <-chan time.Time
+				ctx, cancel := context.WithCancel(context.Background())
+				defer cancel()
 				if execCtx.standaloneMode {
-					agentTimeoutChan = time.NewTimer(agentTimeout).C
+					ctx, cancel = context.WithDeadline(ctx, deadline)
+					defer cancel()
 				}
 
 				select {
-				case <-agentTimeoutChan:
-					log.Warnf("Timeout: the agent %s did not exit after %d ms; Killing it.", name, int64(agentTimeout/time.Millisecond))
-					err := execCtx.supervisor.Kill(&supvmodel.KillRequest{
-						Domain:  RuntimeDomain,
-						Name:    name,
-						Timeout: &supervisorBlockingMaxMillis,
+				case <-ctx.Done():
+					log.Warnf("Deadline: the agent %s did not exit after deadline %s; Killing it.", name, deadline)
+					err := execCtx.supervisor.Kill(context.Background(), &supvmodel.KillRequest{
+						Domain:   RuntimeDomain,
+						Name:     name,
+						Deadline: time.Now().Add(time.Millisecond * supervisorBlockingMaxMillis),
 					})
 					if err != nil {
 						// We are not reporting the error upstream because we will anyway
 						// shut the domain out at the end of the shutdown sequence
-						log.WithError(err).Warn("Failed sending Kill signal to runtime")
+						log.WithError(err).Warn("Failed sending Kill signal to agent")
 					}
 				case <-exitedChannel:
 				}
@@ -270,11 +284,14 @@ func (s *shutdownContext) shutdownAgents(execCtx *rapidContext, start time.Time,
 			go func(name string) {
 				defer wg.Done()
 
-				execCtx.supervisor.Kill(&supvmodel.KillRequest{
-					Domain:  RuntimeDomain,
-					Name:    name,
-					Timeout: &supervisorBlockingMaxMillis,
+				err := execCtx.supervisor.Kill(context.Background(), &supvmodel.KillRequest{
+					Domain:   RuntimeDomain,
+					Name:     name,
+					Deadline: time.Now().Add(time.Millisecond * supervisorBlockingMaxMillis),
 				})
+				if err != nil {
+					log.WithError(err).Warn("Failed sending Kill signal to agent")
+				}
 			}(name)
 		}
 	}
@@ -295,7 +312,6 @@ func (s *shutdownContext) shutdown(execCtx *rapidContext, deadlineNs int64, reas
 	execCtx.appCtx.Delete(appctx.AppCtxFirstFatalErrorKey)
 
 	runtimeDomainProfiler := &metering.ExtensionsResetDurationProfiler{}
-	supervisorBlockingMaxMillis := uint64(supervisorBlockingMaxMillis)
 
 	// We do not spend any compute time on runtime graceful shutdown if there are no agents
 	if execCtx.registrationService.CountAgents() == 0 {
@@ -305,10 +321,10 @@ func (s *shutdownContext) shutdown(execCtx *rapidContext, deadlineNs int64, reas
 
 		if found {
 			log.Debug("SIGKILLing the runtime as no agents are registered.")
-			err = execCtx.supervisor.Kill(&supvmodel.KillRequest{
-				Domain:  RuntimeDomain,
-				Name:    name,
-				Timeout: &supervisorBlockingMaxMillis,
+			err = execCtx.supervisor.Kill(context.Background(), &supvmodel.KillRequest{
+				Domain:   RuntimeDomain,
+				Name:     name,
+				Deadline: time.Now().Add(time.Millisecond * supervisorBlockingMaxMillis),
 			})
 			if err != nil {
 				// We are not reporting the error upstream because we will anyway
@@ -340,27 +356,13 @@ func (s *shutdownContext) shutdown(execCtx *rapidContext, deadlineNs int64, reas
 
 		runtimeDomainProfiler.NumAgentsRegisteredForShutdown = len(s.agentsAwaitingExit)
 	}
-	log.Info("Stopping runtime domain")
-	err = execCtx.supervisor.Stop(&supvmodel.StopRequest{
-		Domain:  RuntimeDomain,
-		Timeout: &supervisorBlockingMaxMillis,
-	})
-	if err != nil {
-		log.WithError(err).Error("Failed shutting runtime domain down")
-	} else {
-		log.Info("Waiting for runtime domain processes termination")
-		s.clearExitedChannel()
-		log.Info("Stopping operator domain")
-		err = execCtx.supervisor.Stop(&supvmodel.StopRequest{
-			Domain:  OperatorDomain,
-			Timeout: &supervisorBlockingMaxMillis,
-		})
-		if err != nil {
-			log.WithError(err).Error("Failed shutting operator domain down")
-		}
+
+	log.Info("Waiting for runtime domain processes termination")
+	if err := s.clearExitedChannel(); err != nil {
+		log.Error(err)
 	}
 
 	runtimeDomainProfiler.Stop()
-	extensionsRestMs, timeout := runtimeDomainProfiler.CalculateExtensionsResetMs()
-	return extensionsRestMs, timeout, err
+	extensionsResetMs, timeout := runtimeDomainProfiler.CalculateExtensionsResetMs()
+	return extensionsResetMs, timeout, err
 }
