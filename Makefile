@@ -10,10 +10,10 @@ DESTINATION_old:= bin/${BINARY_NAME}
 DESTINATION_x86_64 := bin/${BINARY_NAME}-x86_64
 DESTINATION_arm64 := bin/${BINARY_NAME}-arm64
 
+run_in_docker = docker run --env GOPROXY=direct -v $(shell pwd):/LambdaRuntimeLocal -w /LambdaRuntimeLocal golang:1.22 $(1)
+
 compile-with-docker-all:
-	make ARCH=x86_64 compile-with-docker
-	make ARCH=arm64 compile-with-docker
-	make ARCH=old compile-with-docker
+	$(call run_in_docker, make compile-lambda-linux-all)
 
 compile-lambda-linux-all:
 	make ARCH=x86_64 compile-lambda-linux
@@ -21,10 +21,13 @@ compile-lambda-linux-all:
 	make ARCH=old compile-lambda-linux
 
 compile-with-docker:
-	docker run --env GOPROXY=direct -v $(shell pwd):/LambdaRuntimeLocal -w /LambdaRuntimeLocal golang:1.21 make ARCH=${ARCH} compile-lambda-linux
+	$(call run_in_docker, make ARCH=${ARCH} compile-lambda-linux)
 
 compile-lambda-linux:
 	CGO_ENABLED=0 GOOS=linux GOARCH=${GO_ARCH_${ARCH}} go build -buildvcs=false -ldflags "${RELEASE_BUILD_LINKER_FLAGS}" -o ${DESTINATION_${ARCH}} ./cmd/aws-lambda-rie
+
+tests-with-docker:
+	$(call run_in_docker, make tests)
 
 tests:
 	go test ./...
@@ -33,7 +36,7 @@ integ-tests-and-compile: tests
 	make compile-lambda-linux-all
 	make integ-tests
 
-integ-tests-with-docker: tests 
+integ-tests-with-docker: tests-with-docker
 	make compile-with-docker-all
 	make integ-tests
 	
