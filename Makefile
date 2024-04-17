@@ -45,26 +45,29 @@ prep-python:
 	.venv/bin/pip install --upgrade pip
 	.venv/bin/pip install requests parameterized
 
+exec-python-e2e-test:
+	TEST_ARCH=${TEST_ARCH} TEST_PORT=${TEST_PORT} .venv/bin/python3 test/integration/local_lambda/test_end_to_end.py
+
 integ-tests:
 	make prep-python
 	docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
-	TEST_ARCH=x86_64 TEST_PORT=8002 .venv/bin/python3 test/integration/local_lambda/test_end_to_end.py
-	TEST_ARCH=arm64 TEST_PORT=9002 .venv/bin/python3 test/integration/local_lambda/test_end_to_end.py
-	TEST_ARCH="" TEST_PORT=9052 .venv/bin/python3 test/integration/local_lambda/test_end_to_end.py
+	make TEST_ARCH=x86_64 TEST_PORT=8002 exec-python-e2e-test
+	make TEST_ARCH=arm64 TEST_PORT=9002 exec-python-e2e-test
+	make TEST_ARCH="" TEST_PORT=9052 exec-python-e2e-test
 
 integ-tests-with-docker-x86-64:
 	make ARCH=x86_64 compile-with-docker
 	make prep-python
-	TEST_ARCH=x86_64 TEST_PORT=8002 .venv/bin/python3 test/integration/local_lambda/test_end_to_end.py
+	make TEST_ARCH=x86_64 TEST_PORT=8002 exec-python-e2e-test
 
 integ-tests-with-docker-arm64:
 	make ARCH=arm64 compile-with-docker
 	make prep-python
 	docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
-	TEST_ARCH="arm64" TEST_PORT=9002 .venv/bin/python3 test/integration/local_lambda/test_end_to_end.py
+	make TEST_ARCH=arm64 TEST_PORT=9002 exec-python-e2e-test
 
 integ-tests-with-docker-old:
 	make ARCH=old compile-with-docker
 	make prep-python
-	TEST_ARCH="" TEST_PORT=9052 .venv/bin/python3 test/integration/local_lambda/test_end_to_end.py
+	make TEST_ARCH="" TEST_PORT=9052 exec-python-e2e-test
 	
