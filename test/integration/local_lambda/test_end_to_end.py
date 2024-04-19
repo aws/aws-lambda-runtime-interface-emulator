@@ -88,9 +88,9 @@ class TestEndToEnd(TestCase):
 
     def test_env_var_with_equal_sign(self):
         image, rie, image_name = self.tagged_name("envvarcheck")
-        cmd = f"--name {image} -d -v {self.path_to_binary}:/local-lambda-runtime-server -p {self.PORT}:8080 --entrypoint /local-lambda-runtime-server/{rie} {image_name} {DEFAULT_1P_ENTRYPOINT} main.check_env_var_handler"
+        params = f"--name {image} -d -v {self.path_to_binary}:/local-lambda-runtime-server -p {self.PORT}:8080 --entrypoint /local-lambda-runtime-server/{rie} {image_name} {DEFAULT_1P_ENTRYPOINT} main.check_env_var_handler"
         
-        with self.create_container(cmd, image):
+        with self.create_container(params, image):
             r = self.invoke_function()
         
             self.assertEqual(b'"4=4"', r.content)
