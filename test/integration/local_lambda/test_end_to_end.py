@@ -99,9 +99,9 @@ class TestEndToEnd(TestCase):
     def test_two_invokes(self):
         image, rie, image_name = self.tagged_name("twoinvokes")
 
-        cmd = f"--name {image} -d -v {self.path_to_binary}:/local-lambda-runtime-server -p {self.PORT}:8080 --entrypoint /local-lambda-runtime-server/{rie} {image_name} {DEFAULT_1P_ENTRYPOINT} main.success_handler"
+        params = f"--name {image} -d -v {self.path_to_binary}:/local-lambda-runtime-server -p {self.PORT}:8080 --entrypoint /local-lambda-runtime-server/{rie} {image_name} {DEFAULT_1P_ENTRYPOINT} main.success_handler"
 
-        with self.create_container(cmd, image):
+        with self.create_container(params, image):
             r = self.invoke_function()
         
             self.assertEqual(b'"My lambda ran succesfully"', r.content)
@@ -115,9 +115,9 @@ class TestEndToEnd(TestCase):
     def test_lambda_function_arn_exists(self):
         image, rie, image_name = self.tagged_name("arnexists")
 
-        cmd = f"--name {image} -d -v {self.path_to_binary}:/local-lambda-runtime-server -p {self.PORT}:8080 --entrypoint /local-lambda-runtime-server/{rie} {image_name} {DEFAULT_1P_ENTRYPOINT} main.assert_lambda_arn_in_context"
+        params = f"--name {image} -d -v {self.path_to_binary}:/local-lambda-runtime-server -p {self.PORT}:8080 --entrypoint /local-lambda-runtime-server/{rie} {image_name} {DEFAULT_1P_ENTRYPOINT} main.assert_lambda_arn_in_context"
 
-        with self.create_container(cmd, image):
+        with self.create_container(params, image):
             r = self.invoke_function()
         
             self.assertEqual(b'"My lambda ran succesfully"', r.content)
@@ -126,9 +126,9 @@ class TestEndToEnd(TestCase):
     def test_lambda_function_arn_exists_with_defining_custom_name(self):
         image, rie, image_name = self.tagged_name("customname")
 
-        cmd = f"--name {image} --env AWS_LAMBDA_FUNCTION_NAME=MyCoolName -d -v {self.path_to_binary}:/local-lambda-runtime-server -p {self.PORT}:8080 --entrypoint /local-lambda-runtime-server/{rie} {image_name} {DEFAULT_1P_ENTRYPOINT} main.assert_lambda_arn_in_context"
+        params = f"--name {image} --env AWS_LAMBDA_FUNCTION_NAME=MyCoolName -d -v {self.path_to_binary}:/local-lambda-runtime-server -p {self.PORT}:8080 --entrypoint /local-lambda-runtime-server/{rie} {image_name} {DEFAULT_1P_ENTRYPOINT} main.assert_lambda_arn_in_context"
         
-        with self.create_container(cmd, image):
+        with self.create_container(params, image):
             r = self.invoke_function()
         
             self.assertEqual(b'"My lambda ran succesfully"', r.content)
@@ -137,9 +137,9 @@ class TestEndToEnd(TestCase):
     def test_timeout_invoke(self):
         image, rie, image_name = self.tagged_name("timeout")
 
-        cmd = f"--name {image} -d --env AWS_LAMBDA_FUNCTION_TIMEOUT=1 -v {self.path_to_binary}:/local-lambda-runtime-server -p {self.PORT}:8080 --entrypoint /local-lambda-runtime-server/{rie} {image_name} {DEFAULT_1P_ENTRYPOINT} main.sleep_handler"
+        params = f"--name {image} -d --env AWS_LAMBDA_FUNCTION_TIMEOUT=1 -v {self.path_to_binary}:/local-lambda-runtime-server -p {self.PORT}:8080 --entrypoint /local-lambda-runtime-server/{rie} {image_name} {DEFAULT_1P_ENTRYPOINT} main.sleep_handler"
 
-        with self.create_container(cmd, image):
+        with self.create_container(params, image):
             r = self.invoke_function()
         
             self.assertEqual(b"Task timed out after 1.00 seconds", r.content)
@@ -148,25 +148,25 @@ class TestEndToEnd(TestCase):
     def test_exception_returned(self):
         image, rie, image_name = self.tagged_name("exception")
 
-        cmd = f"--name {image} -d -v {self.path_to_binary}:/local-lambda-runtime-server -p {self.PORT}:8080 --entrypoint /local-lambda-runtime-server/{rie} {image_name} {DEFAULT_1P_ENTRYPOINT} main.exception_handler"
+        params = f"--name {image} -d -v {self.path_to_binary}:/local-lambda-runtime-server -p {self.PORT}:8080 --entrypoint /local-lambda-runtime-server/{rie} {image_name} {DEFAULT_1P_ENTRYPOINT} main.exception_handler"
 
-        with self.create_container(cmd, image):
+        with self.create_container(params, image):
             r = self.invoke_function()
             
             # Except the 3 fields assrted below, there's another field `request_id` included start from python3.12 runtime.
-            # We should ignore asserting the field `request_id` for it is in a UUID like format and chages everytime
+            # We should ignore asserting the field `request_id` for it is in a UUID like format and changes everytime
             result = r.json()
-            self.assertEqual(result["errorMessage"],"Raising an exception")
-            self.assertEqual(result["errorType"],"Exception")
-            self.assertEqual(result["stackTrace"],["  File \"/var/task/main.py\", line 13, in exception_handler\n    raise Exception(\"Raising an exception\")\n"])
+            self.assertEqual(result["errorMessage"], "Raising an exception")
+            self.assertEqual(result["errorType"], "Exception")
+            self.assertEqual(result["stackTrace"], ["  File \"/var/task/main.py\", line 13, in exception_handler\n    raise Exception(\"Raising an exception\")\n"])
 
 
     def test_context_get_remaining_time_in_three_seconds(self):
         image, rie, image_name = self.tagged_name("remaining_time_in_three_seconds")
 
-        cmd = f"--name {image} -d --env AWS_LAMBDA_FUNCTION_TIMEOUT=3 -v {self.path_to_binary}:/local-lambda-runtime-server -p {self.PORT}:8080 --entrypoint /local-lambda-runtime-server/{rie} {image_name} {DEFAULT_1P_ENTRYPOINT} main.check_remaining_time_handler"
+        params = f"--name {image} -d --env AWS_LAMBDA_FUNCTION_TIMEOUT=3 -v {self.path_to_binary}:/local-lambda-runtime-server -p {self.PORT}:8080 --entrypoint /local-lambda-runtime-server/{rie} {image_name} {DEFAULT_1P_ENTRYPOINT} main.check_remaining_time_handler"
 
-        with self.create_container(cmd, image):
+        with self.create_container(params, image):
             r = self.invoke_function()
         
             # Execution time is not decided, 1.0s ~ 3.0s is a good estimation
@@ -177,9 +177,9 @@ class TestEndToEnd(TestCase):
     def test_context_get_remaining_time_in_ten_seconds(self):
         image, rie, image_name = self.tagged_name("remaining_time_in_ten_seconds")
 
-        cmd = f"--name {image} -d --env AWS_LAMBDA_FUNCTION_TIMEOUT=10 -v {self.path_to_binary}:/local-lambda-runtime-server -p {self.PORT}:8080 --entrypoint /local-lambda-runtime-server/{rie} {image_name} {DEFAULT_1P_ENTRYPOINT} main.check_remaining_time_handler"
+        params = f"--name {image} -d --env AWS_LAMBDA_FUNCTION_TIMEOUT=10 -v {self.path_to_binary}:/local-lambda-runtime-server -p {self.PORT}:8080 --entrypoint /local-lambda-runtime-server/{rie} {image_name} {DEFAULT_1P_ENTRYPOINT} main.check_remaining_time_handler"
 
-        with self.create_container(cmd, image):
+        with self.create_container(params, image):
             r = self.invoke_function()
         
             # Execution time is not decided, 8.0s ~ 10.0s is a good estimation
@@ -190,9 +190,9 @@ class TestEndToEnd(TestCase):
     def test_context_get_remaining_time_in_default_deadline(self):
         image, rie, image_name = self.tagged_name("remaining_time_in_default_deadline")
 
-        cmd = f"--name {image} -d -v {self.path_to_binary}:/local-lambda-runtime-server -p {self.PORT}:8080 --entrypoint /local-lambda-runtime-server/{rie} {image_name} {DEFAULT_1P_ENTRYPOINT} main.check_remaining_time_handler"
+        params = f"--name {image} -d -v {self.path_to_binary}:/local-lambda-runtime-server -p {self.PORT}:8080 --entrypoint /local-lambda-runtime-server/{rie} {image_name} {DEFAULT_1P_ENTRYPOINT} main.check_remaining_time_handler"
 
-        with self.create_container(cmd, image):
+        with self.create_container(params, image):
             r = self.invoke_function()
 
             # Executation time is not decided, 298.0s ~ 300.0s is a good estimation
@@ -203,9 +203,9 @@ class TestEndToEnd(TestCase):
     def test_invoke_with_pre_runtime_api_runtime(self):
         image, rie, image_name = self.tagged_name("pre-runtime-api")
 
-        cmd = f"--name {image} -d -v {self.path_to_binary}:/local-lambda-runtime-server -p {self.PORT}:8080 --entrypoint /local-lambda-runtime-server/{rie} {image_name} {DEFAULT_1P_ENTRYPOINT} main.success_handler"
+        params = f"--name {image} -d -v {self.path_to_binary}:/local-lambda-runtime-server -p {self.PORT}:8080 --entrypoint /local-lambda-runtime-server/{rie} {image_name} {DEFAULT_1P_ENTRYPOINT} main.success_handler"
 
-        with self.create_container(cmd, image):
+        with self.create_container(params, image):
             r = self.invoke_function()
         
             self.assertEqual(b'"My lambda ran succesfully"', r.content)
@@ -214,9 +214,9 @@ class TestEndToEnd(TestCase):
     def test_function_name_is_overriden(self):
         image, rie, image_name = self.tagged_name("assert-overwritten")
 
-        cmd = f"--name {image} -d --env AWS_LAMBDA_FUNCTION_NAME=MyCoolName -v {self.path_to_binary}:/local-lambda-runtime-server -p {self.PORT}:8080 --entrypoint /local-lambda-runtime-server/{rie} {image_name} {DEFAULT_1P_ENTRYPOINT} main.assert_env_var_is_overwritten"
+        params = f"--name {image} -d --env AWS_LAMBDA_FUNCTION_NAME=MyCoolName -v {self.path_to_binary}:/local-lambda-runtime-server -p {self.PORT}:8080 --entrypoint /local-lambda-runtime-server/{rie} {image_name} {DEFAULT_1P_ENTRYPOINT} main.assert_env_var_is_overwritten"
 
-        with self.create_container(cmd, image):
+        with self.create_container(params, image):
             r = self.invoke_function()
         
             self.assertEqual(b'"My lambda ran succesfully"', r.content)
@@ -226,9 +226,9 @@ class TestEndToEnd(TestCase):
         image, rie, image_name = self.tagged_name("port_override")
 
         # Use port 8081 inside the container instead of 8080
-        cmd = f"--name {image} -d -v {self.path_to_binary}:/local-lambda-runtime-server -p {self.PORT}:8081 --entrypoint /local-lambda-runtime-server/{rie} {image_name} {DEFAULT_1P_ENTRYPOINT} main.success_handler --runtime-interface-emulator-address 0.0.0.0:8081"
+        params = f"--name {image} -d -v {self.path_to_binary}:/local-lambda-runtime-server -p {self.PORT}:8081 --entrypoint /local-lambda-runtime-server/{rie} {image_name} {DEFAULT_1P_ENTRYPOINT} main.success_handler --runtime-interface-emulator-address 0.0.0.0:8081"
 
-        with self.create_container(cmd, image):
+        with self.create_container(params, image):
             r = self.invoke_function()
         
             self.assertEqual(b'"My lambda ran succesfully"', r.content)

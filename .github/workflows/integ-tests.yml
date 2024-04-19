@@ -9,7 +9,7 @@ jobs:
   go-tests:
     runs-on: ubuntu-latest
     environment:
-      name: prod
+      name: integ-tests
     steps:
         - uses: actions/checkout@v4
         - name: run go tests
@@ -17,7 +17,7 @@ jobs:
   integ-tests-x86:
     runs-on: ubuntu-latest
     environment:
-      name: prod
+      name: integ-tests
     steps:
         - uses: actions/checkout@v4
         - uses: actions/setup-python@v5
@@ -28,7 +28,7 @@ jobs:
   integ-tests-arm64:
     runs-on: ubuntu-latest
     environment:
-      name: prod
+      name: integ-tests
     steps:
         - uses: actions/checkout@v4
         - uses: actions/setup-python@v5
@@ -39,7 +39,7 @@ jobs:
   integ-tests-old:
     runs-on: ubuntu-latest
     environment:
-      name: prod
+      name: integ-tests
     steps:
         - uses: actions/checkout@v4
         - uses: actions/setup-python@v5

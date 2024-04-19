@@ -46,7 +46,7 @@ prep-python:
 	.venv/bin/pip install requests parameterized
 
 exec-python-e2e-test:
-	TEST_ARCH=${TEST_ARCH} TEST_PORT=${TEST_PORT} .venv/bin/python3 test/integration/local_lambda/test_end_to_end.py
+	.venv/bin/python3 test/integration/local_lambda/test_end_to_end.py
 
 integ-tests:
 	make prep-python
