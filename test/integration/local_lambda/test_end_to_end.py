@@ -4,6 +4,8 @@
 from subprocess import Popen, PIPE
 from unittest import TestCase, main
 from pathlib import Path
+import base64
+import json
 import time
 import os
 import requests
@@ -62,12 +64,14 @@ class TestEndToEnd(TestCase):
     
     def sleep_1s(self):
         time.sleep(SLEEP_TIME)
-        
-    def invoke_function(self):
+
+    def invoke_function(self, json={}, headers={}):
         return requests.post(
-            f"http://localhost:{self.PORT}/2015-03-31/functions/function/invocations", json={}
+            f"http://localhost:{self.PORT}/2015-03-31/functions/function/invocations",
+            json=json,
+            headers=headers,
         )
-        
+
     @contextmanager
     def create_container(self, param, image):
         try:
@@ -233,6 +237,24 @@ class TestEndToEnd(TestCase):
         
             self.assertEqual(b'"My lambda ran succesfully"', r.content)
 
+
+    def test_custom_client_context(self):
+        image, rie, image_name = self.tagged_name("custom_client_context")
+
+        params = f"--name {image} -d -v {self.path_to_binary}:/local-lambda-runtime-server -p {self.PORT}:8080 --entrypoint /local-lambda-runtime-server/{rie} {image_name} {DEFAULT_1P_ENTRYPOINT} main.custom_client_context_handler"
+
+        with self.create_container(params, image):
+            r = self.invoke_function(headers={
+                "X-Amz-Client-Context": base64.b64encode(json.dumps({
+                    "custom": {
+                        "foo": "bar",
+                        "baz": 123,
+                    }
+                }).encode('utf8')).decode('utf8'),
+            })
+            content = json.loads(r.content)
+            self.assertEqual("bar", content["foo"])
+            self.assertEqual(123, content["baz"])
 
 
 if __name__ == "__main__":
