@@ -17,8 +17,8 @@ jobs:
     environment: Release
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v3
       - name: Configure Git User # may be removed after https://github.com/actions/checkout/issues/13 is resolved
-        uses: actions/checkout@v3
         run: |
           git config user.email "${{ github.actor }}@users.noreply.github.com"
           git config user.name "${{ github.actor }}"
@@ -27,7 +27,6 @@ jobs:
         with:
           python-version: '3.11'
       - name: Build
-        uses: actions/checkout@v4
         run: make compile-with-docker-all
       - name: Release
         uses: softprops/action-gh-release@v2
