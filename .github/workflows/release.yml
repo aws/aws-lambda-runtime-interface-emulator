@@ -29,9 +29,10 @@ jobs:
         with:
           python-version: '3.11'
       - name: Build
+      - uses: actions/checkout@v4
         run: make compile-with-docker-all
       - name: Release
-        uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
           files: |
