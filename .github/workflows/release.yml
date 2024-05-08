@@ -28,29 +28,10 @@ jobs:
       - name: Build
         run: make compile-with-docker-all #they are all in is bin/aws-lambda-rie*
       - name: Release
-        uses: softprops/action-gh-release@v2 # this triggers release if the assets are tagged with refs/tags
-        # if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
         with:
+          tag_name: tag_nameee
           files: |
             bin/aws-lambda-rie
             bin/aws-lambda-rie-arm64
             bin/aws-lambda-rie-x64
-# --------
-      # Add a step to upload each binary asset
-      # - name: Upload aws-lambda-rie
-      #   uses: actions/upload-artifact@v2
-      #   with:
-      #     name: aws-lambda-rie
-      #     path: /path/to/aws-lambda-rie
-
-      # - name: Upload aws-lambda-rie-arm64
-      #   uses: actions/upload-artifact@v2
-      #   with:
-      #     name: aws-lambda-rie-arm64
-      #     path: /path/to/aws-lambda-rie-arm64
-
-      # - name: Upload aws-lambda-rie-x64
-      #   uses: actions/upload-artifact@v2
-      #   with:
-      #     name: aws-lambda-rie-x64
-      #     path: /path/to/aws-lambda-rie-x64
