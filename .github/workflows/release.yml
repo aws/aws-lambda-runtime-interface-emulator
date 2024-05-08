@@ -30,7 +30,7 @@ jobs:
       - name: Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: "v*.*.*"
+          tag_name: ${{ github.event.inputs.releaseVersion }}
           files: |
             bin/aws-lambda-rie
             bin/aws-lambda-rie-arm64
