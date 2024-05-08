@@ -30,8 +30,8 @@ jobs:
       - name: Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: tag_nameee
+          tag_name: "v*.*.*"
           files: |
             bin/aws-lambda-rie
             bin/aws-lambda-rie-arm64
-            bin/aws-lambda-rie-x64
+            bin/aws-lambda-rie-x86_64
