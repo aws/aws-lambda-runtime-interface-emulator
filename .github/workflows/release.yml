@@ -11,13 +11,12 @@ on:
         description: "Version to use for further development"
         required: true
         default: "X.Y.Z-RIE"
-
 jobs:
   Release:
     environment: Release
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Configure Git User # may be removed after https://github.com/actions/checkout/issues/13 is resolved
         run: |
           git config user.email "${{ github.actor }}@users.noreply.github.com"
@@ -27,15 +26,15 @@ jobs:
         with:
           python-version: '3.11'
       - name: Build
-        run: make compile-with-docker-all
+        run: make compile-with-docker-all #they are all in is bin/aws-lambda-rie*
       - name: Release
-        uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2 # this triggers release if the assets are tagged with refs/tags
+        # if: startsWith(github.ref, 'refs/tags/')
         with:
           files: |
-            aws-lambda-rie
-            aws-lambda-rie-arm64
-            aws-lambda-rie-x64
+            bin/aws-lambda-rie
+            bin/aws-lambda-rie-arm64
+            bin/aws-lambda-rie-x64
 # --------
       # Add a step to upload each binary asset
       # - name: Upload aws-lambda-rie
