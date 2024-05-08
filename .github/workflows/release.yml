@@ -26,7 +26,7 @@ jobs:
         with:
           python-version: '3.11'
       - name: Build
-        run: make compile-with-docker-all #they are all in is bin/aws-lambda-rie*
+        run: make compile-with-docker-all
       - name: Release
         uses: softprops/action-gh-release@v2
         with:
