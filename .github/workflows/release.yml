@@ -7,10 +7,10 @@ on:
         description: "Version to use for the release."
         required: true
         default: "X.Y"
-      # developmentVersion: #this could be the release body?
-      #   description: "Version to use for further development"
-      #   required: true
-      #   default: "X.Y.Z-RIE"
+      releaseBody:
+        description: "Information about the release"
+        required: true
+        default: "New release"
 jobs:
   Release:
     environment: Release
@@ -33,7 +33,7 @@ jobs:
         with:
           name: Release ${{ github.event.inputs.releaseVersion }}
           tag_name: v${{ github.event.inputs.releaseVersion }}
-          body: This is the body
+          body: ${{ github.event.inputs.releaseBody }}
           files: |
             bin/aws-lambda-rie
             bin/aws-lambda-rie-arm64
