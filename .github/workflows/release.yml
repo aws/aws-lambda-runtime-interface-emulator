@@ -8,7 +8,7 @@ on:
         required: true
         default: "X.Y"
       releaseBody:
-        description: "Information about the release" #not showing if main branch? and using old version of this file if on main branch????
+        description: "Information about the release"
         required: true
         default: "New release"
 jobs:
@@ -17,8 +17,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        # with:
-        #   ref: 'main'
       - name: Set up python
         uses: actions/setup-python@v5
         with:
