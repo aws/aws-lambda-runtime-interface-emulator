@@ -8,7 +8,7 @@ on:
         required: true
         default: "X.Y"
       releaseBody:
-        description: "Information about the release"
+        description: "Information about the release" #not showing if main branch? and using old version of this file if on main branch????
         required: true
         default: "New release"
 jobs:
@@ -17,8 +17,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: 'main'
+        # with:
+        #   ref: 'main'
       - name: Set up python
         uses: actions/setup-python@v5
         with:
@@ -31,21 +31,6 @@ jobs:
           make integ-tests-with-docker-x86-64
           make integ-tests-with-docker-arm64
           make integ-tests-with-docker-old
-      # - name: Run Integ Tests x86
-      #   uses: actions/setup-python@v5
-      #   with:
-      #     python-version: '3.11'
-      #     run: make integ-tests-with-docker-x86-64
-      # - name: Run Integ Tests arm64
-      #   uses: actions/setup-python@v5
-      #   with:
-      #     python-version: '3.11'
-      #     run: make integ-tests-with-docker-arm64
-      # - name: Run Integ Tests Old
-      #   uses: actions/setup-python@v5
-      #   with:
-      #     python-version: '3.11'
-      #     run: make integ-tests-with-docker-old
       - name: Release
         uses: softprops/action-gh-release@v2
         with:
