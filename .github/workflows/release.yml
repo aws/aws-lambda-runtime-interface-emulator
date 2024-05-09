@@ -25,9 +25,23 @@ jobs:
           python-version: '3.11'
       - name: Build
         run: make compile-with-docker-all
-      - name: Run Tests
-        run: | # have to set up python?
-          make tests-with-docker
+      - name: Run Integ Tests
+        run: make tests-with-docker
+      - name: Run Integ Tests x86
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          run: make integ-tests-with-docker-x86-64
+      - name: Run Integ Tests arm64
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          run: make integ-tests-with-docker-arm64
+      - name: Run Integ Tests Old
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          run: make integ-tests-with-docker-old
       - name: Release
         uses: softprops/action-gh-release@v2
         with:
