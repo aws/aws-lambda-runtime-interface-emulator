@@ -1,0 +1,76 @@
+name: Check binaries
+
+on: 
+  workflow_dispatch:
+  schedule:
+   - cron: "0 16 * * 1-5"  # min h d Mo DoW / 9am PST M-F
+
+jobs:
+  check-for-vulnerabilities:
+    runs-on: ubuntu-latest
+    outputs:
+      report_contents: ${{ steps.save-output.outputs.report_contents }}
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: robinraju/release-downloader@v1.10
+        with:
+          latest: true
+          fileName: 'aws-lambda-rie*'
+          out-file-path: "bin"
+      - name: Run check for vulnerabilities
+        id: check-binaries
+        run: |
+          make check-binaries
+      - if: always() && failure()   # Failure means there are vulnerabilities
+        id: save-output
+        name: Save output contents
+        run: |
+          report_csv="$(ls -tr output.cve-bin-*.csv 2>/dev/null | tail -n1)"   # last file generated
+          echo "Vulnerabilities stored in $report_csv"
+          final_report="${report_csv}.txt"
+          awk -F',' '{n=split($10, path, "/"); print $2,$3,$4,$5,path[n]}' "$report_csv" | column -t > "$final_report"   # make the CSV nicer
+          echo "report_contents<<EOF" >> "$GITHUB_OUTPUT"
+          cat "$final_report" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+      - if: always() && steps.check-binaries.outcome == 'failure'
+        name: Build new version and check
+        id: check-new-version
+        run: |
+          mkdir ./bin2
+          mv ./bin/* ./bin2
+          make compile-with-docker-all
+          latest_version=$(strings bin/aws-lambda-rie* | grep '^go1\.' | sort | uniq)
+          echo "latest_version=$latest_version" >> "$GITHUB_OUTPUT"
+          make check-binaries
+      - if: always() && steps.check-binaries.outcome == 'failure'
+        name: Save output for new version
+        id: save-new-version
+        run: |
+          exit_code=$?
+          if [ "${{ steps.check-new-version.outcome }}" == "failure" ]; then
+            fixed="No"
+          else
+            fixed="Yes"
+          fi
+          echo "fixed=$fixed" >> "$GITHUB_OUTPUT"
+      - if: always() && steps.check-binaries.outcome == 'failure'
+        name: Create Issue
+        id: create-issue
+        uses: dacbd/create-issue-action@main
+        with:
+          token: ${{ github.token }}
+          title: |
+            CVEs found in latest RIE release
+          body: |
+            ###  CVEs found in latest RIE release
+            ```
+            ${{ steps.save-output.outputs.report_contents }}
+            ```
+            
+            #### Are these resolved by building with the latest patch version of Go (${{ steps.check-new-version.outputs.latest_version }})?:
+            > **${{ steps.save-new-version.outputs.fixed }}**

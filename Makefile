@@ -70,4 +70,7 @@ integ-tests-with-docker-old:
 	make ARCH=old compile-with-docker
 	make prep-python
 	make TEST_ARCH="" TEST_PORT=9052 exec-python-e2e-test
-	
+
+check-binaries: prep-python
+	.venv/bin/pip install cve-bin-tool
+	.venv/bin/python -m cve_bin_tool.cli bin/ -r go -d REDHAT,OSV,GAD,CURL --no-0-cve-report -f csv
