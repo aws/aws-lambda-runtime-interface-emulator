@@ -6,16 +6,44 @@ on:
       - develop
 
 jobs:
-  integ-tests:
+  go-tests:
     runs-on: ubuntu-latest
     environment:
-      name: prod
+      name: integ-tests
+    steps:
+        - uses: actions/checkout@v4
+        - name: run go tests
+          run: make tests-with-docker
+  integ-tests-x86:
+    runs-on: ubuntu-latest
+    environment:
+      name: integ-tests
     steps:
         - uses: actions/checkout@v4
         - uses: actions/setup-python@v5
           with:
             python-version: '3.11'
-        - name: allows us to build arm64 images
-          run: docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
         - name: run integration tests
-          run: make integ-tests-with-docker
+          run: make integ-tests-with-docker-x86-64
+  integ-tests-arm64:
+    runs-on: ubuntu-latest
+    environment:
+      name: integ-tests
+    steps:
+        - uses: actions/checkout@v4
+        - uses: actions/setup-python@v5
+          with:
+            python-version: '3.11'
+        - name: run integration tests
+          run: make integ-tests-with-docker-arm64
+  integ-tests-old:
+    runs-on: ubuntu-latest
+    environment:
+      name: integ-tests
+    steps:
+        - uses: actions/checkout@v4
+        - uses: actions/setup-python@v5
+          with:
+            python-version: '3.11'
+        - name: run integration tests
+          run: make integ-tests-with-docker-old

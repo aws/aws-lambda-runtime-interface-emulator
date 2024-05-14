@@ -1,0 +1,41 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      releaseVersion:
+        description: "Version to use for the release."
+        required: true
+        default: "X.Y"
+      releaseBody:
+        description: "Information about the release"
+        required: true
+        default: "New release"
+jobs:
+  Release:
+    environment: Release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Set up python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Build
+        run: make compile-with-docker-all
+      - name: Run Integ Tests
+        run: |
+          make tests-with-docker
+          make integ-tests
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Release ${{ github.event.inputs.releaseVersion }}
+          tag_name: v${{ github.event.inputs.releaseVersion }}
+          body: ${{ github.event.inputs.releaseBody }}
+          files: |
+            bin/aws-lambda-rie
+            bin/aws-lambda-rie-arm64
+            bin/aws-lambda-rie-x86_64

@@ -41,3 +41,7 @@ def check_remaining_time_handler(event, context):
     # Wait 1s to see if the remaining time changes
     time.sleep(1)
     return context.get_remaining_time_in_millis()
+
+
+def custom_client_context_handler(event, context):
+    return context.client_context.custom

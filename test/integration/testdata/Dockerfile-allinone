@@ -1,4 +1,5 @@
-FROM public.ecr.aws/lambda/python:3.8
+ARG IMAGE_ARCH
+FROM public.ecr.aws/lambda/python:3.12-$IMAGE_ARCH
 
 WORKDIR /var/task
 COPY ./ ./
