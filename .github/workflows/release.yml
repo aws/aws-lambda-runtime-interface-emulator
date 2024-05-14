@@ -28,9 +28,7 @@ jobs:
       - name: Run Integ Tests
         run: |
           make tests-with-docker
-          make integ-tests-with-docker-x86-64
-          make integ-tests-with-docker-arm64
-          make integ-tests-with-docker-old
+          make integ-tests
       - name: Release
         uses: softprops/action-gh-release@v2
         with:
