@@ -34,13 +34,17 @@ jobs:
         id: save-output
         run: |
           report_csv="$(ls -tr output.cve-bin-*.csv 2>/dev/null | tail -n1)"   # last file generated
-          echo "Vulnerabilities stored in $report_csv"
+          if [ -z "$report_csv" ]; then
+            echo "No file with vulnerabilities. Probably a failure in previous step."
+          else
+            echo "Vulnerabilities stored in $report_csv"
+          fi
           final_report="${report_csv}.txt"
           awk -F',' '{n=split($10, path, "/"); print $2,$3,$4,$5,path[n]}' "$report_csv" | column -t > "$final_report"   # make the CSV nicer
           echo "report_contents<<EOF" >> "$GITHUB_OUTPUT"
           cat "$final_report"         >> "$GITHUB_OUTPUT"
           echo "EOF"                  >> "$GITHUB_OUTPUT"
-      - if: always() && steps.check-binaries.outcome == 'failure'
+      - if: always() && steps.save-output.outputs.report_contents
         name: Build new binaries and check vulnerabilities again
         id: check-new-version
         run: |
@@ -50,7 +54,7 @@ jobs:
           latest_version=$(strings bin/aws-lambda-rie* | grep '^go1\.' | sort | uniq)
           echo "latest_version=$latest_version" >> "$GITHUB_OUTPUT"
           make check-binaries
-      - if: always() && steps.check-binaries.outcome == 'failure'
+      - if: always() && steps.save-output.outputs.report_contents
         name: Save outputs for the check with the latest build
         id: save-new-version
         run: |
@@ -60,7 +64,7 @@ jobs:
             fixed="Yes"
           fi
           echo "fixed=$fixed" >> "$GITHUB_OUTPUT"
-      - if: always() && steps.check-binaries.outcome == 'failure'
+      - if: always() && steps.save-output.outputs.report_contents
         name: Create GitHub Issue indicating vulnerabilities
         id: create-issue
         uses: dacbd/create-issue-action@main
