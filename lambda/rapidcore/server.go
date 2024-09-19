@@ -768,7 +768,7 @@ func (s *Server) awaitInitialized() (initCompletionResponse, error) {
 // since it can be called twice when a caller wants to wait until init is complete
 func (s *Server) AwaitInitialized() error {
 	if _, err := s.awaitInitialized(); err != nil {
-		if releaseErr := s.Release(); err != nil {
+		if releaseErr := s.Release(); releaseErr != nil {
 			log.Infof("Error releasing after init failure %s: %s", err, releaseErr)
 		}
 		s.setRuntimeState(runtimeInitFailed)
