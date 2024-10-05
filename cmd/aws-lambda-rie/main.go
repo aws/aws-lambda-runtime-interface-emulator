@@ -63,11 +63,18 @@ func main() {
 		log.WithError(err).Fatalf("The command line value for \"--runtime-interface-emulator-address\" is not a valid network address %q.", opts.RuntimeInterfaceEmulatorAddress)
 	}
 
+	enableExtensions := true
+	envDisableExtensionValue, envDisableExtensionSet := os.LookupEnv("AWS_LAMBDA_RIE_DISABLE_EXTENSIONS")
+	if envDisableExtensionSet && envDisableExtensionValue != "FALSE" {
+		enableExtensions = false
+		log.Info("Disabled extensions")
+	}
+
 	bootstrap, handler := getBootstrap(args, opts)
 	sandbox := rapidcore.
 		NewSandboxBuilder().
 		AddShutdownFunc(context.CancelFunc(func() { os.Exit(0) })).
-		SetExtensionsFlag(true).
+		SetExtensionsFlag(enableExtensions).
 		SetInitCachingFlag(opts.InitCachingEnabled)
 
 	if len(handler) > 0 {

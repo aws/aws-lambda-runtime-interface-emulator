@@ -22,6 +22,10 @@ def success_handler(event, context):
 def check_env_var_handler(event, context):
     return os.environ.get("MyEnv")
 
+def check_extension_is_enabled_handler(event, context):
+   if os.path.isfile("/tmp/extension.log"):
+       return "true"
+   return "false"
 
 def assert_env_var_is_overwritten(event, context):
     print(os.environ.get("AWS_LAMBDA_FUNCTION_NAME"))
