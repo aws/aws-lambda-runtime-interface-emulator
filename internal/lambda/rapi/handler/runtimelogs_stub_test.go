@@ -26,7 +26,7 @@ func TestSuccessfulRuntimeLogsAPIStub202Response(t *testing.T) {
 
 func TestSuccessfulRuntimeTelemetryAPIStub202Response(t *testing.T) {
 	handler := NewRuntimeTelemetryAPIStubHandler()
-	requestBody := []byte(`foobar`)
+	requestBody := []byte(`{"name": "foobar"}`)
 	request := httptest.NewRequest("PUT", "/telemetry", bytes.NewBuffer(requestBody))
 	responseRecorder := httptest.NewRecorder()
 
