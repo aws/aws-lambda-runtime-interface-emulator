@@ -55,7 +55,7 @@ func (s *InternalAgentRegisteredState) Ready() error {
 	return nil
 }
 
-// InitError - agent can transitions to InitErrorState if it failed to initialize
+// InitError - agent can transition to InitErrorState if it failed to initialize
 func (s *InternalAgentRegisteredState) InitError(errorType string) error {
 	s.agent.setStateUnsafe(s.agent.InitErrorState)
 	s.agent.errorType = errorType
