@@ -151,7 +151,7 @@ func (h *agentRegisterHandler) registerExternalAgent(
 
 	if err := agent.Register(registerRequest.Events); err != nil {
 		log.Warnf("Failed to register %s: %s", agent.String(), err)
-		rendering.RenderForbiddenWithTypeMsg(writer, request, errAgentInvalidState, "State transition from %s to %s failed for extension %s. Error: %s",
+		rendering.RenderForbiddenWithTypeMsg(writer, request, errAgentInvalidState, StateTransitionFailedForExtensionMessageFormat,
 			agent.GetState().Name(), core.AgentRegisteredStateName, agent.Name, err)
 		return
 	}
@@ -198,7 +198,7 @@ func (h *agentRegisterHandler) registerInternalAgent(
 
 	if err := agent.Register(registerRequest.Events); err != nil {
 		log.Warnf("Failed to register %s: %s", agent.String(), err)
-		rendering.RenderForbiddenWithTypeMsg(writer, request, errAgentInvalidState, "State transition from %s to %s failed for extension %s. Error: %s",
+		rendering.RenderForbiddenWithTypeMsg(writer, request, errAgentInvalidState, StateTransitionFailedForExtensionMessageFormat,
 			agent.GetState().Name(), core.AgentRegisteredStateName, agent.Name, err)
 		return
 	}

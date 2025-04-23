@@ -35,14 +35,14 @@ func (h *agentNextHandler) ServeHTTP(writer http.ResponseWriter, request *http.R
 	if externalAgent, found := h.registrationService.FindExternalAgentByID(agentID); found {
 		if err := externalAgent.Ready(); err != nil {
 			log.Warnf("Ready() failed for %s: %s, state is %s", externalAgent.String(), err, externalAgent.GetState().Name())
-			rendering.RenderForbiddenWithTypeMsg(writer, request, errAgentInvalidState, "State transition from %s to %s failed for extension %s. Error: %s",
+			rendering.RenderForbiddenWithTypeMsg(writer, request, errAgentInvalidState, StateTransitionFailedForExtensionMessageFormat,
 				externalAgent.GetState().Name(), core.AgentReadyStateName, agentID.String(), err)
 			return
 		}
 	} else if internalAgent, found := h.registrationService.FindInternalAgentByID(agentID); found {
 		if err := internalAgent.Ready(); err != nil {
 			log.Warnf("Ready() failed for %s: %s, state is %s", internalAgent.String(), err, internalAgent.GetState().Name())
-			rendering.RenderForbiddenWithTypeMsg(writer, request, errAgentInvalidState, "State transition from %s to %s failed for extension %s. Error: %s",
+			rendering.RenderForbiddenWithTypeMsg(writer, request, errAgentInvalidState, StateTransitionFailedForExtensionMessageFormat,
 				internalAgent.GetState().Name(), core.AgentReadyStateName, agentID.String(), err)
 			return
 		}
