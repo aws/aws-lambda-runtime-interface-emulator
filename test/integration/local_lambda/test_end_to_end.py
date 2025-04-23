@@ -173,9 +173,8 @@ class TestEndToEnd(TestCase):
         with self.create_container(params, image):
             r = self.invoke_function()
         
-            # Execution time is not decided, 1.0s ~ 3.0s is a good estimation
-            self.assertLess(int(r.content), 3000)
-            self.assertGreater(int(r.content), 1000)
+            # Execution time is not decided, but it should be around 2.0s
+            self.assertAround(int(r.content), 2000)
 
 
     def test_context_get_remaining_time_in_ten_seconds(self):
@@ -186,9 +185,8 @@ class TestEndToEnd(TestCase):
         with self.create_container(params, image):
             r = self.invoke_function()
         
-            # Execution time is not decided, 8.0s ~ 10.0s is a good estimation
-            self.assertLess(int(r.content), 10000)
-            self.assertGreater(int(r.content), 8000)
+            # Execution time is not decided, but it should be around 9.0s
+            self.assertAround(int(r.content), 9000)
 
 
     def test_context_get_remaining_time_in_default_deadline(self):
@@ -199,9 +197,8 @@ class TestEndToEnd(TestCase):
         with self.create_container(params, image):
             r = self.invoke_function()
 
-            # Executation time is not decided, 298.0s ~ 300.0s is a good estimation
-            self.assertLess(int(r.content), 300000)
-            self.assertGreater(int(r.content), 298000)
+            # Execution time is not decided, but it should be around 299.0s
+            self.assertAround(int(r.content), 299000)
 
 
     def test_invoke_with_pre_runtime_api_runtime(self):
@@ -256,6 +253,13 @@ class TestEndToEnd(TestCase):
             self.assertEqual("bar", content["foo"])
             self.assertEqual(123, content["baz"])
 
+    def assertAround(self, number, target):
+        # Emulating arm64 on x86 causes the invoke to take longer
+        delay_arm64 = 500
+        actual_target = target if self.ARCH != 'arm64' else target - delay_arm64
+
+        self.assertLess(number, actual_target + 1000)
+        self.assertGreater(number, actual_target - 1000)
 
 if __name__ == "__main__":
     main()

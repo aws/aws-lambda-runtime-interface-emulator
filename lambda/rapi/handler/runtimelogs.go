@@ -30,7 +30,7 @@ func (h *runtimeLogsHandler) ServeHTTP(writer http.ResponseWriter, request *http
 		log.Errorf("Agent Verification Error: %s", err)
 		switch err := err.(type) {
 		case *ErrAgentIdentifierUnknown:
-			rendering.RenderForbiddenWithTypeMsg(writer, request, errAgentIdentifierUnknown, "Unknown extension "+err.agentID.String())
+			rendering.RenderForbiddenWithTypeMsg(writer, request, errAgentIdentifierUnknown, "Unknown extension %s", err.agentID.String())
 			h.telemetrySubscription.RecordCounterMetric(telemetry.SubscribeClientErr, 1)
 		default:
 			rendering.RenderInternalServerError(writer, request)
@@ -55,7 +55,7 @@ func (h *runtimeLogsHandler) ServeHTTP(writer http.ResponseWriter, request *http
 		switch err {
 		case telemetry.ErrTelemetryServiceOff:
 			rendering.RenderForbiddenWithTypeMsg(writer, request,
-				h.telemetrySubscription.GetServiceClosedErrorType(), h.telemetrySubscription.GetServiceClosedErrorMessage())
+				h.telemetrySubscription.GetServiceClosedErrorType(), "%s", h.telemetrySubscription.GetServiceClosedErrorMessage())
 			h.telemetrySubscription.RecordCounterMetric(telemetry.SubscribeClientErr, 1)
 		default:
 			rendering.RenderInternalServerError(writer, request)
