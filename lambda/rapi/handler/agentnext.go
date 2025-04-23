@@ -35,20 +35,20 @@ func (h *agentNextHandler) ServeHTTP(writer http.ResponseWriter, request *http.R
 	if externalAgent, found := h.registrationService.FindExternalAgentByID(agentID); found {
 		if err := externalAgent.Ready(); err != nil {
 			log.Warnf("Ready() failed for %s: %s, state is %s", externalAgent.String(), err, externalAgent.GetState().Name())
-			rendering.RenderForbiddenWithTypeMsg(writer, request, errAgentInvalidState, StateTransitionFailedForExtensionMessageFormat,
+			rendering.RenderForbiddenWithTypeMsg(writer, request, errAgentInvalidState, "State transition from %s to %s failed for extension %s. Error: %s",
 				externalAgent.GetState().Name(), core.AgentReadyStateName, agentID.String(), err)
 			return
 		}
 	} else if internalAgent, found := h.registrationService.FindInternalAgentByID(agentID); found {
 		if err := internalAgent.Ready(); err != nil {
 			log.Warnf("Ready() failed for %s: %s, state is %s", internalAgent.String(), err, internalAgent.GetState().Name())
-			rendering.RenderForbiddenWithTypeMsg(writer, request, errAgentInvalidState, StateTransitionFailedForExtensionMessageFormat,
+			rendering.RenderForbiddenWithTypeMsg(writer, request, errAgentInvalidState, "State transition from %s to %s failed for extension %s. Error: %s",
 				internalAgent.GetState().Name(), core.AgentReadyStateName, agentID.String(), err)
 			return
 		}
 	} else {
 		log.Warnf("Unknown agent %s tried to call /next", agentID.String())
-		rendering.RenderForbiddenWithTypeMsg(writer, request, errAgentIdentifierUnknown, "Unknown extension"+agentID.String())
+		rendering.RenderForbiddenWithTypeMsg(writer, request, errAgentIdentifierUnknown, "Unknown extension %s", agentID.String())
 		return
 	}
 

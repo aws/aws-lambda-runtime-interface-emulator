@@ -77,7 +77,7 @@ func (h *agentRegisterHandler) ServeHTTP(writer http.ResponseWriter, request *ht
 
 	registerRequest, err := parseRegister(request)
 	if err != nil {
-		rendering.RenderForbiddenWithTypeMsg(writer, request, errInvalidRequestFormat, err.Error())
+		rendering.RenderForbiddenWithTypeMsg(writer, request, errInvalidRequestFormat, "%s", err.Error())
 		return
 	}
 
@@ -151,7 +151,7 @@ func (h *agentRegisterHandler) registerExternalAgent(
 
 	if err := agent.Register(registerRequest.Events); err != nil {
 		log.Warnf("Failed to register %s: %s", agent.String(), err)
-		rendering.RenderForbiddenWithTypeMsg(writer, request, errAgentInvalidState, StateTransitionFailedForExtensionMessageFormat,
+		rendering.RenderForbiddenWithTypeMsg(writer, request, errAgentInvalidState, "State transition from %s to %s failed for extension %s. Error: %s",
 			agent.GetState().Name(), core.AgentRegisteredStateName, agent.Name, err)
 		return
 	}
@@ -198,7 +198,7 @@ func (h *agentRegisterHandler) registerInternalAgent(
 
 	if err := agent.Register(registerRequest.Events); err != nil {
 		log.Warnf("Failed to register %s: %s", agent.String(), err)
-		rendering.RenderForbiddenWithTypeMsg(writer, request, errAgentInvalidState, StateTransitionFailedForExtensionMessageFormat,
+		rendering.RenderForbiddenWithTypeMsg(writer, request, errAgentInvalidState, "State transition from %s to %s failed for extension %s. Error: %s",
 			agent.GetState().Name(), core.AgentRegisteredStateName, agent.Name, err)
 		return
 	}

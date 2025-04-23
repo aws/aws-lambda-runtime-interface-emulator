@@ -233,18 +233,18 @@ func (c *rapidContext) watchEvents(events <-chan supvmodel.Event) {
 
 			// If event from the runtime.
 			if *termination.Name == runtimeProcessName {
-				if termination.Success() {
-					err = fmt.Errorf("Runtime exited without providing a reason")
-				} else {
-					err = fmt.Errorf("Runtime exited with error: %s", termination.String())
-				}
+			if termination.Success() {
+				err = fmt.Errorf("%s", "Runtime exited without providing a reason")
+			} else {
+				err = fmt.Errorf("%s: %s", "Runtime exited with error", termination.String())
+			}
 				appctx.StoreFirstFatalError(c.appCtx, fatalerror.RuntimeExit)
 			} else {
-				if termination.Success() {
-					err = fmt.Errorf("exit code 0")
-				} else {
-					err = fmt.Errorf(termination.String())
-				}
+			if termination.Success() {
+				err = fmt.Errorf("%s", "exit code 0")
+			} else {
+				err = fmt.Errorf("%s", termination.String())
+			}
 
 				appctx.StoreFirstFatalError(c.appCtx, fatalerror.AgentCrash)
 			}
@@ -851,7 +851,7 @@ func handleRestore(execCtx *rapidContext, restore *interop.Restore) (interop.Res
 	// check if there is any error stored in appctx to get the root cause error type
 	// Runtime.ExitError is an example to such a scenario
 	if fatalErrorFound {
-		err = fmt.Errorf(string(fatalErrorType))
+		err = fmt.Errorf("%s", string(fatalErrorType))
 	}
 
 	if err != nil {
