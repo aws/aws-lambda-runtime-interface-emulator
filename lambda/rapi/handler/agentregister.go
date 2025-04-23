@@ -77,7 +77,7 @@ func (h *agentRegisterHandler) ServeHTTP(writer http.ResponseWriter, request *ht
 
 	registerRequest, err := parseRegister(request)
 	if err != nil {
-		rendering.RenderForbiddenWithTypeMsg(writer, request, errInvalidRequestFormat, err.Error())
+		rendering.RenderForbiddenWithTypeMsg(writer, request, errInvalidRequestFormat, "%s", err.Error())
 		return
 	}
 
