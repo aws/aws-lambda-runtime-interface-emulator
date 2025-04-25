@@ -55,6 +55,14 @@ func GetenvWithDefault(key string, defaultValue string) string {
 	return envValue
 }
 
+func GetFunctionName() string {
+	defaultValue := "function"
+	if GetenvWithDefault("AWS_LAMBDA_RIE_DYNAMIC_FUNCTION_URL", "FALSE") == "FALSE" {
+		defaultValue = "test_function"
+	}
+	return GetenvWithDefault("AWS_LAMBDA_FUNCTION_NAME", defaultValue)
+}
+
 func printEndReports(invokeId string, initDuration string, memorySize string, invokeStart time.Time, timeoutDuration time.Duration) {
 	// Calcuation invoke duration
 	invokeDuration := math.Min(float64(time.Now().Sub(invokeStart).Nanoseconds()),
@@ -118,7 +126,7 @@ func InvokeHandler(w http.ResponseWriter, r *http.Request, sandbox Sandbox, bs i
 	invokeStart := time.Now()
 	invokePayload := &interop.Invoke{
 		ID:                 uuid.New().String(),
-		InvokedFunctionArn: fmt.Sprintf("arn:aws:lambda:us-east-1:012345678912:function:%s", GetenvWithDefault("AWS_LAMBDA_FUNCTION_NAME", "test_function")),
+		InvokedFunctionArn: fmt.Sprintf("arn:aws:lambda:us-east-1:012345678912:function:%s", GetFunctionName()),
 		TraceID:            r.Header.Get("X-Amzn-Trace-Id"),
 		LambdaSegmentID:    r.Header.Get("X-Amzn-Segment-Id"),
 		Payload:            bytes.NewReader(bodyBytes),
@@ -198,7 +206,7 @@ func InitHandler(sandbox Sandbox, functionVersion string, timeout int64, bs inte
 	additionalFunctionEnvironmentVariables["AWS_LAMBDA_LOG_STREAM_NAME"] = "$LATEST"
 	additionalFunctionEnvironmentVariables["AWS_LAMBDA_FUNCTION_VERSION"] = "$LATEST"
 	additionalFunctionEnvironmentVariables["AWS_LAMBDA_FUNCTION_MEMORY_SIZE"] = "3008"
-	additionalFunctionEnvironmentVariables["AWS_LAMBDA_FUNCTION_NAME"] = "test_function"
+	additionalFunctionEnvironmentVariables["AWS_LAMBDA_FUNCTION_NAME"] = GetFunctionName()
 
 	// Forward Env Vars from the running system (container) to what the function can view. Without this, Env Vars will
 	// not be viewable when the function runs.
@@ -216,7 +224,7 @@ func InitHandler(sandbox Sandbox, functionVersion string, timeout int64, bs inte
 		AwsSecret:         os.Getenv("AWS_SECRET_ACCESS_KEY"),
 		AwsSession:        os.Getenv("AWS_SESSION_TOKEN"),
 		XRayDaemonAddress: "0.0.0.0:0", // TODO
-		FunctionName:      GetenvWithDefault("AWS_LAMBDA_FUNCTION_NAME", "test_function"),
+		FunctionName:      GetFunctionName(),
 		FunctionVersion:   functionVersion,
 		RuntimeInfo: interop.RuntimeInfo{
 			ImageJSON: "{}",

@@ -65,9 +65,9 @@ class TestEndToEnd(TestCase):
     def sleep_1s(self):
         time.sleep(SLEEP_TIME)
 
-    def invoke_function(self, json={}, headers={}):
+    def invoke_function(self, json={}, headers={}, function_name="function"):
         return requests.post(
-            f"http://localhost:{self.PORT}/2015-03-31/functions/function/invocations",
+            f"http://localhost:{self.PORT}/2015-03-31/functions/{function_name}/invocations",
             json=json,
             headers=headers,
         )
@@ -260,6 +260,26 @@ class TestEndToEnd(TestCase):
 
         self.assertLess(number, actual_target + 1000)
         self.assertGreater(number, actual_target - 1000)
+
+    def test_function_name_is_overriden_consistent(self):
+        image, rie, image_name = self.tagged_name("assert_overwritten_consistent")
+
+        params = f"--name {image} -d --env AWS_LAMBDA_FUNCTION_NAME=MyCoolName --env AWS_LAMBDA_RIE_DYNAMIC_FUNCTION_URL=TRUE -v {self.path_to_binary}:/local-lambda-runtime-server -p {self.PORT}:8080 --entrypoint /local-lambda-runtime-server/{rie} {image_name} {DEFAULT_1P_ENTRYPOINT} main.assert_env_var_is_overwritten"
+
+        with self.create_container(params, image):
+            r = self.invoke_function(function_name="MyCoolName")
+            self.assertEqual(b'"My lambda ran succesfully"', r.content)
+
+
+    def test_lambda_function_arn_exists(self):
+        image, rie, image_name = self.tagged_name("arnexists_consistent")
+
+        params = f"--name {image} -d --env AWS_LAMBDA_FUNCTION_NAME=MyCoolName --env AWS_LAMBDA_RIE_DYNAMIC_FUNCTION_URL=TRUE -v {self.path_to_binary}:/local-lambda-runtime-server -p {self.PORT}:8080 --entrypoint /local-lambda-runtime-server/{rie} {image_name} {DEFAULT_1P_ENTRYPOINT} main.assert_lambda_arn_in_context"
+
+        with self.create_container(params, image):
+            r = self.invoke_function(function_name="MyCoolName")
+            self.assertEqual(b'"My lambda ran succesfully"', r.content)
+
 
 if __name__ == "__main__":
     main()
