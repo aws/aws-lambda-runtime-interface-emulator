@@ -55,7 +55,7 @@ type InitSuccess struct {
 
 // InitFailure indicates that runtime/extensions initialization failed due to process exit or /error calls
 // In Rapid Shim, this translates to either a DONE or a DONEFAIL GirD message to Slicer (depending on extensions mode)
-// However, even on failure, the next invoke is expected to work with a suppressed init - i.e. we init again as aprt of the invoke
+// However, even on failure, the next invoke is expected to work with a suppressed init - i.e. we init again as part of the invoke
 type InitFailure struct {
 	ResetReceived       bool // indicates if failure happened due to a reset received
 	RequestReset        bool // Indicates whether reset should be requested on init failure
