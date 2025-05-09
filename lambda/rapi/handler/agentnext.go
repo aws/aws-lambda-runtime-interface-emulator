@@ -48,7 +48,7 @@ func (h *agentNextHandler) ServeHTTP(writer http.ResponseWriter, request *http.R
 		}
 	} else {
 		log.Warnf("Unknown agent %s tried to call /next", agentID.String())
-		rendering.RenderForbiddenWithTypeMsg(writer, request, errAgentIdentifierUnknown, "Unknown extension"+agentID.String())
+		rendering.RenderForbiddenWithTypeMsg(writer, request, errAgentIdentifierUnknown, "Unknown extension %s", agentID.String())
 		return
 	}
 
