@@ -99,7 +99,6 @@ class TestEndToEnd(TestCase):
         
             self.assertEqual(b'"4=4"', r.content)
 
-
     def test_two_invokes(self):
         image, rie, image_name = self.tagged_name("twoinvokes")
 
@@ -252,6 +251,42 @@ class TestEndToEnd(TestCase):
             content = json.loads(r.content)
             self.assertEqual("bar", content["foo"])
             self.assertEqual(123, content["baz"])
+    
+    def test_disable_extension_with_empty_env_val(self):
+        image, rie, image_name = self.tagged_name("disable_extension_check_with_empty_value")
+        params = f"--name {image} -d --env AWS_LAMBDA_RIE_DISABLE_EXTENSIONS= -v {self.path_to_binary}:/local-lambda-runtime-server -p {self.PORT}:8080 --entrypoint /local-lambda-runtime-server/{rie} {image_name} {DEFAULT_1P_ENTRYPOINT} main.check_extension_is_enabled_handler"
+        
+        with self.create_container(params, image):
+            r = self.invoke_function()
+        
+            self.assertEqual(b'"false"', r.content)
+
+    def test_disable_extension_with_non_empty_env_val(self):
+        image, rie, image_name = self.tagged_name("disable_extension_check_with_non-empty_value")
+        params = f"--name {image} -d --env AWS_LAMBDA_RIE_DISABLE_EXTENSIONS=somevalue -v {self.path_to_binary}:/local-lambda-runtime-server -p {self.PORT}:8080 --entrypoint /local-lambda-runtime-server/{rie} {image_name} {DEFAULT_1P_ENTRYPOINT} main.check_extension_is_enabled_handler"
+        
+        with self.create_container(params, image):
+            r = self.invoke_function()
+        
+            self.assertEqual(b'"false"', r.content)
+
+    def test_enable_extension_with_env_var(self):
+        image, rie, image_name = self.tagged_name("enable_extension_check_with_env_var")
+        params = f"--name {image} -d --env AWS_LAMBDA_RIE_DISABLE_EXTENSIONS=FALSE -v {self.path_to_binary}:/local-lambda-runtime-server -p {self.PORT}:8080 --entrypoint /local-lambda-runtime-server/{rie} {image_name} {DEFAULT_1P_ENTRYPOINT} main.check_extension_is_enabled_handler"
+        
+        with self.create_container(params, image):
+            r = self.invoke_function()
+        
+            self.assertEqual(b'"true"', r.content)
+
+    def test_enable_extension_without_env_var(self):
+        image, rie, image_name = self.tagged_name("enable_extension_without_env_var")
+        params = f"--name {image} -d -v {self.path_to_binary}:/local-lambda-runtime-server -p {self.PORT}:8080 --entrypoint /local-lambda-runtime-server/{rie} {image_name} {DEFAULT_1P_ENTRYPOINT} main.check_extension_is_enabled_handler"
+        
+        with self.create_container(params, image):
+            r = self.invoke_function()
+        
+            self.assertEqual(b'"true"', r.content)
 
     def assertAround(self, number, target):
         # Emulating arm64 on x86 causes the invoke to take longer

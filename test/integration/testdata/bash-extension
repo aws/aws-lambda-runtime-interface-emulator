@@ -1,0 +1,42 @@
+#!/bin/bash
+
+# Name of the extension
+EXTENSION_NAME="bash-extension"
+
+# Log file path
+LOG_FILE="/tmp/extension.log"
+
+
+# Function to register the extension with the Lambda service
+register_extension() {
+    curl -s -D /tmp/headers -X POST "http://${AWS_LAMBDA_RUNTIME_API}/2020-01-01/extension/register" \
+        -H "Content-Type: application/json" \
+        -H "Lambda-Extension-Name: $EXTENSION_NAME" \
+        -d '{"events": ["INVOKE"]}'
+    EXTENSION_ID=$(cat /tmp/headers | grep "Lambda-Extension-Identifier" | grep -oP '[a-f0-9\-]{36}')
+    echo "Extension Id: $EXTENSION_ID" >> $LOG_FILE 
+}
+
+# Function to process events
+process_events() {
+   # Main loop
+    while true; do
+        echo "Waiting for next event"
+        EVENT_DATA=$(curl -s -X GET \
+        -H "Lambda-Extension-Identifier: $EXTENSION_ID" \
+        "http://${AWS_LAMBDA_RUNTIME_API}/2020-01-01/extension/event/next")
+
+        # Check if the event is an invocation
+        if [[ $(echo "$EVENT_DATA" | jq -r '.eventType') == "INVOKE" ]]; then
+            echo "Invocation event received: $EVENT_DATA"
+            # Log the invocation event data
+            echo "$EVENT_DATA" >> "$LOG_FILE"
+        fi
+    done
+}
+
+# Register the extension
+register_extension
+
+# Process events
+process_events
