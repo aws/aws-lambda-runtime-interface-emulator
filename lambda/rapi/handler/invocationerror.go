@@ -18,7 +18,7 @@ import (
 	"go.amzn.com/lambda/core"
 	"go.amzn.com/lambda/rapi/rendering"
 
-	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/v5"
 	log "github.com/sirupsen/logrus"
 )
 

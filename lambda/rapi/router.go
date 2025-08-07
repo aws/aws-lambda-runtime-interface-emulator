@@ -11,7 +11,7 @@ import (
 	"go.amzn.com/lambda/rapi/middleware"
 	"go.amzn.com/lambda/telemetry"
 
-	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/v5"
 
 	"go.amzn.com/lambda/core"
 	"go.amzn.com/lambda/rapi/rendering"

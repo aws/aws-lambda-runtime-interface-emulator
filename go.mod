@@ -1,10 +1,10 @@
 module go.amzn.com
 
-go 1.24
+go 1.21
 
 require (
 	github.com/aws/aws-lambda-go v1.46.0
-	github.com/go-chi/chi v5.2.2
+	github.com/go-chi/chi/v5 v5.2.2
 	github.com/google/uuid v1.6.0
 	github.com/jessevdk/go-flags v1.5.0
 	github.com/sirupsen/logrus v1.9.3
