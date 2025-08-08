@@ -12,7 +12,7 @@ import (
 	"go.amzn.com/lambda/rapidcore"
 	"go.amzn.com/lambda/rapidcore/standalone/telemetry"
 
-	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/v5"
 )
 
 type InteropServer interface {

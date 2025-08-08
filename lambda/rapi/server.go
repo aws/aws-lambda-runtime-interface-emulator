@@ -9,7 +9,7 @@ import (
 	"net"
 	"net/http"
 
-	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/v5"
 	"go.amzn.com/lambda/appctx"
 
 	"go.amzn.com/lambda/core"
