@@ -12,7 +12,7 @@ import (
 	"go.amzn.com/lambda/rapi/handler"
 	"go.amzn.com/lambda/rapi/rendering"
 
-	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/v5"
 	"go.amzn.com/lambda/appctx"
 
 	log "github.com/sirupsen/logrus"

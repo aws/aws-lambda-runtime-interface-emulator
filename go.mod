@@ -9,6 +9,7 @@ require (
 	github.com/cihub/seelog v0.0.0-20170130134532-f561c5e57575
 	github.com/fsnotify/fsnotify v1.6.0
 	github.com/go-chi/chi v1.5.5
+	github.com/go-chi/chi/v5 v5.2.3
 	github.com/google/uuid v1.6.0
 	github.com/jessevdk/go-flags v1.5.0
 	github.com/shirou/gopsutil v2.19.10+incompatible
