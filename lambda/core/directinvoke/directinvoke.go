@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/v5"
 	"go.amzn.com/lambda/core/bandwidthlimiter"
 	"go.amzn.com/lambda/fatalerror"
 	"go.amzn.com/lambda/interop"

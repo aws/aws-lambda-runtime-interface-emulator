@@ -19,7 +19,7 @@ import (
 	"go.amzn.com/lambda/rapi/model"
 	"go.amzn.com/lambda/testdata"
 
-	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/assert"
 )
 
