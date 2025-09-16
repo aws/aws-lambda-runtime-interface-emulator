@@ -31,15 +31,16 @@ Lambda’s orchestrator, or security and authentication configurations. You can 
 
 ## Installing
 
-Instructions for installing AWS Lambda Runtime Interface Emulator for your platform
+The following commands download the RIE binary for your platform. Note that while you can download the binary on any platform, the RIE can only be executed in a Linux environment (typically within a Docker container).
 
-| Platform | Command to install |
+| Platform (for downloading) | Command to download |
 |---------|---------
 | macOS/Linux x86\_64 | `mkdir -p ~/.aws-lambda-rie && curl -Lo ~/.aws-lambda-rie/aws-lambda-rie https://github.com/aws/aws-lambda-runtime-interface-emulator/releases/latest/download/aws-lambda-rie && chmod +x ~/.aws-lambda-rie/aws-lambda-rie` |
 | macOS/Linux arm64 | `mkdir -p ~/.aws-lambda-rie && curl -Lo ~/.aws-lambda-rie/aws-lambda-rie https://github.com/aws/aws-lambda-runtime-interface-emulator/releases/latest/download/aws-lambda-rie-arm64 && chmod +x ~/.aws-lambda-rie/aws-lambda-rie` |
 | Windows x86\_64 | `Invoke-WebRequest -OutFile 'C:\Program Files\aws lambda\aws-lambda-rie' https://github.com/aws/aws-lambda-runtime-interface-emulator/releases/latest/download/aws-lambda-rie` |
 | Windows arm64 | `Invoke-WebRequest -OutFile 'C:\Program Files\aws lambda\aws-lambda-rie' https://github.com/aws/aws-lambda-runtime-interface-emulator/releases/latest/download/aws-lambda-rie-arm64` |
 
+After downloading, the RIE binary must be used within a Linux environment, typically as part of a Docker container setup. See the Docker configuration instructions below for proper implementation.
 
 ## Getting started
 
