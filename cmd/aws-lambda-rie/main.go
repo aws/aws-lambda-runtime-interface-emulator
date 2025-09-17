@@ -27,7 +27,7 @@ type options struct {
 	InitCachingEnabled bool   `long:"enable-init-caching" description:"Enable support for Init Caching"`
 	// Do not have a default value so we do not need to keep it in sync with the default value in lambda/rapidcore/sandbox_builder.go
 	RuntimeAPIAddress               string `long:"runtime-api-address" description:"The address of the AWS Lambda Runtime API to communicate with the Lambda execution environment."`
-	RuntimeInterfaceEmulatorAddress string `long:"runtime-interface-emulator-address" default:"0.0.0.0:8080" description:"The address for the AWS Lambda Runtime Interface Emulator to accept HTTP request upon."`
+	RuntimeInterfaceEmulatorAddress string `long:"runtime-interface-emulator-address" default:"0.0.0.0:8080" description:"The address for the AWS Lambda Runtime Interface Emulator to accept HTTP request upon. Can also be set by the environment variable 'RUNTIME_INTERFACE_EMULATOR_ADDRESS'."`
 }
 
 func main() {
@@ -48,6 +48,14 @@ func main() {
 	}
 
 	rapidcore.SetLogLevel(logLevel)
+
+	// Handle RuntimeInterfaceEmulatorAddress environment variable
+	// If CLI flag not provided, check environment variable
+	if opts.RuntimeInterfaceEmulatorAddress == "0.0.0.0:8080" {
+		if envAddress, envAddressSet := os.LookupEnv("RUNTIME_INTERFACE_EMULATOR_ADDRESS"); envAddressSet {
+			opts.RuntimeInterfaceEmulatorAddress = envAddress
+		}
+	}
 
 	if opts.RuntimeAPIAddress != "" {
 		_, _, err := net.SplitHostPort(opts.RuntimeAPIAddress)
