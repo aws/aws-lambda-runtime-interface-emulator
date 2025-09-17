@@ -235,6 +235,30 @@ class TestEndToEnd(TestCase):
             self.assertEqual(b'"My lambda ran succesfully"', r.content)
 
 
+    def test_runtime_interface_emulator_address_env_var(self):
+        image, rie, image_name = self.tagged_name("rie_address_env_var")
+
+        # Use port 8081 inside the container and set via environment variable instead of CLI flag
+        params = f"--name {image} -d -v {self.path_to_binary}:/local-lambda-runtime-server -p {self.PORT}:8081 -e RUNTIME_INTERFACE_EMULATOR_ADDRESS=0.0.0.0:8081 --entrypoint /local-lambda-runtime-server/{rie} {image_name} {DEFAULT_1P_ENTRYPOINT} main.success_handler"
+
+        with self.create_container(params, image):
+            r = self.invoke_function()
+        
+            self.assertEqual(b'"My lambda ran succesfully"', r.content)
+
+
+    def test_runtime_interface_emulator_address_cli_precedence(self):
+        image, rie, image_name = self.tagged_name("rie_address_cli_precedence")
+
+        # Set environment variable but override with CLI flag - CLI should take precedence  
+        params = f"--name {image} -d -v {self.path_to_binary}:/local-lambda-runtime-server -p {self.PORT}:8082 -e RUNTIME_INTERFACE_EMULATOR_ADDRESS=0.0.0.0:8080 --entrypoint /local-lambda-runtime-server/{rie} {image_name} {DEFAULT_1P_ENTRYPOINT} main.success_handler --runtime-interface-emulator-address 0.0.0.0:8082"
+
+        with self.create_container(params, image):
+            r = self.invoke_function()
+        
+            self.assertEqual(b'"My lambda ran succesfully"', r.content)
+
+
     def test_custom_client_context(self):
         image, rie, image_name = self.tagged_name("custom_client_context")
 
