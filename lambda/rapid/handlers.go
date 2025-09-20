@@ -41,7 +41,7 @@ const (
 
 const (
 	// Same value as defined in LambdaSandbox minus 1.
-	maxExtensionNamesLength = 127
+	maxExtensionNamesLength  = 127
 	standaloneShutdownReason = "spindown"
 )
 

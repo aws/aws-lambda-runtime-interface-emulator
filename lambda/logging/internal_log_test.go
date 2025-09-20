@@ -164,4 +164,3 @@ func BenchmarkLogrusDebugWithFieldLogLevelDisabledInternalFormatter(b *testing.B
 		l.WithField("field", "value").Debug(1, "two", true)
 	}
 }
-
