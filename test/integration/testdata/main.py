@@ -25,13 +25,13 @@ def check_env_var_handler(event, context):
 
 def assert_env_var_is_overwritten(event, context):
     print(os.environ.get("AWS_LAMBDA_FUNCTION_NAME"))
-    if os.environ.get("AWS_LAMBDA_FUNCTION_NAME") == "test_function":
+    if os.environ.get("AWS_LAMBDA_FUNCTION_NAME") == "function":
         raise("Function name was not overwritten")
     else:
         return "My lambda ran succesfully"
 
 def assert_lambda_arn_in_context(event, context):
-    if context.invoked_function_arn == f"arn:aws:lambda:us-east-1:012345678912:function:{os.environ.get('AWS_LAMBDA_FUNCTION_NAME', 'test_function')}":
+    if context.invoked_function_arn == f"arn:aws:lambda:us-east-1:012345678912:function:{os.environ.get('AWS_LAMBDA_FUNCTION_NAME', 'function')}":
         return "My lambda ran succesfully"
     else:
         raise("Function Arn was not there")

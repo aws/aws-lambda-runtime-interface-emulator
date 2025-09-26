@@ -173,6 +173,11 @@ The rest of these Environment Variables can be set to match AWS Lambda's environ
 * `AWS_LAMBDA_FUNCTION_NAME`
 * `AWS_LAMBDA_FUNCTION_MEMORY_SIZE`
 
+By default `aws-lambda-rie` sets the value of the `AWS_LAMBDA_FUNCTION_NAME` environment variable to `test_function`, while the
+function name in the endpoint URL is `function`. If you want the RIE to behave like AWS Lambda, where the function name in the
+endpoint matches the value of the environment variable, set the value of the `AWS_LAMBDA_RIE_DYNAMIC_FUNCTION_URL`
+environment variable to `"TRUE"`.
+
 ## Level of support
 
 You can use the emulator to test if your function code is compatible with the Lambda environment, executes successfully
