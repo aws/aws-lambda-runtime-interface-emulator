@@ -661,6 +661,8 @@ func (s *Server) Invoke(responseWriter http.ResponseWriter, invoke *interop.Invo
 		reserveResp, err := s.Reserve("", "", "")
 		if err != nil {
 			log.Infof("ReserveFailed: %s", err)
+                        releaseErrChan <- err
+                        return
 		}
 
 		invoke.DeadlineNs = fmt.Sprintf("%d", metering.Monotime()+reserveResp.Token.FunctionTimeout.Nanoseconds())
