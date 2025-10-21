@@ -5,6 +5,9 @@ on:
   schedule:
    - cron: "0 16 * * 1-5"  # min h d Mo DoW / 9am PST M-F
 
+permissions:
+  issues: write
+
 jobs:
   check-for-vulnerabilities:
     runs-on: ubuntu-latest

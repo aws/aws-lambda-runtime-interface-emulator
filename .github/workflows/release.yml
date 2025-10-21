@@ -11,6 +11,9 @@ on:
         description: "Information about the release"
         required: true
         default: "New release"
+permissions:
+  contents: write
+
 jobs:
   Release:
     environment: Release
