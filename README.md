@@ -84,9 +84,9 @@ You can build RIE into a base image. Download the RIE from GitHub to your local 
     ```sh
     #!/bin/sh
     if [ -z "${AWS_LAMBDA_RUNTIME_API}" ]; then
-      exec /usr/local/bin/aws-lambda-rie /usr/bin/npx aws-lambda-ric
+      exec /usr/local/bin/aws-lambda-rie /var/lang/bin/npx aws-lambda-ric $1
     else
-      exec /usr/bin/npx aws-lambda-ric
+      exec /var/lang/bin/npx aws-lambda-ric $1
     fi
     ```
 
@@ -172,6 +172,7 @@ The rest of these Environment Variables can be set to match AWS Lambda's environ
 * `AWS_LAMBDA_FUNCTION_VERSION`
 * `AWS_LAMBDA_FUNCTION_NAME`
 * `AWS_LAMBDA_FUNCTION_MEMORY_SIZE`
+* `AWS_LAMBDA_RIE_DISABLE_EXTENSIONS` - (RIE only) Disables AWS Lambda extensions when working locally. Setting this environment variable to any value other than `FALSE` will disable extensions.
 
 ## Level of support
 
