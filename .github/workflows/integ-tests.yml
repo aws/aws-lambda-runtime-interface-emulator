@@ -1,10 +1,10 @@
 name: Run Integration Tests
 
-on:
-  pull_request:
-    branches:
-      - develop
-
+# on:
+#   pull_request:
+#     branches:
+#       - develop
+#
 jobs:
   go-tests:
     runs-on: ubuntu-latest

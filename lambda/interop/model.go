@@ -356,7 +356,7 @@ type ErrorResponseTooLargeDI struct {
 
 // ErrorResponseTooLarge is returned when response provided by Runtime does not fit into shared memory buffer
 func (s *ErrorResponseTooLarge) Error() string {
-	return fmt.Sprintf("Response payload size exceeded maximum allowed payload size (%d bytes).", s.MaxResponseSize)
+	return fmt.Sprintf("Response payload size (%d bytes) exceeded maximum allowed payload size (%d bytes).", s.ResponseSize, s.MaxResponseSize)
 }
 
 // AsErrorResponse generates ErrorInvokeResponse from ErrorResponseTooLarge

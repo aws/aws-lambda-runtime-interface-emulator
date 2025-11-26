@@ -119,7 +119,7 @@ func TestAsyncPayloadCopyWhenPayloadSizeBelowMaxAllowed(t *testing.T) {
 	require.Equal(t, EndOfResponseComplete, writer.Header().Get(EndOfResponseTrailer))
 
 	// reset it to its original value
-	MaxDirectResponseSize = interop.MaxPayloadSize
+	MaxDirectResponseSize = int64(interop.MaxPayloadSize)
 }
 
 func TestAsyncPayloadCopyWhenPayloadSizeEqualMaxAllowed(t *testing.T) {
@@ -138,7 +138,7 @@ func TestAsyncPayloadCopyWhenPayloadSizeEqualMaxAllowed(t *testing.T) {
 	require.Equal(t, EndOfResponseComplete, writer.Header().Get(EndOfResponseTrailer))
 
 	// reset it to its original value
-	MaxDirectResponseSize = interop.MaxPayloadSize
+	MaxDirectResponseSize = int64(interop.MaxPayloadSize)
 }
 
 func TestAsyncPayloadCopyWhenPayloadSizeAboveMaxAllowed(t *testing.T) {
@@ -163,7 +163,7 @@ func TestAsyncPayloadCopyWhenPayloadSizeAboveMaxAllowed(t *testing.T) {
 	require.Equal(t, EndOfResponseOversized, writer.Header().Get(EndOfResponseTrailer))
 
 	// reset it to its original value
-	MaxDirectResponseSize = interop.MaxPayloadSize
+	MaxDirectResponseSize = int64(interop.MaxPayloadSize)
 }
 
 // This is only allowed in streaming mode, currently.
@@ -183,7 +183,7 @@ func TestAsyncPayloadCopyWhenUnlimitedPayloadSizeAllowed(t *testing.T) {
 	require.Equal(t, EndOfResponseComplete, writer.Header().Get(EndOfResponseTrailer))
 
 	// reset it to its original value
-	MaxDirectResponseSize = interop.MaxPayloadSize
+	MaxDirectResponseSize = int64(interop.MaxPayloadSize)
 }
 
 // We use an interruptable response writer which informs on a channel that it's ready to be interrupted after
@@ -275,7 +275,7 @@ func TestSendPayloadLimitedResponseWithinThresholdWithStreamingFunction(t *testi
 	<-testFinished
 
 	// Reset to its default value, just in case other tests use them
-	MaxDirectResponseSize = interop.MaxPayloadSize
+	MaxDirectResponseSize = int64(interop.MaxPayloadSize)
 }
 
 func TestSendPayloadLimitedResponseAboveThresholdWithStreamingFunction(t *testing.T) {
@@ -310,7 +310,7 @@ func TestSendPayloadLimitedResponseAboveThresholdWithStreamingFunction(t *testin
 	<-testFinished
 
 	// Reset to its default value, just in case other tests use them
-	MaxDirectResponseSize = interop.MaxPayloadSize
+	MaxDirectResponseSize = int64(interop.MaxPayloadSize)
 }
 
 func TestSendStreamingInvokeResponseSuccessWithTrailers(t *testing.T) {
