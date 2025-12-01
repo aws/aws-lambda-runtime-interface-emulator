@@ -6,11 +6,11 @@ package handler
 import (
 	"net/http"
 
+	"github.com/google/uuid"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/appctx"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/core"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/fatalerror"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/rapi/rendering"
-	"github.com/google/uuid"
 
 	log "github.com/sirupsen/logrus"
 )

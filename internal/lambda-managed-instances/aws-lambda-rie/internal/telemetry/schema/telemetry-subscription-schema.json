@@ -1,0 +1,81 @@
+{
+    "type": "object",
+    "required": [
+        "schemaVersion",
+        "types",
+        "destination"
+    ],
+    "properties": {
+        "schemaVersion": {
+            "type": "string",
+            "enum": [
+              "2025-01-29"
+            ]
+        },
+        "types": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+                "type": "string",
+                "enum": [
+                    "platform",
+                    "function",
+                    "extension"
+                ]
+            }
+        },
+        "destination": {
+            "oneOf": [
+                {
+                    "type": "object",
+                    "required": ["protocol", "URI"],
+                    "properties": {
+                        "protocol": {
+                            "type": "string",
+                            "enum": ["HTTP"]
+                        },
+                        "URI": {
+                            "type": "string",
+                            "minLength": 1
+                        }
+                    }
+                },
+                {
+                    "type": "object",
+                    "required": ["protocol", "port"],
+                    "properties": {
+                        "protocol": {
+                            "type": "string",
+                            "enum": ["TCP"]
+                        },
+                        "port": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 65535
+                        }
+                    }
+                }
+            ]
+        },
+        "buffering": {
+            "type": "object",
+            "properties": {
+                "maxItems": {
+                    "type": "integer",
+                    "minimum": 1000,
+                    "maximum": 10000
+                },
+                "maxBytes": {
+                    "type": "integer",
+                    "minimum": 262144,
+                    "maximum": 1048576
+                },
+                "timeoutMs": {
+                    "type": "integer",
+                    "minimum": 25,
+                    "maximum": 30000
+                }
+            }
+        }
+    }
+}

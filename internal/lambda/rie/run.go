@@ -10,9 +10,9 @@ import (
 	"os"
 	"runtime/debug"
 
+	"github.com/jessevdk/go-flags"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/interop"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/rapidcore"
-	"github.com/jessevdk/go-flags"
 
 	log "github.com/sirupsen/logrus"
 )

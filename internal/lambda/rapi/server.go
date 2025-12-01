@@ -9,8 +9,8 @@ import (
 	"net"
 	"net/http"
 
-	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/appctx"
 	"github.com/go-chi/chi/v5"
+	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/appctx"
 
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/core"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/interop"

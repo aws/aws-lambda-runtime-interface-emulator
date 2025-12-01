@@ -11,10 +11,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/supervisor/model"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/supervisor/model"
 )
 
 func TestRuntimeDomainExec(t *testing.T) {

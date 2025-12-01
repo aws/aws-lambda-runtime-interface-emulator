@@ -17,12 +17,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/fatalerror"
-	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/interop"
-	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/metering"
 	"github.com/go-chi/chi/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/fatalerror"
+	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/interop"
+	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/metering"
 )
 
 func NewResponseWriterWithoutFlushMethod() *ResponseWriterWithoutFlushMethod {

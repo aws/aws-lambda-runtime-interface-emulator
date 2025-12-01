@@ -11,11 +11,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/appctx"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/interop"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/telemetry"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/testdata"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestRenderRestoreNext(t *testing.T) {
