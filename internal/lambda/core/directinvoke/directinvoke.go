@@ -11,11 +11,11 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/core/bandwidthlimiter"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/fatalerror"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/interop"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/metering"
-	"github.com/go-chi/chi/v5"
 
 	log "github.com/sirupsen/logrus"
 )

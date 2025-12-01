@@ -13,8 +13,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/supervisor/model"
 	log "github.com/sirupsen/logrus"
+	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/supervisor/model"
 )
 
 // typecheck interface compliance

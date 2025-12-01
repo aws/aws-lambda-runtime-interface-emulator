@@ -12,10 +12,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/core/statejson"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/interop"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/rapidcore/env"
-	"github.com/stretchr/testify/require"
 )
 
 func waitForChanWithTimeout(channel <-chan error, timeout time.Duration) error {
