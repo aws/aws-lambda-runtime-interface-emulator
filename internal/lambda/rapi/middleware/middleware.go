@@ -7,13 +7,13 @@ import (
 	"context"
 	"net/http"
 
+	"github.com/google/uuid"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/extensions"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/rapi/handler"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/rapi/rendering"
-	"github.com/google/uuid"
 
-	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/appctx"
 	"github.com/go-chi/chi/v5"
+	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/appctx"
 
 	log "github.com/sirupsen/logrus"
 )

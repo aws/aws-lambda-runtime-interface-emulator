@@ -15,14 +15,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/core"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/interop"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/metering"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/rapi/model"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/rapi/rendering"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/telemetry"
-	"github.com/google/uuid"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestRenderAgentInternalError(t *testing.T) {

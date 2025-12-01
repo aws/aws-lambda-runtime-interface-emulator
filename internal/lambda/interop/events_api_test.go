@@ -7,9 +7,9 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/rapi/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/rapi/model"
 )
 
 const requestID RequestID = "REQUEST_ID"

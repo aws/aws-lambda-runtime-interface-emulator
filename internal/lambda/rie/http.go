@@ -6,9 +6,9 @@ package rie
 import (
 	"net/http"
 
+	log "github.com/sirupsen/logrus"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/interop"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/rapidcore"
-	log "github.com/sirupsen/logrus"
 )
 
 func startHTTPServer(ipport string, sandbox *rapidcore.SandboxBuilder, bs interop.Bootstrap) {

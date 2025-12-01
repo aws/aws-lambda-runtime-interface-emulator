@@ -11,13 +11,13 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/extensions"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/interop"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/rapi/handler"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/telemetry"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/testdata"
-	"github.com/google/uuid"
-	"github.com/stretchr/testify/assert"
 )
 
 const (

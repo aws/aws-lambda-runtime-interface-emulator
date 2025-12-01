@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/interop"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/metering"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestGetRuntimeDoneInvokeMetrics(t *testing.T) {

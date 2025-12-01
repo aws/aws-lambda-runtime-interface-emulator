@@ -6,10 +6,10 @@ package standalone
 import (
 	"net/http"
 
+	log "github.com/sirupsen/logrus"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/core/directinvoke"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/interop"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/rapidcore"
-	log "github.com/sirupsen/logrus"
 )
 
 const (
