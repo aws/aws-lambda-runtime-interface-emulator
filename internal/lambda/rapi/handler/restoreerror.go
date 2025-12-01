@@ -6,12 +6,12 @@ package handler
 import (
 	"net/http"
 
+	log "github.com/sirupsen/logrus"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/appctx"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/core"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/fatalerror"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/interop"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/rapi/rendering"
-	log "github.com/sirupsen/logrus"
 )
 
 type restoreErrorHandler struct {

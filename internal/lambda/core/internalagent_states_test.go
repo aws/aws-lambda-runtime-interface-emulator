@@ -6,8 +6,8 @@ package core
 import (
 	"testing"
 
-	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/testdata/mockthread"
 	"github.com/stretchr/testify/require"
+	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/testdata/mockthread"
 )
 
 func TestInternalAgentStateUnknownEventType(t *testing.T) {

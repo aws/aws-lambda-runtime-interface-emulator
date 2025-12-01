@@ -12,13 +12,13 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/appctx"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/extensions"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/rapi/handler"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/rapi/model"
-	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
-	"github.com/stretchr/testify/assert"
 )
 
 type mockHandler struct{}

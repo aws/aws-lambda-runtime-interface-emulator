@@ -13,6 +13,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/appctx"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/core"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/extensions"
@@ -22,8 +24,6 @@ import (
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/rapi/rendering"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/telemetry"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/testdata"
-	"github.com/google/uuid"
-	"github.com/stretchr/testify/assert"
 )
 
 func FuzzAgentRegisterHandler(f *testing.F) {

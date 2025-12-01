@@ -11,12 +11,12 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/appctx"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/core"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/fatalerror"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/rapi/model"
-	"github.com/google/uuid"
-	"github.com/stretchr/testify/assert"
 )
 
 func newRequest(appCtx appctx.ApplicationContext, agentID uuid.UUID) *http.Request {

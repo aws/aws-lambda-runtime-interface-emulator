@@ -8,8 +8,8 @@ import (
 
 	"net/http"
 
-	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/core/directinvoke"
 	log "github.com/sirupsen/logrus"
+	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/core/directinvoke"
 )
 
 func DirectInvokeHandler(w http.ResponseWriter, r *http.Request, s InteropServer) {

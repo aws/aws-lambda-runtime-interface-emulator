@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"net/http"
 
+	log "github.com/sirupsen/logrus"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/interop"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/rapi/model"
-	log "github.com/sirupsen/logrus"
 )
 
 // RenderForbiddenWithTypeMsg method for rendering error response

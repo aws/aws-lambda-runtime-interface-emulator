@@ -8,10 +8,10 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/interop"
-	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/testdata/mockthread"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/interop"
+	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/testdata/mockthread"
 )
 
 func TestRuntimeInitErrorAfterReady(t *testing.T) {

@@ -7,8 +7,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/testdata/mockthread"
 	"github.com/stretchr/testify/require"
+	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/testdata/mockthread"
 )
 
 func TestExternalAgentStateUnknownEventType(t *testing.T) {

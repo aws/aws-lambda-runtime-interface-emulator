@@ -6,9 +6,9 @@ package handler
 import (
 	"net/http"
 
+	log "github.com/sirupsen/logrus"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/rapi/model"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/rapi/rendering"
-	log "github.com/sirupsen/logrus"
 )
 
 const (

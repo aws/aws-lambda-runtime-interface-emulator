@@ -9,8 +9,8 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/rapi/model"
 	log "github.com/sirupsen/logrus"
+	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/rapi/model"
 )
 
 const (

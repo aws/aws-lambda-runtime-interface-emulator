@@ -6,10 +6,10 @@ package handler
 import (
 	"net/http"
 
-	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/core"
-	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/rapi/rendering"
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
+	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/core"
+	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/rapi/rendering"
 )
 
 // A CtxKey type is used as a key for storing values in the request context.

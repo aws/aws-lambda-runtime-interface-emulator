@@ -8,9 +8,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/fatalerror"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/fatalerror"
 
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/interop"
 )
