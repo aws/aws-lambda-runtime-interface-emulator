@@ -14,12 +14,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/core/statejson"
+	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/interop"
+	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/rapidcore"
+	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/rapidcore/standalone"
 	"github.com/go-chi/chi"
 	log "github.com/sirupsen/logrus"
-	"go.amzn.com/lambda/core/statejson"
-	"go.amzn.com/lambda/interop"
-	"go.amzn.com/lambda/rapidcore"
-	"go.amzn.com/lambda/rapidcore/standalone"
 )
 
 type CustomInteropServer struct {

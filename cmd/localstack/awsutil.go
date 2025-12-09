@@ -9,10 +9,6 @@ package main
 import (
 	"context"
 	"fmt"
-	log "github.com/sirupsen/logrus"
-	"go.amzn.com/lambda/interop"
-	"go.amzn.com/lambda/rapidcore/env"
-	"golang.org/x/sys/unix"
 	"io"
 	"io/fs"
 	"math"
@@ -21,6 +17,11 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/interop"
+	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/rapidcore/env"
+	log "github.com/sirupsen/logrus"
+	"golang.org/x/sys/unix"
 )
 
 const (

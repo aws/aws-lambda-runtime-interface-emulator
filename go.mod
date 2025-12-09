@@ -12,14 +12,9 @@ require (
 	github.com/go-chi/chi/v5 v5.2.3
 	github.com/google/uuid v1.6.0
 	github.com/jessevdk/go-flags v1.5.0
-	github.com/shirou/gopsutil v2.19.10+incompatible
-	github.com/aws/aws-lambda-go v1.46.0
-	github.com/go-chi/chi v1.5.5
-	github.com/go-chi/chi/v5 v5.2.2
-	github.com/google/uuid v1.6.0
-	github.com/jessevdk/go-flags v1.5.0
 	github.com/orcaman/concurrent-map v1.0.0
 	github.com/santhosh-tekuri/jsonschema/v5 v5.3.1
+	github.com/shirou/gopsutil v2.19.10+incompatible
 	github.com/sirupsen/logrus v1.9.3
 	github.com/stretchr/testify v1.9.0
 	golang.org/x/sync v0.12.0

@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/interop"
+	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/rapidcore"
 	log "github.com/sirupsen/logrus"
-	"go.amzn.com/lambda/interop"
-	"go.amzn.com/lambda/rapidcore"
 )
 
 type LsOpts struct {

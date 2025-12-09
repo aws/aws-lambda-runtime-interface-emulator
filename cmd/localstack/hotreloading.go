@@ -1,11 +1,12 @@
 package main
 
 import (
-	"github.com/fsnotify/fsnotify"
-	log "github.com/sirupsen/logrus"
-	"go.amzn.com/cmd/localstack/filenotify"
 	"os"
 	"time"
+
+	"github.com/aws/aws-lambda-runtime-interface-emulator/cmd/localstack/filenotify"
+	"github.com/fsnotify/fsnotify"
+	log "github.com/sirupsen/logrus"
 )
 
 type ChangeListener struct {

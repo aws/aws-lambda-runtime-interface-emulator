@@ -3,8 +3,9 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"go.amzn.com/lambda/appctx"
-	"go.amzn.com/lambda/interop"
+
+	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/appctx"
+	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/interop"
 )
 
 type LocalStackTracer struct {
