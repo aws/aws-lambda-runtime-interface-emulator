@@ -20,13 +20,13 @@ import (
 	"testing"
 	"unicode"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/appctx"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/extensions"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/fatalerror"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/interop"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/telemetry"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/testdata"
+	"github.com/stretchr/testify/assert"
 )
 
 type runtimeFunctionErrStruct struct {
@@ -336,7 +336,7 @@ func assertInvocationResponseTooLarge(t *testing.T, responseRecorder *httptest.R
 	assert.NotNil(t, errorResponse)
 	assert.Nil(t, flowTest.InteropServer.Response)
 	assert.Equal(t, fatalerror.FunctionOversizedResponse, errorResponse.FunctionError.Type)
-	assert.Equal(t, fmt.Sprintf("Response payload size (%v bytes) exceeded maximum allowed payload size (6291556 bytes).", len(responseBody)), errorResponse.FunctionError.Message)
+	assert.Equal(t, fmt.Sprintf("Response payload size exceeded maximum allowed payload size (6291556 bytes)."), errorResponse.FunctionError.Message)
 
 	var errorPayload map[string]interface{}
 	assert.NoError(t, json.Unmarshal(errorResponse.Payload, &errorPayload))

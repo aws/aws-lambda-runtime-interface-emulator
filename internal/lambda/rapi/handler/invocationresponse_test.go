@@ -15,11 +15,11 @@ import (
 	"testing"
 
 	"github.com/aws/aws-lambda-go/events/test"
-	"github.com/stretchr/testify/assert"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/appctx"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/fatalerror"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/interop"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/testdata"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestResponseTooLarge(t *testing.T) {
@@ -64,7 +64,7 @@ func TestResponseTooLarge(t *testing.T) {
 	assert.NotNil(t, errorResponse)
 	assert.Nil(t, flowTest.InteropServer.Response)
 	assert.Equal(t, fatalerror.FunctionOversizedResponse, errorResponse.FunctionError.Type)
-	assert.Equal(t, "Response payload size (6291557 bytes) exceeded maximum allowed payload size (6291556 bytes).", errorResponse.FunctionError.Message)
+	assert.Equal(t, "Response payload size exceeded maximum allowed payload size (6291556 bytes).", errorResponse.FunctionError.Message)
 
 	var errorPayload map[string]interface{}
 	assert.NoError(t, json.Unmarshal(errorResponse.Payload, &errorPayload))
