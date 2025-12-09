@@ -18,7 +18,7 @@ import (
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/interop"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/rapidcore"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/rapidcore/standalone"
-	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/v5"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -52,7 +52,7 @@ func (l *LocalStackAdapter) SendStatus(status LocalStackStatus, payload []byte) 
 
 // The InvokeRequest is sent by LocalStack to trigger an invocation
 type InvokeRequest struct {
-	InvokeId           string `json:"invoke-id"`
+	InvokeId           string `json:"request-id"`
 	InvokedFunctionArn string `json:"invoked-function-arn"`
 	Payload            string `json:"payload"`
 	TraceId            string `json:"trace-id"`
