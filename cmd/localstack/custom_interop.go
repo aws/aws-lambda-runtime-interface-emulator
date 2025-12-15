@@ -52,7 +52,7 @@ func (l *LocalStackAdapter) SendStatus(status LocalStackStatus, payload []byte) 
 
 // The InvokeRequest is sent by LocalStack to trigger an invocation
 type InvokeRequest struct {
-	InvokeId           string `json:"request-id"`
+	InvokeId           string `json:"invoke-id"`
 	InvokedFunctionArn string `json:"invoked-function-arn"`
 	Payload            string `json:"payload"`
 	TraceId            string `json:"trace-id"`

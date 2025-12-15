@@ -12,7 +12,6 @@ import (
 
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/interop"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/rapidcore"
-	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/rie"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -245,7 +244,7 @@ func main() {
 	// start runtime init. It is important to start `InitHandler` synchronously because we need to ensure the
 	// notification channels and status fields are properly initialized before `AwaitInitialized`
 	log.Debugln("Starting runtime init.")
-	rie.InitHandler(sandbox.LambdaInvokeAPI(), GetEnvOrDie("AWS_LAMBDA_FUNCTION_VERSION"), int64(invokeTimeoutSeconds), bootstrap) // TODO: replace this with a custom init
+	InitHandler(sandbox.LambdaInvokeAPI(), GetEnvOrDie("AWS_LAMBDA_FUNCTION_VERSION"), int64(invokeTimeoutSeconds), bootstrap, lsOpts.AccountId) // TODO: replace this with a custom init
 
 	log.Debugln("Awaiting initialization of runtime init.")
 	if err := interopServer.delegate.AwaitInitialized(); err != nil {
