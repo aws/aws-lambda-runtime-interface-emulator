@@ -8,6 +8,8 @@ on:
 jobs:
   check-for-vulnerabilities:
     runs-on: ubuntu-latest
+    permissions:
+      issues: write
     outputs:
       report_contents: ${{ steps.save-output.outputs.report_contents }}
     steps:
