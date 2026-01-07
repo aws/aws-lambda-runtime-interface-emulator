@@ -6,6 +6,8 @@ github.com/aws/aws-lambda-go v1.51.1 h1:FpqpCK2WOSoq6hJvO9PhN44GzZHWCN3e9DUQgK0B
 github.com/aws/aws-lambda-go v1.51.1/go.mod h1:dpMpZgvWx5vuQJfBt0zqBha60q7Dd7RfgJv23DymV8A=
 github.com/aws/aws-sdk-go v1.44.298 h1:5qTxdubgV7PptZJmp/2qDwD2JL187ePL7VOxsSh1i3g=
 github.com/aws/aws-sdk-go v1.44.298/go.mod h1:aVsgQcEevwlmQ7qHE9I3h+dtQgpqhFB+i8Phjh7fkwI=
+github.com/aws/aws-sdk-go v1.55.8 h1:JRmEUbU52aJQZ2AjX4q4Wu7t4uZjOu71uyNmaWlUkJQ=
+github.com/aws/aws-sdk-go v1.55.8/go.mod h1:ZkViS9AqA6otK+JBBNH2++sx1sgxrPKcSzPPvQkUtXk=
 github.com/aws/aws-xray-daemon v0.0.0-20250212175715-5defe1b8d61b h1:hiV1SQDGCUECdYdKRvfBmIZnoCWggTDauTintGTkIFU=
 github.com/aws/aws-xray-daemon v0.0.0-20250212175715-5defe1b8d61b/go.mod h1:1tKEa2CqVzCVcMS59532MHzZP5P0hF682qCGpR/Tl1k=
 github.com/cihub/seelog v0.0.0-20170130134532-f561c5e57575 h1:kHaBemcxl8o/pQ5VM1c8PVE1PubbNx3mjUr09OqWGCs=
