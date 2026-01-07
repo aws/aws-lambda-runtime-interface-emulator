@@ -14,7 +14,7 @@ require (
 	github.com/jessevdk/go-flags v1.5.0
 	github.com/orcaman/concurrent-map v1.0.0
 	github.com/santhosh-tekuri/jsonschema/v5 v5.3.1
-	github.com/shirou/gopsutil v2.19.10+incompatible
+	github.com/shirou/gopsutil v2.21.11+incompatible
 	github.com/sirupsen/logrus v1.9.3
 	github.com/stretchr/testify v1.9.0
 	golang.org/x/sync v0.19.0
@@ -24,10 +24,11 @@ require (
 require (
 	github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/go-ole/go-ole v1.2.4 // indirect
+	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect
+	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	golang.org/x/net v0.38.0 // indirect
 	golang.org/x/text v0.23.0 // indirect
 	gopkg.in/yaml.v2 v2.2.8 // indirect
