@@ -38,7 +38,7 @@ jobs:
         RELEASE_BUILD_LINKER_FLAGS: "-s -w"
       run: make compile-lambda-linux-all
       
-    - uses: actions/upload-artifact@v4
+    - uses: actions/upload-artifact@v6
       with:
         name: aws-lambda-rie
         path: bin/*
