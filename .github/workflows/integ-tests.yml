@@ -11,7 +11,7 @@ jobs:
     environment:
       name: integ-tests
     steps:
-        - uses: actions/checkout@v4
+        - uses: actions/checkout@v6
         - name: run go tests
           run: make tests-with-docker
   integ-tests-x86:
@@ -19,7 +19,7 @@ jobs:
     environment:
       name: integ-tests
     steps:
-        - uses: actions/checkout@v4
+        - uses: actions/checkout@v6
         - uses: actions/setup-python@v5
           with:
             python-version: '3.14'
@@ -30,7 +30,7 @@ jobs:
     environment:
       name: integ-tests
     steps:
-        - uses: actions/checkout@v4
+        - uses: actions/checkout@v6
         - uses: actions/setup-python@v5
           with:
             python-version: '3.14'
@@ -41,7 +41,7 @@ jobs:
     environment:
       name: integ-tests
     steps:
-        - uses: actions/checkout@v4
+        - uses: actions/checkout@v6
         - uses: actions/setup-python@v5
           with:
             python-version: '3.14'
