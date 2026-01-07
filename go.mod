@@ -17,7 +17,7 @@ require (
 	github.com/shirou/gopsutil v2.19.10+incompatible
 	github.com/sirupsen/logrus v1.9.3
 	github.com/stretchr/testify v1.9.0
-	golang.org/x/sync v0.12.0
+	golang.org/x/sync v0.19.0
 	golang.org/x/sys v0.39.0
 )
 
