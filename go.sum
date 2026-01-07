@@ -2,6 +2,8 @@ github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d h1:G0m3OIz70MZUW
 github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d/go.mod h1:3eOhrUMpNV+6aFIbp5/iudMxNCF27Vw2OZgy4xEx0Fg=
 github.com/aws/aws-lambda-go v1.50.0 h1:0GzY18vT4EsCvIyk3kn3ZH5Jg30NRlgYaai1w0aGPMU=
 github.com/aws/aws-lambda-go v1.50.0/go.mod h1:dpMpZgvWx5vuQJfBt0zqBha60q7Dd7RfgJv23DymV8A=
+github.com/aws/aws-lambda-go v1.51.1 h1:FpqpCK2WOSoq6hJvO9PhN44GzZHWCN3e9DUQgK0BOKo=
+github.com/aws/aws-lambda-go v1.51.1/go.mod h1:dpMpZgvWx5vuQJfBt0zqBha60q7Dd7RfgJv23DymV8A=
 github.com/aws/aws-sdk-go v1.44.298 h1:5qTxdubgV7PptZJmp/2qDwD2JL187ePL7VOxsSh1i3g=
 github.com/aws/aws-sdk-go v1.44.298/go.mod h1:aVsgQcEevwlmQ7qHE9I3h+dtQgpqhFB+i8Phjh7fkwI=
 github.com/aws/aws-xray-daemon v0.0.0-20250212175715-5defe1b8d61b h1:hiV1SQDGCUECdYdKRvfBmIZnoCWggTDauTintGTkIFU=
