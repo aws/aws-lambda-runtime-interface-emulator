@@ -7,7 +7,7 @@ require (
 	github.com/aws/aws-sdk-go v1.44.298
 	github.com/aws/aws-xray-daemon v0.0.0-20250212175715-5defe1b8d61b
 	github.com/cihub/seelog v0.0.0-20170130134532-f561c5e57575
-	github.com/fsnotify/fsnotify v1.6.0
+	github.com/fsnotify/fsnotify v1.9.0
 	github.com/go-chi/chi v1.5.5
 	github.com/go-chi/chi/v5 v5.2.3
 	github.com/google/uuid v1.6.0
