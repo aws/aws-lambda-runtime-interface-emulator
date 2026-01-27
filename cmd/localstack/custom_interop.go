@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"encoding/base64"
 
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/core/statejson"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/interop"
@@ -56,6 +57,7 @@ type InvokeRequest struct {
 	InvokedFunctionArn string `json:"invoked-function-arn"`
 	Payload            string `json:"payload"`
 	TraceId            string `json:"trace-id"`
+	ClientContext      string `json:"client-context"`
 }
 
 // The ErrorResponse is sent TO LocalStack when encountering an error
@@ -97,6 +99,10 @@ func NewCustomInteropServer(lsOpts *LsOpts, delegate interop.Server, logCollecto
 				functionVersion := GetEnvOrDie("AWS_LAMBDA_FUNCTION_VERSION") // default $LATEST
 				_, _ = fmt.Fprintf(logCollector, "START RequestId: %s Version: %s\n", invokeR.InvokeId, functionVersion)
 
+				decodedClientContext,err := base64.StdEncoding.DecodeString(invokeR.ClientContext)
+				if err != nil {
+					log.Error(err)
+				}
 				invokeStart := time.Now()
 				err = server.Invoke(invokeResp, &interop.Invoke{
 					ID:                 invokeR.InvokeId,
@@ -104,6 +110,7 @@ func NewCustomInteropServer(lsOpts *LsOpts, delegate interop.Server, logCollecto
 					Payload:            strings.NewReader(invokeR.Payload), // r.Body,
 					NeedDebugLogs:      true,
 					TraceID:            invokeR.TraceId,
+					ClientContext:      string(decodedClientContext),
 					// TODO: set correct segment ID from request
 					//LambdaSegmentID:    "LambdaSegmentID", // r.Header.Get("X-Amzn-Segment-Id"),
 					//CognitoIdentityID:     "",
