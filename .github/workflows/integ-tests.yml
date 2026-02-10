@@ -6,6 +6,9 @@ on:
       - develop
       - main
 
+permissions:
+  contents: read
+
 jobs:
   go-tests:
     runs-on: ubuntu-latest
