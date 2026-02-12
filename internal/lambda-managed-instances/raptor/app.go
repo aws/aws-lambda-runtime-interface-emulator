@@ -33,6 +33,7 @@ type App struct {
 
 	err                   atomic.Value
 	doneCh                chan struct{}
+	shutdownStartedCh     chan struct{}
 	telemetryFDSocketPath string
 	raptorLogger          raptorLogger
 }
@@ -48,6 +49,7 @@ func StartApp(deps rapid.Dependencies, telemetryFDSocketPath string, raptorLogge
 		rapidCtx:              rapidCtx,
 		state:                 internal.NewStateGuard(),
 		doneCh:                make(chan struct{}),
+		shutdownStartedCh:     make(chan struct{}),
 		telemetryFDSocketPath: telemetryFDSocketPath,
 		raptorLogger:          raptorLogger,
 	}
@@ -77,7 +79,11 @@ func (a *App) Init(ctx context.Context, init *internalModel.InitRequestMessage, 
 
 	if initErr != nil {
 		logging.Err(ctx, "Received Init error", initErr)
-		a.Shutdown(initErr)
+		go func() {
+			a.Shutdown(initErr)
+		}()
+
+		<-a.shutdownStartedCh
 
 		return initErr
 	}
@@ -139,6 +145,7 @@ func (a *App) Shutdown(shutdownReason model.AppError) {
 		if shutdownReason != nil {
 			a.err.Store(shutdownReason)
 		}
+		close(a.shutdownStartedCh)
 
 		var shutdownErr model.AppError
 		if shutdownErr = a.rapidCtx.HandleShutdown(shutdownReason, metrics); shutdownErr != nil {

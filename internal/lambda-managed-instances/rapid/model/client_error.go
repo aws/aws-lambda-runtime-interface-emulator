@@ -11,7 +11,7 @@ const (
 	ErrorInitIncomplete                    ErrorType = "Client.InitIncomplete"
 	ErrorEnvironmentUnhealthy              ErrorType = "Client.ExecutionEnvironmentUnhealthy"
 	ErrorRuntimeUnavailable                ErrorType = "Runtime.Unavailable"
-	ErrorDublicatedInvokeId                ErrorType = "Client.DuplicatedInvokeId"
+	ErrorDuplicatedInvokeId                ErrorType = "Client.DuplicatedInvokeId"
 	ErrorInvalidFunctionVersion            ErrorType = "ErrInvalidFunctionVersion"
 	ErrorInvalidMaxPayloadSize             ErrorType = "ErrInvalidMaxPayloadSize"
 	ErrorInvalidResponseBandwidthRate      ErrorType = "ErrInvalidResponseBandwidthRate"

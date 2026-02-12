@@ -416,6 +416,34 @@ func Test_invokeMetrics_ServiceLogs(t *testing.T) {
 			},
 		},
 		{
+			name:          "duplicated_invoke_id_error",
+			expectedBytes: 0,
+			metricFlow: func(ev *invokeMetrics, mocks *invokeMetricsMocks) {
+				mocks.timeStamp = mocks.timeStamp.Add(time.Second)
+				ev.AttachInvokeRequest(&mocks.invokeReq)
+				ev.AttachDependencies(&mocks.initData, &mocks.eventsApi)
+				ev.UpdateConcurrencyMetrics(5, 3)
+				mocks.error = model.NewClientError(nil, model.ErrorSeverityError, model.ErrorDuplicatedInvokeId)
+			},
+			expectedProps: []servicelogs.Property{
+				{Name: "RequestId", Value: "invoke-id"},
+			},
+			expectedDims: []servicelogs.Dimension{
+				{Name: "RequestMode", Value: "Streaming"},
+			},
+			expectedMetrics: []servicelogs.Metric{
+				{Type: servicelogs.TimerType, Key: "TotalDuration", Value: 1000000},
+				{Type: servicelogs.CounterType, Key: "InflightRequestCount", Value: 5},
+				{Type: servicelogs.CounterType, Key: "IdleRuntimesCount", Value: 3},
+				{Type: servicelogs.TimerType, Key: "PlatformOverheadDuration", Value: 1000000},
+				{Type: servicelogs.CounterType, Key: "ClientError", Value: 1},
+				{Type: servicelogs.CounterType, Key: "CustomerError", Value: 0},
+				{Type: servicelogs.CounterType, Key: "PlatformError", Value: 0},
+				{Type: servicelogs.CounterType, Key: "ClientErrorReason-Client.DuplicatedInvokeId", Value: 1},
+				{Type: servicelogs.CounterType, Key: "NonCustomerError", Value: 0},
+			},
+		},
+		{
 			name:          "runtime_timeout_flow",
 			expectedBytes: 100,
 			metricFlow: func(ev *invokeMetrics, mocks *invokeMetricsMocks) {
