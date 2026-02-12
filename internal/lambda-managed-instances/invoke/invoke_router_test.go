@@ -190,7 +190,7 @@ func TestInvokeFailure_DublicatedInvokeId(t *testing.T) {
 
 	err = <-ch
 	assert.Error(t, err)
-	assert.Equal(t, model.ErrorDublicatedInvokeId, err.ErrorType())
+	assert.Equal(t, model.ErrorDuplicatedInvokeId, err.ErrorType())
 
 	close(respChannel)
 	err = <-ch

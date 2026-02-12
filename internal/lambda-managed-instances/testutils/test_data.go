@@ -80,9 +80,8 @@ func JsonEncode(payload model.InitRequestMessage) string {
 
 func WithInvalidPayload() InitPayloadOption {
 	return func(p *model.InitRequestMessage) {
-		p.AwsKey = "AKIAIOSFODNN7EXAMPLE"
 
-		p.RuntimeBinaryCommand = nil
+		p.AwsKey = ""
 	}
 }
 

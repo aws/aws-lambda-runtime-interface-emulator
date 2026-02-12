@@ -46,12 +46,13 @@ func TestAppInitFailure(t *testing.T) {
 	expectedErr := model.NewCustomerError(model.ErrorReasonRuntimeExecFailed, model.WithSeverity(model.ErrorSeverityFatal))
 	mockRapidCtx, app, initRequest, initMetrics, _, _ := setupAppTest(t)
 	mockRapidCtx.On("HandleInit", mock.Anything, mock.Anything, mock.Anything).Return(expectedErr)
-	mockRapidCtx.On("HandleShutdown", mock.Anything, mock.Anything).Return(nil)
+	mockRapidCtx.On("HandleShutdown", mock.Anything, mock.Anything).Return(nil).Maybe()
 
 	initErr := app.Init(context.Background(), initRequest, initMetrics)
 	assert.Equal(t, expectedErr, initErr)
 
-	assert.Equal(t, internal.Shutdown, app.state.GetState())
+	state := app.state.GetState()
+	assert.True(t, state == internal.Shutdown || state == internal.ShuttingDown, "Expected state to be either Shutdown or ShuttingDown, got %s", state)
 	mockRapidCtx.AssertExpectations(t)
 }
 
@@ -99,10 +100,11 @@ func TestStartProcessTerminationMonitor(t *testing.T) {
 	mockLogger.On("Log", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 
 	app := &App{
-		rapidCtx:     mockRapidCtx,
-		state:        internal.NewStateGuard(),
-		doneCh:       make(chan struct{}),
-		raptorLogger: mockLogger,
+		rapidCtx:          mockRapidCtx,
+		state:             internal.NewStateGuard(),
+		doneCh:            make(chan struct{}),
+		shutdownStartedCh: make(chan struct{}),
+		raptorLogger:      mockLogger,
 	}
 
 	assert.Equal(t, internal.Idle, app.state.GetState())
@@ -223,10 +225,11 @@ func setupAppTest(t *testing.T) (*interop.MockRapidContext, *App, *internalModel
 	mockLogger.On("SetInitData", mock.Anything).Maybe()
 
 	app := &App{
-		rapidCtx:     mockRapidCtx,
-		state:        internal.NewStateGuard(),
-		doneCh:       make(chan struct{}),
-		raptorLogger: mockLogger,
+		rapidCtx:          mockRapidCtx,
+		state:             internal.NewStateGuard(),
+		doneCh:            make(chan struct{}),
+		shutdownStartedCh: make(chan struct{}),
+		raptorLogger:      mockLogger,
 	}
 
 	app.StartProcessTerminationMonitor()
