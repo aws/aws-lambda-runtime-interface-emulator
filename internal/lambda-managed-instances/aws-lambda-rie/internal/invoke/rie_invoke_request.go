@@ -4,8 +4,12 @@
 package invoke
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -15,6 +19,11 @@ import (
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda-managed-instances/invoke"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda-managed-instances/rapid/model"
 )
+
+type cognitoIdentity struct {
+	CognitoIdentityID     string `json:"cognitoIdentityId"`
+	CognitoIdentityPoolID string `json:"cognitoIdentityPoolId"`
+}
 
 type rieInvokeRequest struct {
 	request *http.Request
@@ -35,16 +44,45 @@ type rieInvokeRequest struct {
 	functionVersionID string
 }
 
-func NewRieInvokeRequest(request *http.Request, writer http.ResponseWriter) *rieInvokeRequest {
+func NewRieInvokeRequest(request *http.Request, writer http.ResponseWriter) (*rieInvokeRequest, model.AppError) {
 
 	contentType := request.Header.Get(invoke.СontentTypeHeader)
 	if contentType == "" {
 		contentType = "application/json"
 	}
 
-	invokeID := request.Header.Get("X-Amzn-RequestId")
+	invokeID := request.Header.Get(RequestIdHeader)
 	if invokeID == "" {
 		invokeID = uuid.New().String()
+	}
+
+	clientContext := ""
+	if encodedClientContext := request.Header.Get(ClientContextHeader); encodedClientContext != "" {
+		decodedClientContext, err := base64.StdEncoding.DecodeString(encodedClientContext)
+		if err != nil {
+			slog.Warn("Failed to decode X-Amz-Client-Context header", "err", err)
+			return nil, model.NewClientError(
+				fmt.Errorf("X-Amz-Client-Context must be a valid base64 encoded string: %w", err),
+				model.ErrorSeverityInvalid,
+				model.ErrorMalformedRequest,
+			)
+		}
+		clientContext = string(decodedClientContext)
+	}
+
+	var cognitoIdentityId, cognitoIdentityPoolId string
+	if cognitoIdentityHeader := request.Header.Get(CognitoIdentityHeader); cognitoIdentityHeader != "" {
+		var cognito cognitoIdentity
+		if err := json.Unmarshal([]byte(cognitoIdentityHeader), &cognito); err != nil {
+			slog.Warn("Failed to parse X-Amz-Cognito-Identity header", "err", err)
+			return nil, model.NewClientError(
+				fmt.Errorf("X-Amz-Cognito-Identity must be a valid JSON string: %w", err),
+				model.ErrorSeverityInvalid,
+				model.ErrorMalformedRequest,
+			)
+		}
+		cognitoIdentityId = cognito.CognitoIdentityID
+		cognitoIdentityPoolId = cognito.CognitoIdentityPoolID
 	}
 
 	req := &rieInvokeRequest{
@@ -56,13 +94,13 @@ func NewRieInvokeRequest(request *http.Request, writer http.ResponseWriter) *rie
 		responseBandwidthRate:      2 * 1024 * 1024,
 		responseBandwidthBurstSize: 6 * 1024 * 1024,
 		traceId:                    request.Header.Get(invoke.TraceIdHeader),
-		cognitoIdentityId:          "",
-		cognitoIdentityPoolId:      "",
-		clientContext:              request.Header.Get("X-Amz-Client-Context"),
+		cognitoIdentityId:          cognitoIdentityId,
+		cognitoIdentityPoolId:      cognitoIdentityPoolId,
+		clientContext:              clientContext,
 		responseMode:               request.Header.Get(invoke.ResponseModeHeader),
 	}
 
-	return req
+	return req, nil
 }
 
 func (r *rieInvokeRequest) ContentType() string {

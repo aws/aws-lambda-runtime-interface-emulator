@@ -54,6 +54,7 @@ func TestSetupEnvironment(t *testing.T) {
 		AWS_LAMBDA_FUNCTION_VERSION:     "$LATEST",
 		AWS_LAMBDA_LOG_FORMAT:           "json",
 		AWS_LAMBDA_LOG_LEVEL:            "info",
+		AWS_LAMBDA_MAX_CONCURRENCY:      "1",
 		AWS_REGION:                      "us-west-2",
 		AWS_SECRET_ACCESS_KEY:           "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
 		AWS_SESSION_TOKEN:               "FwoGZXIvYXdzEMj//////////wEaDM1Qz0oN8BNwV9GqyyLVAebxhwq9ZGqojXZe1UTJkzK6F9V+VZHhT5JSWYzJUKEwOqOkQyQXJpfJsYHfkJEXtR6Kh9mXnEbqKi",

@@ -105,7 +105,7 @@ func (ir *InvokeRouter) Invoke(ctx context.Context, initData interop.InitStaticD
 
 	if !ir.runningInvokes.SetIfAbsent(invokeReq.InvokeID(), idleRuntime) {
 		logging.Warn(ctx, "InvokeRouter error: duplicated invokeId")
-		return model.NewClientError(ErrInvokeIdAlreadyExists, model.ErrorSeverityError, model.ErrorDublicatedInvokeId), false
+		return model.NewClientError(ErrInvokeIdAlreadyExists, model.ErrorSeverityError, model.ErrorDuplicatedInvokeId), false
 	}
 
 	defer ir.runningInvokes.Remove(invokeReq.InvokeID())
