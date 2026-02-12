@@ -658,7 +658,7 @@ func (s *Server) Invoke(responseWriter http.ResponseWriter, invoke *interop.Invo
 		// The logic would be almost identical, except that init failures could manifest
 		// through return values of FastInvoke and not Reserve()
 
-		reserveResp, err := s.Reserve("", "", "")
+		reserveResp, err := s.Reserve(invoke.ID, "", "")
 		if err != nil {
 			log.Infof("ReserveFailed: %s", err)
 		}

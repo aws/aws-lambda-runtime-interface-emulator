@@ -4,7 +4,6 @@
 package raptor
 
 import (
-	"context"
 	"log/slog"
 	"net"
 	"net/http"
@@ -45,13 +44,10 @@ func StartServer(shutdownHandler shutdownHandler, handler http.Handler, addr Add
 
 func (s *Server) Shutdown(err error) {
 	s.shutdownOnce.Do(func() {
-
 		s.shutdownHandler.Shutdown(model.NewClientError(err, model.ErrorSeverityFatal, model.ErrorExecutionEnvironmentShutdown))
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-		defer cancel()
 		slog.Info("Shutting down HTTP server...")
-		if err := s.httpServer.Shutdown(ctx); err != nil {
-			slog.Warn("could not gracefully shutdown EA http server", "err", err)
+		if err := s.httpServer.Close(); err != nil {
+			slog.Warn("error shutdown EA http server", "err", err)
 		}
 
 		if err != nil {

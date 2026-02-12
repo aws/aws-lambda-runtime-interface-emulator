@@ -352,7 +352,8 @@ func (e *invokeMetrics) buildMetrics() []servicelogs.Metric {
 	switch e.error.(type) {
 	case model.ClientError:
 		clientErrCnt = 1
-		if e.error.ErrorType() != model.ErrorRuntimeUnavailable {
+		if e.error.ErrorType() != model.ErrorRuntimeUnavailable &&
+			e.error.ErrorType() != model.ErrorDuplicatedInvokeId {
 
 			nonCustomerErrCnt = 1
 		}

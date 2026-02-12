@@ -6,6 +6,7 @@ package rie
 import (
 	"bytes"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"math"
@@ -116,14 +117,37 @@ func InvokeHandler(w http.ResponseWriter, r *http.Request, sandbox Sandbox, bs i
 	}
 
 	invokeStart := time.Now()
+	invokeID := r.Header.Get("X-Amzn-RequestId")
+	if invokeID == "" {
+		invokeID = uuid.New().String()
+	}
+
+	// Parse X-Amz-Cognito-Identity header (JSON with cognitoIdentityId and cognitoIdentityPoolId fields)
+	var cognitoIdentityID, cognitoIdentityPoolID string
+	if cognitoIdentityHeader := r.Header.Get("X-Amz-Cognito-Identity"); cognitoIdentityHeader != "" {
+		var cognitoIdentity struct {
+			CognitoIdentityID     string `json:"cognitoIdentityId"`
+			CognitoIdentityPoolID string `json:"cognitoIdentityPoolId"`
+		}
+		if err := json.Unmarshal([]byte(cognitoIdentityHeader), &cognitoIdentity); err != nil {
+			log.Errorf("Failed to parse X-Amz-Cognito-Identity header: %s", err)
+			w.WriteHeader(500)
+			return
+		}
+		cognitoIdentityID = cognitoIdentity.CognitoIdentityID
+		cognitoIdentityPoolID = cognitoIdentity.CognitoIdentityPoolID
+	}
+
 	invokePayload := &interop.Invoke{
-		ID:                 uuid.New().String(),
-		InvokedFunctionArn: fmt.Sprintf("arn:aws:lambda:us-east-1:012345678912:function:%s", GetenvWithDefault("AWS_LAMBDA_FUNCTION_NAME", "test_function")),
-		TraceID:            r.Header.Get("X-Amzn-Trace-Id"),
-		LambdaSegmentID:    r.Header.Get("X-Amzn-Segment-Id"),
-		TenantID:           interop.TenantID(r.Header.Get("X-Amz-Tenant-Id")),
-		Payload:            bytes.NewReader(bodyBytes),
-		ClientContext:      string(rawClientContext),
+		ID:                    invokeID,
+		InvokedFunctionArn:    fmt.Sprintf("arn:aws:lambda:us-east-1:012345678912:function:%s", GetenvWithDefault("AWS_LAMBDA_FUNCTION_NAME", "test_function")),
+		TraceID:               r.Header.Get("X-Amzn-Trace-Id"),
+		LambdaSegmentID:       r.Header.Get("X-Amzn-Segment-Id"),
+		TenantID:              interop.TenantID(r.Header.Get("X-Amz-Tenant-Id")),
+		Payload:               bytes.NewReader(bodyBytes),
+		ClientContext:         string(rawClientContext),
+		CognitoIdentityID:     cognitoIdentityID,
+		CognitoIdentityPoolID: cognitoIdentityPoolID,
 	}
 	fmt.Println("START RequestId: " + invokePayload.ID + " Version: " + functionVersion)
 
