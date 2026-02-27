@@ -57,8 +57,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ## github.com/go-chi/chi/v5
 
 * Name: github.com/go-chi/chi/v5
-* Version: v5.2.2
-* License: [MIT](https://github.com/go-chi/chi/blob/v5.2.2/LICENSE)
+* Version: v5.2.5
+* License: [MIT](https://github.com/go-chi/chi/blob/v5.2.5/LICENSE)
 
 ```
 Copyright (c) 2015-present Peter Kieltyka (https://github.com/pkieltyka), Google Inc.
