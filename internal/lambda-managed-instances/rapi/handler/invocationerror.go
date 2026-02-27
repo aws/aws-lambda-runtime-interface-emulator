@@ -8,7 +8,7 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/v5"
 
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda-managed-instances/invoke"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda-managed-instances/logging"
