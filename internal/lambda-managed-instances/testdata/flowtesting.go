@@ -6,7 +6,7 @@ package testdata
 import (
 	"bytes"
 	"context"
-	"io/ioutil"
+	"io"
 
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda-managed-instances/appctx"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda-managed-instances/core"
@@ -29,7 +29,7 @@ type MockInteropServer struct {
 }
 
 func (i *MockInteropServer) SendResponse(invokeID string, resp *interop.StreamableInvokeResponse) (*interop.InvokeResponseMetrics, error) {
-	bytes, err := ioutil.ReadAll(resp.Payload)
+	bytes, err := io.ReadAll(resp.Payload)
 	if err != nil {
 		return nil, err
 	}
