@@ -1,4 +1,4 @@
-module golang.a2z.com/LambdaRIEGithubSource
+module github.com/aws/aws-lambda-runtime-interface-emulator
 
 go 1.25.7
 
