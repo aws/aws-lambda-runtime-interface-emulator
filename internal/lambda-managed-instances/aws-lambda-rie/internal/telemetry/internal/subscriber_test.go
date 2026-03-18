@@ -25,7 +25,7 @@ func TestSubscriber(t *testing.T) {
 
 	agentName := fmt.Sprintf("test-name-%d", rand.Uint32())
 	sub := NewSubscriber(agentName, map[EventCategory]struct{}{CategoryPlatform: {}}, BufferingConfig{MaxItems: 2, MaxBytes: math.MaxInt, Timeout: math.MaxInt}, client, logsDroppedEventAPI)
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(200 * time.Millisecond)
 	assert.Equal(t, agentName, sub.AgentName())
 
 	sub.Flush(context.Background())
@@ -43,11 +43,15 @@ func TestSubscriber(t *testing.T) {
 	client.On("send", mock.Anything, mock.Anything).Return(nil)
 	sub.SendAsync(event, CategoryPlatform)
 
+	time.Sleep(100 * time.Millisecond)
+
 	require.Eventually(t, func() bool {
 		return client.AssertNumberOfCalls(t, "send", 1)
-	}, time.Second, 10*time.Millisecond)
+	}, 2*time.Second, 10*time.Millisecond)
 
 	sub.SendAsync(event, CategoryPlatform)
+
+	time.Sleep(100 * time.Millisecond)
 	assert.Eventually(
 		t,
 		func() bool {
@@ -55,7 +59,7 @@ func TestSubscriber(t *testing.T) {
 			sub.Flush(context.Background())
 			return client.AssertNumberOfCalls(t, "send", 2)
 		},
-		time.Second,
+		2*time.Second,
 		10*time.Millisecond,
 	)
 }

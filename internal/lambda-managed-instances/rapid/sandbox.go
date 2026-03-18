@@ -8,6 +8,8 @@ import (
 	"log/slog"
 	"net/netip"
 
+	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lmds"
+
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda-managed-instances/appctx"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda-managed-instances/core"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda-managed-instances/interop"
@@ -21,7 +23,7 @@ import (
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda-managed-instances/utils"
 )
 
-const MaxIdleRuntimesQueueSize = 10_000
+const RuntimePoolSize = 10_000
 
 type Dependencies struct {
 	InteropServer            interop.Server
@@ -31,6 +33,7 @@ type Dependencies struct {
 	Supervisor               supvmodel.ProcessSupervisor
 	FileUtils                utils.FileUtil
 	InvokeRouter             *invoke.InvokeRouter
+	MetadataService          *lmds.Service
 
 	RuntimeAPIAddrPort netip.AddrPort
 }
@@ -42,7 +45,7 @@ func Start(ctx context.Context, deps Dependencies) (interop.RapidContext, error)
 	registrationService := core.NewRegistrationService(initFlow)
 	renderingService := rendering.NewRenderingService()
 
-	server, err := rapi.NewServer(deps.RuntimeAPIAddrPort, appCtx, registrationService, renderingService, deps.TelemetrySubscriptionAPI, deps.InvokeRouter)
+	server, err := rapi.NewServer(deps.RuntimeAPIAddrPort, appCtx, registrationService, renderingService, deps.TelemetrySubscriptionAPI, deps.InvokeRouter, deps.MetadataService)
 	if err != nil {
 		return nil, err
 	}

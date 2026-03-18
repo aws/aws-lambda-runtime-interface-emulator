@@ -13,6 +13,7 @@ import (
 
 const (
 	AWS_ACCESS_KEY_ID                        = "AWS_ACCESS_KEY_ID"
+	AWS_ACCOUNT_ID                           = "AWS_ACCOUNT_ID"
 	AWS_DEFAULT_REGION                       = "AWS_DEFAULT_REGION"
 	AWS_LAMBDA_FUNCTION_MEMORY_SIZE          = "AWS_LAMBDA_FUNCTION_MEMORY_SIZE"
 	AWS_LAMBDA_FUNCTION_NAME                 = "AWS_LAMBDA_FUNCTION_NAME"
@@ -30,6 +31,8 @@ const (
 	_LAMBDA_TELEMETRY_LOG_FD_PROVIDER_SOCKET = "_LAMBDA_TELEMETRY_LOG_FD_PROVIDER_SOCKET"
 	AWS_EXECUTION_ENV                        = "AWS_EXECUTION_ENV"
 	AWS_LAMBDA_INITIALIZATION_TYPE           = "AWS_LAMBDA_INITIALIZATION_TYPE"
+	AWS_LAMBDA_METADATA_API                  = "AWS_LAMBDA_METADATA_API"
+	AWS_LAMBDA_METADATA_TOKEN                = "AWS_LAMBDA_METADATA_TOKEN"
 	AWS_LAMBDA_RUNTIME_API                   = "AWS_LAMBDA_RUNTIME_API"
 	AWS_XRAY_CONTEXT_MISSING                 = "AWS_XRAY_CONTEXT_MISSING"
 	AWS_XRAY_DAEMON_ADDRESS                  = "AWS_XRAY_DAEMON_ADDRESS"
@@ -46,6 +49,7 @@ const (
 
 var Defined = map[string]struct{}{
 	AWS_ACCESS_KEY_ID:                        {},
+	AWS_ACCOUNT_ID:                           {},
 	AWS_DEFAULT_REGION:                       {},
 	AWS_LAMBDA_FUNCTION_MEMORY_SIZE:          {},
 	AWS_LAMBDA_FUNCTION_NAME:                 {},
@@ -63,6 +67,8 @@ var Defined = map[string]struct{}{
 	_LAMBDA_TELEMETRY_LOG_FD_PROVIDER_SOCKET: {},
 	AWS_EXECUTION_ENV:                        {},
 	AWS_LAMBDA_INITIALIZATION_TYPE:           {},
+	AWS_LAMBDA_METADATA_API:                  {},
+	AWS_LAMBDA_METADATA_TOKEN:                {},
 	AWS_LAMBDA_RUNTIME_API:                   {},
 	AWS_XRAY_CONTEXT_MISSING:                 {},
 	AWS_XRAY_DAEMON_ADDRESS:                  {},
@@ -78,6 +84,7 @@ var Defined = map[string]struct{}{
 }
 
 var overridable = map[string]struct{}{
+	AWS_ACCOUNT_ID:           {},
 	AWS_LAMBDA_LOG_FORMAT:    {},
 	AWS_LAMBDA_LOG_LEVEL:     {},
 	AWS_XRAY_CONTEXT_MISSING: {},
@@ -88,7 +95,7 @@ var overridable = map[string]struct{}{
 	TZ:                       {},
 }
 
-func SetupEnvironment(config *model.InitRequestMessage, runtimePort, runtimeLoggingSocket string) (runtimeEnv, extensionEnv model.KVMap) {
+func SetupEnvironment(config *model.InitRequestMessage, runtimeAPIAddrPort, runtimeLoggingSocket, metadataAPIAddrPort, metadataToken string) (runtimeEnv, extensionEnv model.KVMap) {
 
 	commonVars := model.KVMap{
 		AWS_ACCESS_KEY_ID:               config.AwsKey,
@@ -101,7 +108,9 @@ func SetupEnvironment(config *model.InitRequestMessage, runtimePort, runtimeLogg
 		AWS_SECRET_ACCESS_KEY:           config.AwsSecret,
 		AWS_SESSION_TOKEN:               config.AwsSession,
 		AWS_LAMBDA_INITIALIZATION_TYPE:  interop.InitializationType,
-		AWS_LAMBDA_RUNTIME_API:          runtimePort,
+		AWS_LAMBDA_METADATA_API:         metadataAPIAddrPort,
+		AWS_LAMBDA_METADATA_TOKEN:       metadataToken,
+		AWS_LAMBDA_RUNTIME_API:          runtimeAPIAddrPort,
 	}
 	if config.ArtefactType == model.ArtefactTypeZIP {
 		commonVars[LANG] = "en_US.UTF-8"
@@ -114,6 +123,9 @@ func SetupEnvironment(config *model.InitRequestMessage, runtimePort, runtimeLogg
 	}
 	if config.LogLevel != "" {
 		commonVars[AWS_LAMBDA_LOG_LEVEL] = config.LogLevel
+	}
+	if config.AccountID != "" {
+		commonVars[AWS_ACCOUNT_ID] = config.AccountID
 	}
 
 	for k, v := range cloneAndFilterCustomerEnvVars(config.EnvVars) {

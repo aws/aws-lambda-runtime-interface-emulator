@@ -17,11 +17,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lmds"
 
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda-managed-instances/appctx"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda-managed-instances/core"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda-managed-instances/interop"
 	internalmodel "github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda-managed-instances/model"
+	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda-managed-instances/rapi"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda-managed-instances/rapi/rendering"
 	rapidmodel "github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda-managed-instances/rapid/model"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda-managed-instances/rapidcore/env"
@@ -98,7 +100,7 @@ func makeRapidTestEnv() (runtimeEnv internalmodel.KVMap, extensionEnv internalmo
 		EnvVars:         make(map[string]string),
 	}
 
-	return env.SetupEnvironment(config, "host:port", "/path")
+	return env.SetupEnvironment(config, "host:port", "/path", "host:port", "test-token")
 }
 
 func makeFileUtils(withExtensions bool) *utils.MockFileUtil {
@@ -131,8 +133,22 @@ func makeRapidContext(appCtx appctx.ApplicationContext, initFlow core.InitFlowSy
 	}
 	runtime.SetState(runtime.RuntimeReadyState)
 
+	server, err := rapi.NewServer(
+		netip.MustParseAddrPort("127.0.0.1:0"),
+		appCtx,
+		registrationService,
+		nil,
+		nil,
+		nil,
+		lmds.NewService("test-token"),
+	)
+	if err != nil {
+		panic(err)
+	}
+
 	rapidCtx := &rapidContext{
 
+		server:                   server,
 		appCtx:                   appCtx,
 		initFlow:                 initFlow,
 		registrationService:      registrationService,

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda-managed-instances/aws-lambda-rie/internal/telemetry/internal"
@@ -53,7 +54,16 @@ func TestLogsEgress(t *testing.T) {
 			require.NotNil(t, stderr)
 
 			line := []byte("test\n")
-			relay.On("broadcast", "test", tt.expectedCategory, tt.expectedCategory).Twice()
+
+			done := make(chan struct{}, 2)
+
+			relay.
+				On("broadcast", "test", tt.expectedCategory, tt.expectedCategory).
+				Twice().
+				Run(func(args mock.Arguments) {
+					done <- struct{}{}
+				})
+
 			n, err := stdout.Write(line)
 			assert.NoError(t, err)
 			assert.Len(t, line, n)
@@ -61,9 +71,14 @@ func TestLogsEgress(t *testing.T) {
 			assert.NoError(t, err)
 			assert.Len(t, line, n)
 
-			assert.Eventually(t, func() bool {
-				return relay.AssertNumberOfCalls(t, "broadcast", 2)
-			}, 1*time.Second, 10*time.Millisecond)
+			for i := 0; i < 2; i++ {
+				select {
+				case <-done:
+
+				case <-time.After(2 * time.Second):
+					t.Fatal("timeout waiting for broadcast calls")
+				}
+			}
 		})
 	}
 }

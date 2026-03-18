@@ -1,0 +1,20 @@
+name: Validate PR Branch into Main 
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  validate-pr-branch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check source branch
+        run: |
+          SOURCE_BRANCH="${{ github.head_ref }}"
+          if [[ "$SOURCE_BRANCH" != "develop" ]]; then
+            echo "Error: Only pull requests from develop branch are allowed into main"
+            echo "Current source branch ($SOURCE_BRANCH)."
+            exit 1
+          fi
+          echo "Source branch is develop - merge allowed"

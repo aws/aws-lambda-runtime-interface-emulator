@@ -11,8 +11,10 @@ import (
 	"net/netip"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda-managed-instances/interop"
+	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda-managed-instances/invoke"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda-managed-instances/logging"
 	internalModel "github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda-managed-instances/model"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda-managed-instances/rapid"
@@ -28,6 +30,7 @@ var (
 
 type App struct {
 	rapidCtx     interop.RapidContext
+	invokeRouter *invoke.InvokeRouter
 	state        *internal.StateGuard
 	shutdownOnce sync.Once
 
@@ -36,9 +39,10 @@ type App struct {
 	shutdownStartedCh     chan struct{}
 	telemetryFDSocketPath string
 	raptorLogger          raptorLogger
+	metadataToken         string
 }
 
-func StartApp(deps rapid.Dependencies, telemetryFDSocketPath string, raptorLogger raptorLogger) (*App, error) {
+func StartApp(deps rapid.Dependencies, telemetryFDSocketPath, metadataToken string, raptorLogger raptorLogger) (*App, error) {
 	ctx := context.Background()
 	rapidCtx, err := rapid.Start(ctx, deps)
 	if err != nil {
@@ -47,11 +51,13 @@ func StartApp(deps rapid.Dependencies, telemetryFDSocketPath string, raptorLogge
 
 	app := &App{
 		rapidCtx:              rapidCtx,
+		invokeRouter:          deps.InvokeRouter,
 		state:                 internal.NewStateGuard(),
 		doneCh:                make(chan struct{}),
 		shutdownStartedCh:     make(chan struct{}),
 		telemetryFDSocketPath: telemetryFDSocketPath,
 		raptorLogger:          raptorLogger,
+		metadataToken:         metadataToken,
 	}
 
 	app.StartProcessTerminationMonitor()
@@ -72,7 +78,7 @@ func (a *App) Init(ctx context.Context, init *internalModel.InitRequestMessage, 
 		}
 	}
 
-	initMessage := getInitExecutionData(init, a.RuntimeAPIAddrPort().String(), a.telemetryFDSocketPath)
+	initMessage := getInitExecutionData(init, a.RuntimeAPIAddrPort().String(), a.telemetryFDSocketPath, a.metadataToken)
 	a.raptorLogger.SetInitData(&initMessage)
 	logging.Debug(ctx, "Start handling Init", "initRequest", init)
 	initErr := a.rapidCtx.HandleInit(ctx, initMessage, initMetrics)
@@ -208,6 +214,47 @@ func (a *App) Err() model.AppError {
 		return err.(model.AppError)
 	}
 	return nil
+}
+
+func (a *App) ReserveIdleRuntime(ctx context.Context, invokeID interop.InvokeID, timeout time.Duration) (interop.ReserveIdleRuntimeResponse, model.AppError) {
+	currState := a.state.GetState()
+	switch currState {
+	case internal.Initialized:
+
+	case internal.Idle, internal.Initializing:
+		logging.Error(ctx, "Cannot reserve: sandbox not initialized", "state", currState)
+		return interop.ReserveIdleRuntimeFailureResponse{ErrorType: model.ErrorInitIncomplete}, interop.ClientError{
+			ClientError: model.NewClientError(
+				ErrNotInitialized,
+				model.ErrorSeverityError,
+				model.ErrorInitIncomplete,
+			),
+		}
+	case internal.ShuttingDown, internal.Shutdown:
+		logging.Error(ctx, "Cannot reserve: sandbox shutting down", "state", currState)
+		return interop.ReserveIdleRuntimeFailureResponse{ErrorType: model.ErrorEnvironmentUnhealthy}, interop.ClientError{
+			ClientError: model.NewClientError(
+				ErrorEnvironmentUnhealthy,
+				model.ErrorSeverityFatal,
+				model.ErrorEnvironmentUnhealthy,
+			),
+		}
+	default:
+		panic(fmt.Sprintf("unknown current state: %d", currState))
+	}
+
+	if a.invokeRouter == nil {
+		logging.Error(ctx, "Cannot reserve: invoke router not initialized")
+		return interop.ReserveIdleRuntimeFailureResponse{ErrorType: model.ErrorInitIncomplete}, interop.ClientError{
+			ClientError: model.NewClientError(
+				ErrNotInitialized,
+				model.ErrorSeverityError,
+				model.ErrorInitIncomplete,
+			),
+		}
+	}
+
+	return a.invokeRouter.ReserveIdleRuntime(ctx, invokeID, timeout)
 }
 
 type raptorLogger interface {

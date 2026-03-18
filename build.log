@@ -1,0 +1,2929 @@
+2026-02-25 11:21:02 INFO [BrazilMakeGo-3.0/runtime] Resolving dependencies
+2026-02-25 11:21:02 INFO [GoLang-1.x/runtime] Resolving dependencies
+2026-02-25 11:21:02 INFO [Go3p-Github-Golangci-GolangciLint-V2-2.x/runtime] Resolving dependencies
+2026-02-25 11:21:02 INFO [Go3p-Github-Vektra-Mockery-V2-2.x/runtime] Resolving dependencies
+2026-02-25 11:21:02 INFO [Go3p-Github-Vektra-Mockery-V2-2.x/runtime] Building symlink farm of 1 packages from package cache
+2026-02-25 11:21:02 INFO [GoLang-1.x/runtime] Building symlink farm of 1 packages from package cache
+2026-02-25 11:21:02 INFO [Go3p-Github-Golangci-GolangciLint-V2-2.x/runtime] Building symlink farm of 1 packages from package cache
+2026-02-25 11:21:02 INFO [Go3p-Github-Vektra-Mockery-V2-2.x/runtime] Caching runtime components of dependencies
+2026-02-25 11:21:02 INFO [GoLang-1.x/runtime] Caching runtime components of dependencies
+2026-02-25 11:21:02 INFO [Go3p-Github-Golangci-GolangciLint-V2-2.x/runtime] Caching runtime components of dependencies
+2026-02-25 11:21:02 INFO [BrazilMakeGo-3.0/runtime] Building symlink farm of 38 packages from package cache
+2026-02-25 11:21:02 INFO [BrazilMakeGo-3.0/runtime] Caching runtime components of dependencies
+2026-02-25 11:21:02 INFO [BrazilMakeGo-3.0/runtime] Successfully created environment at /workplace/siyuliao/LambdaRIEGithubSource_ws/env/BrazilMakeGo-3.0/runtime
+2026-02-25 11:21:02 INFO [Go3p-Github-Vektra-Mockery-V2-2.x/runtime] Successfully created environment at /workplace/siyuliao/LambdaRIEGithubSource_ws/env/Go3p-Github-Vektra-Mockery-V2-2.x/runtime
+2026-02-25 11:21:04 INFO [GoLang-1.x/runtime] Successfully created environment at /workplace/siyuliao/LambdaRIEGithubSource_ws/env/GoLang-1.x/runtime
+2026-02-25 11:21:04 INFO [Go3p-Github-Golangci-GolangciLint-V2-2.x/runtime] Successfully created environment at /workplace/siyuliao/LambdaRIEGithubSource_ws/env/Go3p-Github-Golangci-GolangciLint-V2-2.x/runtime
+Running build command 'bgo-wrap-make'
+bgo-dirsync --ignore --src configuration/brazil-config --dst build/private/tmp/brazil-path/run.configfarm.brazil-config/brazil-config
+bgo-dirsync --ignore --src configuration --dst build
+goimports -w .
+go: downloading github.com/sirupsen/logrus v1.9.3
+go: downloading github.com/google/uuid v1.6.0
+go: downloading github.com/go-chi/chi/v5 v5.2.2
+go: downloading github.com/jessevdk/go-flags v1.5.0
+go: downloading github.com/go-chi/chi v1.5.5
+go: downloading github.com/stretchr/testify v1.9.0
+go: downloading github.com/santhosh-tekuri/jsonschema/v5 v5.3.1
+go: downloading github.com/orcaman/concurrent-map v1.0.0
+go: downloading golang.org/x/sys v0.14.0
+go: downloading github.com/davecgh/go-spew v1.1.1
+go: downloading github.com/pmezard/go-difflib v1.0.0
+go: downloading github.com/stretchr/objx v0.5.2
+go: downloading gopkg.in/yaml.v3 v3.0.1
+bgo-test-json test -shuffle on -tags test  ./... -cover -covermode=atomic -coverprofile=build/brazil-documentation/coverage/coverage.out
+go: downloading golang.org/x/sync v0.6.0
+go: downloading github.com/aws/aws-lambda-go v1.46.0
+	golang.a2z.com/LambdaRIEGithubSource/cmd/aws-lambda-rie		coverage: 0.0% of statements
+-test.shuffle 1772018499932568252
+=== RUN   TestBaseNotExist
+time="2026-02-25T11:21:39Z" level=info msg="The extension's directory \"/path/which/does/not/exist\" does not exist, assuming no extensions to be loaded."
+--- PASS: TestBaseNotExist (0.00s)
+=== RUN   TestBaseEmpty
+--- PASS: TestBaseEmpty (0.00s)
+=== RUN   TestBaseNotDir
+time="2026-02-25T11:21:39Z" level=error msg="Cannot list external agents" error="open /tmp/ext-3530450847/opt/extensions: not a directory"
+--- PASS: TestBaseNotDir (0.00s)
+=== RUN   TestFindAgentMixedInChroot
+--- PASS: TestFindAgentMixedInChroot (0.00s)
+=== RUN   TestChrootNotExist
+time="2026-02-25T11:21:39Z" level=info msg="The extension's directory \"/does/not/exist/bin\" does not exist, assuming no extensions to be loaded."
+--- PASS: TestChrootNotExist (0.00s)
+=== RUN   TestFindAgentMixed
+--- PASS: TestFindAgentMixed (0.00s)
+PASS
+coverage: 88.9% of statements
+ok  	golang.a2z.com/LambdaRIEGithubSource/internal/lambda/agents	0.007s	coverage: 88.9% of statements
+-test.shuffle 1772018500218886781
+=== RUN   TestStoreLoadInitType
+--- PASS: TestStoreLoadInitType (0.00s)
+=== RUN   TestUpdateAppCtxWithRuntimeRelease
+--- PASS: TestUpdateAppCtxWithRuntimeRelease (0.00s)
+=== RUN   TestUpdateAppCtxWithRuntimeReleaseWithBlankUserAgent
+--- PASS: TestUpdateAppCtxWithRuntimeReleaseWithBlankUserAgent (0.00s)
+=== RUN   TestCreateRuntimeReleaseFromRequest
+--- PASS: TestCreateRuntimeReleaseFromRequest (0.00s)
+=== RUN   TestUpdateAppCtxWithRuntimeReleaseWithoutUserAgent
+--- PASS: TestUpdateAppCtxWithRuntimeReleaseWithoutUserAgent (0.00s)
+=== RUN   TestUpdateAppCtxWithRuntimeReleaseMultipleTimes
+--- PASS: TestUpdateAppCtxWithRuntimeReleaseMultipleTimes (0.00s)
+=== RUN   TestFirstFatalError
+time="2026-02-25T11:21:40Z" level=warning msg="First fatal error stored in appctx: Extension.Crash"
+time="2026-02-25T11:21:40Z" level=warning msg="Omitting fatal error Extension.ExitError: Extension.Crash already stored"
+--- PASS: TestFirstFatalError (0.00s)
+=== RUN   TestUpdateAppCtxWithRuntimeReleaseWithLambdaRuntimeFeatures
+--- PASS: TestUpdateAppCtxWithRuntimeReleaseWithLambdaRuntimeFeatures (0.00s)
+=== RUN   TestStoreLoadSandboxType
+--- PASS: TestStoreLoadSandboxType (0.00s)
+PASS
+coverage: 74.7% of statements
+ok  	golang.a2z.com/LambdaRIEGithubSource/internal/lambda/appctx	0.032s	coverage: 74.7% of statements
+-test.shuffle 1772018500618351309
+=== RUN   TestWalkThrough
+-test.shuffle 1772018500618454646
+--- PASS: TestWalkThrough (0.00s)
+=== RUN   TestUseAfterCancel
+--- PASS: TestUseAfterCancel (0.00s)
+=== RUN   TestRegistrationServiceHappyPathDuringInit
+=== RUN   TestNewBandwidthLimitingWriter
+--- PASS: TestRegistrationServiceHappyPathDuringInit (0.00s)
+=== RUN   TestInternalAgentStateTransitionsFromRunningState
+--- PASS: TestInternalAgentStateTransitionsFromRunningState (0.00s)
+=== RUN   TestRuntimeInitErrorAfterReady
+--- PASS: TestRuntimeInitErrorAfterReady (0.00s)
+=== RUN   TestRuntimeStateTransitionsFromRestoringState
+--- PASS: TestRuntimeStateTransitionsFromRestoringState (0.00s)
+=== RUN   TestCancel
+--- PASS: TestCancel (0.00s)
+=== RUN   TestRuntimeStateTransitionsFromRestoreReadyState
+--- PASS: TestRuntimeStateTransitionsFromRestoreReadyState (0.00s)
+=== RUN   TestRuntimeStateTransitionsFromInvocationErrorResponseState
+--- PASS: TestRuntimeStateTransitionsFromInvocationErrorResponseState (0.00s)
+=== RUN   TestExternalAgentStateTransitionsFromReadyState
+--- PASS: TestExternalAgentStateTransitionsFromReadyState (0.00s)
+=== RUN   TestInternalAgentsMapInsertIDCollision
+--- PASS: TestInternalAgentsMapInsertIDCollision (0.00s)
+=== RUN   TestInternalAgentsMapLookupByID
+--- PASS: TestInternalAgentsMapLookupByID (0.00s)
+=== RUN   TestGetSetCredentialsHappy
+--- PASS: TestGetSetCredentialsHappy (0.00s)
+=== RUN   TestInternalAgentsMapLookupByName
+--- PASS: TestInternalAgentsMapLookupByName (0.00s)
+=== RUN   TestInternalAgentStateTransitionsFromExitErrorState
+--- PASS: TestInternalAgentStateTransitionsFromExitErrorState (0.00s)
+=== RUN   TestRuntimeStateTransitionsFromRestoreErrorState
+--- PASS: TestRuntimeStateTransitionsFromRestoreErrorState (0.00s)
+=== RUN   TestExternalAgentStateTransitionsFromRunningState
+--- PASS: TestExternalAgentStateTransitionsFromRunningState (0.00s)
+=== RUN   TestInternalAgentStateUnknownEventType
+--- PASS: TestInternalAgentStateUnknownEventType (0.00s)
+=== RUN   TestExternalAgentStateTransitionsFromRegisteredState
+--- PASS: TestExternalAgentStateTransitionsFromRegisteredState (0.00s)
+=== RUN   TestInternalAgentsMapInsertNameCollision
+--- PASS: TestInternalAgentsMapInsertNameCollision (0.00s)
+=== RUN   TestRuntimeStateTransitionsFromRunningState
+--- PASS: TestRuntimeStateTransitionsFromRunningState (0.00s)
+=== RUN   TestReset
+--- PASS: TestReset (0.00s)
+=== RUN   TestRuntimeStateTransitionsFromResponseSentState
+--- PASS: TestRuntimeStateTransitionsFromResponseSentState (0.00s)
+=== RUN   TestGetCredentialsFail
+--- PASS: TestGetCredentialsFail (0.00s)
+=== RUN   TestExternalAgentsMapInsertNameCollision
+--- PASS: TestExternalAgentsMapInsertNameCollision (0.00s)
+=== RUN   TestCancelWithError
+--- PASS: TestCancelWithError (0.00s)
+=== RUN   TestInternalAgentStateInvalidEventType
+--- PASS: TestInternalAgentStateInvalidEventType (0.00s)
+=== RUN   TestInternalAgentStateTransitionsFromReadyState
+--- PASS: TestInternalAgentStateTransitionsFromReadyState (0.00s)
+=== RUN   TestRuntimeStateTransitionsFromInvocationResponseState
+--- PASS: TestRuntimeStateTransitionsFromInvocationResponseState (0.00s)
+=== RUN   TestUpdateCredentialsHappy
+--- PASS: TestUpdateCredentialsHappy (0.00s)
+=== RUN   TestExternalAgentStateTransitionsFromShutdownFailedState
+--- PASS: TestExternalAgentStateTransitionsFromShutdownFailedState (0.00s)
+=== RUN   TestRuntimeStateTransitionsFromReadyState
+--- PASS: TestRuntimeStateTransitionsFromReadyState (0.00s)
+=== RUN   TestExternalAgentStateTransitionsFromLaunchErrorState
+--- PASS: TestExternalAgentStateTransitionsFromLaunchErrorState (0.00s)
+=== RUN   TestExternalAgentsMapLookupByID
+--- PASS: TestExternalAgentsMapLookupByID (0.00s)
+=== RUN   TestExternalAgentStateUnknownEventType
+--- PASS: TestExternalAgentStateUnknownEventType (0.00s)
+=== RUN   TestInternalAgentStateTransitionsFromRegisteredState
+--- PASS: TestInternalAgentStateTransitionsFromRegisteredState (0.00s)
+=== RUN   TestInternalAgentStateTransitionsFromStartedState
+--- PASS: TestInternalAgentStateTransitionsFromStartedState (0.00s)
+=== RUN   TestExternalAgentStateTransitionsFromExitedState
+--- PASS: TestExternalAgentStateTransitionsFromExitedState (0.00s)
+=== RUN   TestSetCount
+--- PASS: TestSetCount (0.00s)
+=== RUN   TestExternalAgentsMapLookupByName
+--- PASS: TestExternalAgentsMapLookupByName (0.00s)
+=== RUN   TestRuntimeStateTransitionsFromInitErrorState
+--- PASS: TestRuntimeStateTransitionsFromInitErrorState (0.00s)
+=== RUN   TestUpdateCredentialsFail
+--- PASS: TestUpdateCredentialsFail (0.00s)
+=== RUN   TestRuntimeStateTransitionsFromStartedState
+--- PASS: TestRuntimeStateTransitionsFromStartedState (0.00s)
+=== RUN   TestExternalAgentsMapInsertIDCollision
+--- PASS: TestExternalAgentsMapInsertIDCollision (0.00s)
+=== RUN   TestExternalAgentStateTransitionsFromStartedState
+--- PASS: TestExternalAgentStateTransitionsFromStartedState (0.00s)
+=== RUN   TestExternalAgentStateTransitionsFromExitErrorState
+--- PASS: TestExternalAgentStateTransitionsFromExitErrorState (0.00s)
+=== RUN   TestInternalAgentStateTransitionsFromInitErrorState
+--- PASS: TestInternalAgentStateTransitionsFromInitErrorState (0.00s)
+=== RUN   TestWalkThroughTwice
+--- PASS: TestWalkThroughTwice (0.00s)
+=== RUN   TestExternalAgentStateTransitionsFromInitErrorState
+--- PASS: TestExternalAgentStateTransitionsFromInitErrorState (0.00s)
+PASS
+coverage: 70.6% of statements
+ok  	golang.a2z.com/LambdaRIEGithubSource/internal/lambda/core	0.010s	coverage: 70.6% of statements
+-test.shuffle 1772018500738113061
+=== RUN   TestAsyncPayloadCopyWhenPayloadSizeBelowMaxAllowed
+--- PASS: TestAsyncPayloadCopyWhenPayloadSizeBelowMaxAllowed (0.00s)
+=== RUN   TestCustomerHeaders
+--- PASS: TestCustomerHeaders (0.00s)
+=== RUN   TestSendStreamingInvokeResponseSuccessWithTrailers
+--- PASS: TestSendStreamingInvokeResponseSuccessWithTrailers (0.00s)
+=== RUN   TestIsStreamingInvokeTrue
+--- PASS: TestIsStreamingInvokeTrue (0.00s)
+=== RUN   TestSendStreamingInvokeErrorResponseSuccess
+--- PASS: TestSendStreamingInvokeErrorResponseSuccess (0.00s)
+=== RUN   TestSendStreamingInvokeResponseOversizedRuntimesWithoutErrorTypeTrailer
+	golang.a2z.com/LambdaRIEGithubSource/internal/lambda/extensions		coverage: 0.0% of statements
+	golang.a2z.com/LambdaRIEGithubSource/internal/lambda/core/statejson		coverage: 0.0% of statements
+time="2026-02-25T11:21:40Z" level=error msg="Error while streaming response payload: Response payload size (6291557 bytes) exceeded maximum allowed payload size (6291556 bytes)."
+--- PASS: TestSendStreamingInvokeResponseOversizedRuntimesWithoutErrorTypeTrailer (0.13s)
+=== RUN   TestMapCopyDoneResultErrorToErrorType
+--- PASS: TestMapCopyDoneResultErrorToErrorType (0.00s)
+=== RUN   TestSendStreamingInvokeResponseSuccess
+--- PASS: TestSendStreamingInvokeResponseSuccess (0.00s)
+=== RUN   TestSendStreamingInvokeResponseReset
+time="2026-02-25T11:21:40Z" level=warning msg="Cannot close underlying connection. Request object is nil"
+time="2026-02-25T11:21:40Z" level=error msg="Error while streaming response payload: ErrTruncatedResponse"
+--- PASS: TestSendStreamingInvokeResponseReset (0.01s)
+=== RUN   TestSendStreamingInvokeResponseOversizedRuntimesWithTrailers
+-test.shuffle 1772018501015950175
+=== RUN   TestValidRuntimeAndFunctionErrors
+=== RUN   TestValidRuntimeAndFunctionErrors/Runtime.TruncatedResponse
+--- PASS: TestValidRuntimeAndFunctionErrors/Runtime.TruncatedResponse (0.00s)
+=== RUN   TestValidRuntimeAndFunctionErrors/Runtime.ExitError
+--- PASS: TestValidRuntimeAndFunctionErrors/Runtime.ExitError (0.00s)
+=== RUN   TestValidRuntimeAndFunctionErrors/Runtime.InvalidEntrypoint
+--- PASS: TestValidRuntimeAndFunctionErrors/Runtime.InvalidEntrypoint (0.00s)
+=== RUN   TestValidRuntimeAndFunctionErrors/Runtime.InvalidWorkingDir
+--- PASS: TestValidRuntimeAndFunctionErrors/Runtime.InvalidWorkingDir (0.00s)
+=== RUN   TestValidRuntimeAndFunctionErrors/Runtime.InvalidTaskConfig
+--- PASS: TestValidRuntimeAndFunctionErrors/Runtime.InvalidTaskConfig (0.00s)
+=== RUN   TestValidRuntimeAndFunctionErrors/Runtime.InvalidResponseModeHeader
+--- PASS: TestValidRuntimeAndFunctionErrors/Runtime.InvalidResponseModeHeader (0.00s)
+=== RUN   TestValidRuntimeAndFunctionErrors/Runtime.Unknown
+--- PASS: TestValidRuntimeAndFunctionErrors/Runtime.Unknown (0.00s)
+=== RUN   TestValidRuntimeAndFunctionErrors/Function.ResponseSizeTooLarge
+--- PASS: TestValidRuntimeAndFunctionErrors/Function.ResponseSizeTooLarge (0.00s)
+=== RUN   TestValidRuntimeAndFunctionErrors/Function.Unknown
+--- PASS: TestValidRuntimeAndFunctionErrors/Function.Unknown (0.00s)
+--- PASS: TestValidRuntimeAndFunctionErrors (0.00s)
+=== RUN   TestGetValidRuntimeOrFunctionErrorType
+=== RUN   TestGetValidRuntimeOrFunctionErrorType/TestGetValidRuntimeOrFunctionErrorType_with_
+--- PASS: TestGetValidRuntimeOrFunctionErrorType/TestGetValidRuntimeOrFunctionErrorType_with_ (0.00s)
+time="2026-02-25T11:21:41Z" level=error msg="Error while streaming response payload: Response payload size (6291557 bytes) exceeded maximum allowed payload size (6291556 bytes)."
+--- PASS: TestSendStreamingInvokeResponseOversizedRuntimesWithTrailers (0.14s)
+=== RUN   TestSendPayloadLimitedResponseAboveThresholdWithStreamingFunction
+=== RUN   TestGetValidRuntimeOrFunctionErrorType/TestGetValidRuntimeOrFunctionErrorType_with_MyCustomError
+--- PASS: TestSendPayloadLimitedResponseAboveThresholdWithStreamingFunction (0.00s)
+=== RUN   TestSendPayloadLimitedResponseWithinThresholdWithStreamingFunction
+--- PASS: TestSendPayloadLimitedResponseWithinThresholdWithStreamingFunction (0.00s)
+=== RUN   TestReceiveDirectInvoke_TenantIDHeader
+time="2026-02-25T11:21:41Z" level=info msg="Received Invoke(invokeID: invoke_id) Request"
+--- PASS: TestReceiveDirectInvoke_TenantIDHeader (0.00s)
+=== RUN   TestCustomerHeadersEmpty
+--- PASS: TestCustomerHeadersEmpty (0.00s)
+=== RUN   TestAsyncPayloadCopySuccessAfterCancel
+--- PASS: TestAsyncPayloadCopySuccessAfterCancel (0.00s)
+=== RUN   TestSendStreamingInvokeErrorResponseReset
+--- PASS: TestGetValidRuntimeOrFunctionErrorType/TestGetValidRuntimeOrFunctionErrorType_with_MyCustomError (0.00s)
+=== RUN   TestGetValidRuntimeOrFunctionErrorType/TestGetValidRuntimeOrFunctionErrorType_with_MyCustomError.Error
+--- PASS: TestGetValidRuntimeOrFunctionErrorType/TestGetValidRuntimeOrFunctionErrorType_with_MyCustomError.Error (0.00s)
+=== RUN   TestGetValidRuntimeOrFunctionErrorType/TestGetValidRuntimeOrFunctionErrorType_with_Runtime.MyCustomErrorTypeHere
+--- PASS: TestGetValidRuntimeOrFunctionErrorType/TestGetValidRuntimeOrFunctionErrorType_with_Runtime.MyCustomErrorTypeHere (0.00s)
+=== RUN   TestGetValidRuntimeOrFunctionErrorType/TestGetValidRuntimeOrFunctionErrorType_with_Function.MyCustomErrorTypeHere
+--- PASS: TestGetValidRuntimeOrFunctionErrorType/TestGetValidRuntimeOrFunctionErrorType_with_Function.MyCustomErrorTypeHere (0.00s)
+--- PASS: TestGetValidRuntimeOrFunctionErrorType (0.00s)
+PASS
+coverage: 83.3% of statements
+ok  	golang.a2z.com/LambdaRIEGithubSource/internal/lambda/fatalerror	0.010s	coverage: 83.3% of statements
+time="2026-02-25T11:21:41Z" level=error msg="Error while streaming error response payload: ErrTruncatedResponse"
+--- PASS: TestSendStreamingInvokeErrorResponseReset (0.01s)
+=== RUN   TestAsyncPayloadCopyWhenPayloadSizeEqualMaxAllowed
+--- PASS: TestAsyncPayloadCopyWhenPayloadSizeEqualMaxAllowed (0.00s)
+=== RUN   TestAsyncPayloadCopyWithIncompatibleResponseWriter
+time="2026-02-25T11:21:41Z" level=error msg="expected http.ResponseWriter to be an http.Flusher"
+--- PASS: TestAsyncPayloadCopyWithIncompatibleResponseWriter (0.00s)
+=== RUN   TestConvertToInvokeResponseMode
+time="2026-02-25T11:21:41Z" level=error msg="Unable to map foo-bar to Buffered, Streaming."
+--- PASS: TestConvertToInvokeResponseMode (0.00s)
+=== RUN   TestIsStreamingInvokeFalse
+--- PASS: TestIsStreamingInvokeFalse (0.00s)
+=== RUN   TestAsyncPayloadCopyWhenUnlimitedPayloadSizeAllowed
+--- PASS: TestAsyncPayloadCopyWhenUnlimitedPayloadSizeAllowed (0.14s)
+=== RUN   TestAsyncPayloadCopyWhenPayloadSizeAboveMaxAllowed
+--- PASS: TestAsyncPayloadCopyWhenPayloadSizeAboveMaxAllowed (0.00s)
+=== RUN   TestAsyncPayloadCopyWhenResponseIsTruncated
+    directinvoke_test.go:223: Pending injection of bandwidthlimiter as a dependency of asyncPayloadCopy.
+--- SKIP: TestAsyncPayloadCopyWhenResponseIsTruncated (0.00s)
+=== RUN   FuzzReceiveDirectInvoke
+=== RUN   FuzzReceiveDirectInvoke/seed#0
+time="2026-02-25T11:21:41Z" level=info msg="Received Invoke(invokeID: invoke_id) Request"
+--- PASS: FuzzReceiveDirectInvoke/seed#0 (0.00s)
+=== RUN   FuzzReceiveDirectInvoke/seed#1
+time="2026-02-25T11:21:41Z" level=info msg="Received Invoke(invokeID: invoke_id) Request"
+--- PASS: FuzzReceiveDirectInvoke/seed#1 (0.00s)
+=== RUN   FuzzReceiveDirectInvoke/seed#2
+time="2026-02-25T11:21:41Z" level=info msg="Received Invoke(invokeID: invoke_id) Request"
+time="2026-02-25T11:21:41Z" level=error msg="Unable to map 0 to Buffered, Streaming."
+time="2026-02-25T11:21:41Z" level=error msg="InvokeResponseMode header is not a valid string. Was: \"0\", Allowed: \"Buffered, Streaming\"."
+time="2026-02-25T11:21:41Z" level=error msg="Unable to map 0 to Buffered, Streaming."
+--- PASS: FuzzReceiveDirectInvoke/seed#2 (0.00s)
+--- PASS: FuzzReceiveDirectInvoke (0.00s)
+PASS
+coverage: 76.3% of statements
+ok  	golang.a2z.com/LambdaRIEGithubSource/internal/lambda/core/directinvoke	0.441s	coverage: 76.3% of statements
+-test.shuffle 1772018501265588522
+=== RUN   TestGetErrorResponseWithFormattedErrorMessageWithInvokeRequestId
+--- PASS: TestGetErrorResponseWithFormattedErrorMessageWithInvokeRequestId (0.00s)
+=== RUN   TestMergeSubscriptionMetrics
+--- PASS: TestMergeSubscriptionMetrics (0.00s)
+=== RUN   TestJsonMarshalInitRuntimeDoneError
+--- PASS: TestJsonMarshalInitRuntimeDoneError (0.00s)
+=== RUN   TestJsonMarshalReportWithTracing
+--- PASS: TestJsonMarshalReportWithTracing (0.00s)
+=== RUN   TestJsonMarshalRestoreRuntimeDoneSuccess
+--- PASS: TestJsonMarshalRestoreRuntimeDoneSuccess (0.00s)
+=== RUN   TestJsonMarshalRestoreRuntimeDoneError
+--- PASS: TestJsonMarshalRestoreRuntimeDoneError (0.00s)
+=== RUN   TestJsonMarshalRestoreRuntimeDoneErrorWithEmptyErrorType
+--- PASS: TestJsonMarshalRestoreRuntimeDoneErrorWithEmptyErrorType (0.00s)
+=== RUN   TestJsonMarshalExtensionInit
+--- PASS: TestJsonMarshalExtensionInit (0.00s)
+=== RUN   TestJsonMarshalInitRuntimeDoneFailureWithEmptyErrorType
+--- PASS: TestJsonMarshalInitRuntimeDoneFailureWithEmptyErrorType (0.00s)
+=== RUN   TestJsonMarshalInvokeRuntimeDoneFailure
+--- PASS: TestJsonMarshalInvokeRuntimeDoneFailure (0.00s)
+=== RUN   TestJsonMarshalInvokeRuntimeDoneNoMetrics
+--- PASS: TestJsonMarshalInvokeRuntimeDoneNoMetrics (0.00s)
+=== RUN   TestJsonMarshalInvokeRuntimeDoneTimeout
+--- PASS: TestJsonMarshalInvokeRuntimeDoneTimeout (0.00s)
+=== RUN   TestJsonMarshalExtensionInitEmptyEvents
+--- PASS: TestJsonMarshalExtensionInitEmptyEvents (0.00s)
+=== RUN   TestJsonMarshalInvokeRuntimeDone
+--- PASS: TestJsonMarshalInvokeRuntimeDone (0.00s)
+=== RUN   TestJsonMarshalInitRuntimeDoneSuccess
+--- PASS: TestJsonMarshalInitRuntimeDoneSuccess (0.00s)
+=== RUN   TestDoneMetadataMetricsDimensionsStringWhenEmpty
+--- PASS: TestDoneMetadataMetricsDimensionsStringWhenEmpty (0.00s)
+=== RUN   TestJsonMarshalExtensionInitWithError
+--- PASS: TestJsonMarshalExtensionInitWithError (0.00s)
+=== RUN   TestJsonMarshalInvokeRuntimeDoneWithEmptyErrorType
+--- PASS: TestJsonMarshalInvokeRuntimeDoneWithEmptyErrorType (0.00s)
+=== RUN   TestJsonMarshalReportWithoutErrorSpansAndTracing
+--- PASS: TestJsonMarshalReportWithoutErrorSpansAndTracing (0.00s)
+=== RUN   TestJsonMarshalReportWithInit
+--- PASS: TestJsonMarshalReportWithInit (0.00s)
+=== RUN   TestJsonMarshalInvokeRuntimeDoneNoTracing
+--- PASS: TestJsonMarshalInvokeRuntimeDoneNoTracing (0.00s)
+=== RUN   TestDoneMetadataMetricsDimensionsStringWhenInvokeResponseModeIsPresent
+--- PASS: TestDoneMetadataMetricsDimensionsStringWhenInvokeResponseModeIsPresent (0.00s)
+=== RUN   TestJsonMarshalInvokeRuntimeDoneWithProducedBytesEqualToZero
+--- PASS: TestJsonMarshalInvokeRuntimeDoneWithProducedBytesEqualToZero (0.00s)
+=== RUN   TestJsonMarshalInvokeRuntimeDoneWithNoSpans
+--- PASS: TestJsonMarshalInvokeRuntimeDoneWithNoSpans (0.00s)
+=== RUN   TestGetErrorResponseWithFormattedErrorMessageWithoutInvokeRequestId
+--- PASS: TestGetErrorResponseWithFormattedErrorMessageWithoutInvokeRequestId (0.00s)
+PASS
+coverage: 35.1% of statements
+ok  	golang.a2z.com/LambdaRIEGithubSource/internal/lambda/interop	0.020s	coverage: 35.1% of statements
+-test.shuffle 1772018501314210492
+=== RUN   TestLogPrint
+--- PASS: TestLogPrint (0.00s)
+=== RUN   TestLogrusPrint
+--- PASS: TestLogrusPrint (0.00s)
+=== RUN   TestInternalFormatter
+--- PASS: TestInternalFormatter (0.00s)
+PASS
+coverage: 100.0% of statements
+ok  	golang.a2z.com/LambdaRIEGithubSource/internal/lambda/logging	0.022s	coverage: 100.0% of statements
+-test.shuffle 1772018501451019813
+=== RUN   TestExtensionsResetDurationProfilerEndToEnd
+-test.shuffle 1772018502008086229
+=== RUN   TestInvokeResponseInvalidRequestID
+    router_test.go:38: test(/runtime/invocation/next) = 200
+    router_test.go:38: test(/runtime/invocation/XYZ/response) = 400
+--- PASS: TestInvokeResponseInvalidRequestID (0.00s)
+=== RUN   TestInvokeResponseAfterErrorResponse
+    router_test.go:38: test(/runtime/invocation/next) = 200
+    router_test.go:38: test(/runtime/invocation/ABC/error) = 202
+time="2026-02-25T11:21:42Z" level=warning msg="State transition is not allowed"
+    router_test.go:38: test(/runtime/invocation/ABC/response) = 403
+--- PASS: TestInvokeResponseAfterErrorResponse (0.00s)
+=== RUN   TestInvokeResponseAccepted
+    router_test.go:38: test(/runtime/invocation/next) = 200
+    router_test.go:38: test(/runtime/invocation/InvokeA/response) = 202
+--- PASS: TestInvokeResponseAccepted (0.00s)
+=== RUN   TestInvokeNextTwice
+    router_test.go:38: test(/runtime/invocation/next) = 200
+    router_test.go:38: test(/runtime/invocation/next) = 200
+--- PASS: TestInvokeNextTwice (0.00s)
+=== RUN   TestInvokeErrorResponseTwice
+    router_test.go:38: test(/runtime/invocation/next) = 200
+    router_test.go:38: test(/runtime/invocation/ABC/error) = 202
+time="2026-02-25T11:21:42Z" level=warning msg="State transition is not allowed"
+    router_test.go:38: test(/runtime/invocation/ABC/error) = 403
+--- PASS: TestInvokeErrorResponseTwice (0.00s)
+=== RUN   Test405MethodNotAllowed
+    router_test.go:38: test(/runtime/invocation/ABC/error) = 405
+--- PASS: Test405MethodNotAllowed (0.00s)
+=== RUN   TestInvokeErrorResponseAfterResponse
+    router_test.go:38: test(/runtime/invocation/next) = 200
+    router_test.go:38: test(/runtime/invocation/ABC/response) = 202
+time="2026-02-25T11:21:42Z" level=warning msg="State transition is not allowed"
+    router_test.go:38: test(/runtime/invocation/ABC/error) = 403
+--- PASS: TestInvokeErrorResponseAfterResponse (0.00s)
+=== RUN   Test404PageNotFound
+    router_test.go:38: test(/runtime/unsupported) = 404
+--- PASS: Test404PageNotFound (0.00s)
+=== RUN   TestServerExitsOnExitSignalFromHandler
+time="2026-02-25T11:21:42Z" level=info msg="Listening port was dynamically allocated" port=34963
+time="2026-02-25T11:21:42Z" level=error msg="Error triggered exit: foo bar error"
+time="2026-02-25T11:21:42Z" level=info msg="Runtime API Server closed"
+time="2026-02-25T11:21:42Z" level=info msg="Runtime API Server closed"
+--- PASS: TestServerExitsOnExitSignalFromHandler (0.00s)
+=== RUN   TestSecurityInvokeErrorBadRequestId
+time="2026-02-25T11:21:42Z" level=warning msg="State transition is not allowed"
+    router_test.go:38: test(/runtime/invocation/InvokeA/error) = 403
+    router_test.go:38: test(/runtime/invocation/next) = 200
+    router_test.go:38: test(/runtime/invocation/InvokeZ/error) = 400
+    router_test.go:38: test(/runtime/invocation/InvokeA/error) = 202
+    router_test.go:38: test(/runtime/invocation/next) = 200
+    router_test.go:38: test(/runtime/invocation/InvokeA/error) = 400
+--- PASS: TestSecurityInvokeErrorBadRequestId (0.00s)
+=== RUN   TestInvokeErrorResponseAccepted
+    router_test.go:38: test(/runtime/invocation/next) = 200
+    router_test.go:38: test(/runtime/invocation/InvokeA/error) = 202
+--- PASS: TestInvokeErrorResponseAccepted (0.00s)
+=== RUN   TestInitCachingAPIDisabledForPlainInit
+    router_test.go:38: test(/runtime/restore/next) = 404
+    router_test.go:38: test(/credentials) = 404
+--- PASS: TestInitCachingAPIDisabledForPlainInit (0.00s)
+=== RUN   TestServerReturnsSuccessfulResponse
+time="2026-02-25T11:21:42Z" level=info msg="Listening port was dynamically allocated" port=35459
+time="2026-02-25T11:21:42Z" level=info msg="Runtime API Server closed"
+time="2026-02-25T11:21:42Z" level=info msg="Runtime API Server closed"
+--- PASS: TestServerReturnsSuccessfulResponse (0.00s)
+=== RUN   TestInitErrorAccepted
+    router_test.go:38: test(/runtime/init/error) = 202
+--- PASS: TestInitErrorAccepted (0.00s)
+=== RUN   TestMoreThanOneInvoke
+    router_test.go:38: test(/runtime/invocation/next) = 200
+    router_test.go:38: test(/runtime/invocation/A/response) = 202
+    router_test.go:38: test(/runtime/invocation/next) = 200
+    router_test.go:38: test(/runtime/invocation/B/response) = 202
+    router_test.go:38: test(/runtime/invocation/next) = 200
+    router_test.go:38: test(/runtime/invocation/C/response) = 202
+--- PASS: TestMoreThanOneInvoke (0.00s)
+=== RUN   TestAcceptXML
+--- PASS: TestAcceptXML (0.00s)
+=== RUN   TestInvokeValidId
+    router_test.go:38: test(/runtime/invocation/next) = 200
+    router_test.go:38: test(/runtime/invocation/InvokeA/response) = 202
+    router_test.go:38: test(/runtime/invocation/next) = 200
+    router_test.go:38: test(/runtime/invocation/InvokeB/error) = 202
+--- PASS: TestInvokeValidId (0.00s)
+=== RUN   TestInvokeResponseTwice
+    router_test.go:38: test(/runtime/invocation/next) = 200
+    router_test.go:38: test(/runtime/invocation/ABC/response) = 202
+time="2026-02-25T11:21:42Z" level=warning msg="State transition is not allowed"
+    router_test.go:38: test(/runtime/invocation/ABC/response) = 403
+--- PASS: TestInvokeResponseTwice (0.00s)
+=== RUN   TestInitErrorForbidden
+    router_test.go:38: test(/runtime/invocation/next) = 200
+time="2026-02-25T11:21:42Z" level=warning msg="State transition is not allowed"
+    router_test.go:38: test(/runtime/init/error) = 403
+--- PASS: TestInitErrorForbidden (0.00s)
+=== RUN   TestInvokeErrorResponseInvalidRequestID
+    router_test.go:38: test(/runtime/invocation/next) = 200
+    router_test.go:38: test(/runtime/invocation/XYZ/error) = 400
+--- PASS: TestInvokeErrorResponseInvalidRequestID (0.00s)
+=== RUN   TestSecurityInvokeResponseBadRequestId
+time="2026-02-25T11:21:42Z" level=warning msg="State transition is not allowed"
+    router_test.go:38: test(/runtime/invocation/InvokeA/response) = 403
+    router_test.go:38: test(/runtime/invocation/next) = 200
+    router_test.go:38: test(/runtime/invocation/InvokeZ/response) = 400
+    router_test.go:38: test(/runtime/invocation/InvokeA/response) = 202
+    router_test.go:38: test(/runtime/invocation/next) = 200
+    router_test.go:38: test(/runtime/invocation/InvokeA/response) = 400
+--- PASS: TestSecurityInvokeResponseBadRequestId (0.00s)
+=== RUN   TestServerExitsOnContextCancelation
+time="2026-02-25T11:21:42Z" level=info msg="Listening port was dynamically allocated" port=41537
+time="2026-02-25T11:21:42Z" level=info msg="Runtime API Server closed"
+time="2026-02-25T11:21:42Z" level=info msg="Runtime API Server closed"
+--- PASS: TestServerExitsOnContextCancelation (0.00s)
+=== RUN   FuzzAgentRegisterHandler
+=== RUN   FuzzAgentRegisterHandler/seed#0
+time="2026-02-25T11:21:42Z" level=info msg="External agent agent (90630034-f60b-4380-b27f-301042c76618) registered, subscribed to [INVOKE SHUTDOWN]"
+2026/02/25 11:21:42 test(http:///2020-01-01/extension/register) = 200
+--- PASS: FuzzAgentRegisterHandler/seed#0 (0.00s)
+=== RUN   FuzzAgentRegisterHandler/seed#1
+time="2026-02-25T11:21:42Z" level=warning msg="Failed to register agent: event SHUTDOWN: ShutdownEventNotSupportedForInternalExtension"
+2026/02/25 11:21:42 test(http:///2020-01-01/extension/register) = 403
+--- PASS: FuzzAgentRegisterHandler/seed#1 (0.00s)
+--- PASS: FuzzAgentRegisterHandler (0.00s)
+=== RUN   FuzzAgentNextHandler
+=== RUN   FuzzAgentNextHandler/seed#0
+time="2026-02-25T11:21:42Z" level=warning msg="Unknown agent 78510ba5-2f60-4de4-bb4a-af3fa3701f9e tried to call /next"
+2026/02/25 11:21:42 test(http:///2020-01-01/extension/event/next) = 403
+--- PASS: FuzzAgentNextHandler/seed#0 (0.00s)
+=== RUN   FuzzAgentNextHandler/seed#1
+time="2026-02-25T11:21:42Z" level=warning msg="Unknown agent 78510ba5-2f60-4de4-bb4a-af3fa3701f9e tried to call /next"
+2026/02/25 11:21:42 test(http:///2020-01-01/extension/event/next) = 403
+--- PASS: FuzzAgentNextHandler/seed#1 (0.00s)
+--- PASS: FuzzAgentNextHandler (0.00s)
+=== RUN   FuzzAgentInitErrorHandler
+=== RUN   FuzzAgentInitErrorHandler/seed#0
+time="2026-02-25T11:21:42Z" level=warning msg="Unknown agent Lambda-Extension-Identifier tried to call /extension/init/error"
+2026/02/25 11:21:42 test(http:///2020-01-01/extension/init/error) = 403
+--- PASS: FuzzAgentInitErrorHandler/seed#0 (0.00s)
+=== RUN   FuzzAgentInitErrorHandler/seed#1
+time="2026-02-25T11:21:42Z" level=warning msg="Unknown agent Lambda-Extension-Identifier tried to call /extension/init/error"
+2026/02/25 11:21:42 test(http:///2020-01-01/extension/init/error) = 403
+--- PASS: FuzzAgentInitErrorHandler/seed#1 (0.00s)
+--- PASS: FuzzAgentInitErrorHandler (0.00s)
+=== RUN   FuzzAgentExitErrorHandler
+=== RUN   FuzzAgentExitErrorHandler/seed#0
+time="2026-02-25T11:21:42Z" level=warning msg="Unknown agent 5aa1239f-8b16-4211-aa20-8fb0258b3539 tried to call /extension/exit/error"
+2026/02/25 11:21:42 test(http:///2020-01-01/extension/exit/error) = 403
+--- PASS: FuzzAgentExitErrorHandler/seed#0 (0.00s)
+=== RUN   FuzzAgentExitErrorHandler/seed#1
+time="2026-02-25T11:21:42Z" level=warning msg="Unknown agent 5aa1239f-8b16-4211-aa20-8fb0258b3539 tried to call /extension/exit/error"
+2026/02/25 11:21:42 test(http:///2020-01-01/extension/exit/error) = 403
+--- PASS: FuzzAgentExitErrorHandler/seed#1 (0.00s)
+--- PASS: FuzzAgentExitErrorHandler (0.00s)
+=== RUN   FuzzRuntimeAPIRouter
+=== RUN   FuzzRuntimeAPIRouter/seed#0
+2026/02/25 11:21:42 test(http:///2018-06-01/runtime/init/error) = 202
+--- PASS: FuzzRuntimeAPIRouter/seed#0 (0.00s)
+=== RUN   FuzzRuntimeAPIRouter/seed#1
+time="2026-02-25T11:21:42Z" level=warning msg="Failed to compute deadline header" error="strconv.ParseInt: parsing \"\": invalid syntax"
+2026/02/25 11:21:42 test(http:///2018-06-01/runtime/invocation/next) = 200
+--- PASS: FuzzRuntimeAPIRouter/seed#1 (0.00s)
+=== RUN   FuzzRuntimeAPIRouter/seed#2
+time="2026-02-25T11:21:42Z" level=warning msg="State transition is not allowed"
+2026/02/25 11:21:42 test(http:///2018-06-01/runtime/invocation/InvocationID1/response) = 403
+--- PASS: FuzzRuntimeAPIRouter/seed#2 (0.00s)
+=== RUN   FuzzRuntimeAPIRouter/seed#3
+time="2026-02-25T11:21:42Z" level=warning msg="State transition is not allowed"
+2026/02/25 11:21:42 test(http:///2018-06-01/runtime/invocation/InvocationID1/error) = 403
+--- PASS: FuzzRuntimeAPIRouter/seed#3 (0.00s)
+=== RUN   FuzzRuntimeAPIRouter/seed#4
+time="2026-02-25T11:21:42Z" level=warning msg="Failed to compute deadline header" error="strconv.ParseInt: parsing \"\": invalid syntax"
+2026/02/25 11:21:42 test(http:///2018-06-01/runtime/restore/next) = 200
+--- PASS: FuzzRuntimeAPIRouter/seed#4 (0.00s)
+=== RUN   FuzzRuntimeAPIRouter/seed#5
+time="2026-02-25T11:21:42Z" level=warning msg="State transition is not allowed"
+2026/02/25 11:21:42 test(http:///2018-06-01/runtime/restore/error) = 403
+--- PASS: FuzzRuntimeAPIRouter/seed#5 (0.00s)
+=== RUN   FuzzRuntimeAPIRouter/seed#6
+2026/02/25 11:21:42 test(http:///2020-01-01/extension/register) = 403
+--- PASS: FuzzRuntimeAPIRouter/seed#6 (0.00s)
+=== RUN   FuzzRuntimeAPIRouter/seed#7
+2026/02/25 11:21:42 test(http:///2020-01-01/extension/event/next) = 403
+--- PASS: FuzzRuntimeAPIRouter/seed#7 (0.00s)
+=== RUN   FuzzRuntimeAPIRouter/seed#8
+2026/02/25 11:21:42 test(http:///2020-01-01/extension/init/error) = 403
+--- PASS: FuzzRuntimeAPIRouter/seed#8 (0.00s)
+=== RUN   FuzzRuntimeAPIRouter/seed#9
+2026/02/25 11:21:42 test(http:///2020-01-01/extension/exit/error) = 403
+--- PASS: FuzzRuntimeAPIRouter/seed#9 (0.00s)
+--- PASS: FuzzRuntimeAPIRouter (0.00s)
+=== RUN   FuzzInitErrorHandler
+=== RUN   FuzzInitErrorHandler/seed#0
+2026/02/25 11:21:42 test(http:///2018-06-01/runtime/init/error) = 202
+--- PASS: FuzzInitErrorHandler/seed#0 (0.00s)
+--- PASS: FuzzInitErrorHandler (0.00s)
+=== RUN   FuzzInvocationResponseHandler
+=== RUN   FuzzInvocationResponseHandler/seed#0
+2026/02/25 11:21:42 test(http:///2018-06-01/runtime/invocation/InvocationID1/response) = 202
+--- PASS: FuzzInvocationResponseHandler/seed#0 (0.00s)
+=== RUN   FuzzInvocationResponseHandler/seed#1
+2026/02/25 11:21:42 test(http:///2018-06-01/runtime/invocation/InvocationID1/response) = 413
+--- PASS: FuzzInvocationResponseHandler/seed#1 (0.03s)
+--- PASS: FuzzInvocationResponseHandler (0.04s)
+=== RUN   FuzzInvocationErrorHandler
+=== RUN   FuzzInvocationErrorHandler/seed#0
+2026/02/25 11:21:42 test(http:///2018-06-01/runtime/invocation/InvocationID1/error) = 202
+--- PASS: FuzzInvocationErrorHandler/seed#0 (0.00s)
+--- PASS: FuzzInvocationErrorHandler (0.00s)
+=== RUN   FuzzRestoreErrorHandler
+--- PASS: FuzzRestoreErrorHandler (0.00s)
+=== RUN   FuzzTelemetryLogRouters
+=== RUN   FuzzTelemetryLogRouters/seed#0
+2026/02/25 11:21:42 test(http:///2020-08-15/logs) = 403
+--- PASS: FuzzTelemetryLogRouters/seed#0 (0.00s)
+=== RUN   FuzzTelemetryLogRouters/seed#1
+2026/02/25 11:21:42 test(http:///2022-07-01/telemetry) = 403
+--- PASS: FuzzTelemetryLogRouters/seed#1 (0.00s)
+--- PASS: FuzzTelemetryLogRouters (0.00s)
+=== RUN   FuzzLogsHandler
+=== RUN   FuzzLogsHandler/seed#0
+2026/02/25 11:21:42 test(http:///2020-08-15/logs) = 200
+--- PASS: FuzzLogsHandler/seed#0 (0.00s)
+=== RUN   FuzzLogsHandler/seed#1
+time="2026-02-25T11:21:42Z" level=error msg="Telemetry API error: ErrTelemetryServiceOff"
+2026/02/25 11:21:42 test(http:///2020-08-15/logs) = 403
+--- PASS: FuzzLogsHandler/seed#1 (0.00s)
+--- PASS: FuzzLogsHandler (0.00s)
+=== RUN   FuzzTelemetryHandler
+=== RUN   FuzzTelemetryHandler/seed#0
+2026/02/25 11:21:42 test(http:///2022-07-01/telemetry) = 200
+--- PASS: FuzzTelemetryHandler/seed#0 (0.00s)
+=== RUN   FuzzTelemetryHandler/seed#1
+time="2026-02-25T11:21:42Z" level=error msg="Telemetry API error: ErrTelemetryServiceOff"
+2026/02/25 11:21:42 test(http:///2022-07-01/telemetry) = 403
+--- PASS: FuzzTelemetryHandler/seed#1 (0.00s)
+--- PASS: FuzzTelemetryHandler (0.00s)
+PASS
+coverage: 86.7% of statements
+ok  	golang.a2z.com/LambdaRIEGithubSource/internal/lambda/rapi	0.063s	coverage: 86.7% of statements
+-test.shuffle 1772018502190763652
+=== RUN   TestAllowIfExtensionsEnabledPositive
+--- PASS: TestAllowIfExtensionsEnabledPositive (0.00s)
+=== RUN   TestAgentUniqueIdentifierHeaderValidatorForbidden
+-test.shuffle 1772018502190908933
+=== RUN   TestAgentInitErrorUnknownAgent
+--- PASS: TestAgentUniqueIdentifierHeaderValidatorForbidden (0.00s)
+=== RUN   TestRuntimeReleaseMiddleware
+--- PASS: TestRuntimeReleaseMiddleware (0.00s)
+=== RUN   TestAllowIfExtensionsEnabledNegative
+--- PASS: TestAllowIfExtensionsEnabledNegative (0.00s)
+=== RUN   TestAgentUniqueIdentifierHeaderValidatorSuccess
+time="2026-02-25T11:21:42Z" level=warning msg="Unknown agent Lambda-Extension-Identifier tried to call /extension/init/error"
+--- PASS: TestAgentInitErrorUnknownAgent (0.00s)
+--- PASS: TestAgentUniqueIdentifierHeaderValidatorSuccess (0.00s)
+PASS
+=== RUN   TestRenderAgentInvokeNextHappy
+--- PASS: TestRenderAgentInvokeNextHappy (0.00s)
+=== RUN   TestGetSubscribedInternalAgents
+time="2026-02-25T11:21:42Z" level=info msg="External agent externalInvokeAgent (72bc0434-7057-4751-99f0-1381385748b6) registered, subscribed to [INVOKE]"
+time="2026-02-25T11:21:42Z" level=info msg="External agent externalShutdownAgent (bd7d1eb0-108b-4502-a487-785a2f07baef) registered, subscribed to [SHUTDOWN]"
+time="2026-02-25T11:21:42Z" level=info msg="Internal agent internalInvokeAgent (ffa31b69-3a3e-496b-8222-14ebede2205c) registered, subscribed to [INVOKE]"
+--- PASS: TestGetSubscribedInternalAgents (0.00s)
+=== RUN   TestRenderAgentInternalError
+--- PASS: TestRenderAgentInternalError (0.00s)
+=== RUN   TestInvocationResponsePayloadIsDefaultErrorMessageWhenRequestParsingFailsForContentTypeErrorCause
+time="2026-02-25T11:21:42Z" level=warning msg="Failed to parse error body" error="error parsing request body: error unmarshalling request body with error cause: invalid character 'b' looking for beginning of value, request.Body: {\"foo\":bar}"
+--- PASS: TestInvocationResponsePayloadIsDefaultErrorMessageWhenRequestParsingFailsForContentTypeErrorCause (0.00s)
+coverage: 52.4% of statements
+=== RUN   TestRenderAgentRegisterRegistrationClosed
+time="2026-02-25T11:21:42Z" level=warning msg="Failed to create internal agent dummyName: ErrRegistrationServiceOff"
+--- PASS: TestRenderAgentRegisterRegistrationClosed (0.00s)
+=== RUN   TestRenderInvokeHappy
+ok  	golang.a2z.com/LambdaRIEGithubSource/internal/lambda/rapi/middleware	0.004s	coverage: 52.4% of statements
+--- PASS: TestRenderInvokeHappy (0.01s)
+=== RUN   TestGetSubscribedExternalAgents
+time="2026-02-25T11:21:42Z" level=info msg="External agent externalInvokeAgent (2168ec66-7cb0-4602-a7a1-4e4cc1689cc2) registered, subscribed to [INVOKE]"
+time="2026-02-25T11:21:42Z" level=info msg="External agent externalShutdownAgent (4ca66a72-fe57-458c-a089-54e49e0622fd) registered, subscribed to [SHUTDOWN]"
+time="2026-02-25T11:21:42Z" level=info msg="Internal agent internalInvokeAgent (00348571-440f-4698-b00b-24689eb57586) registered, subscribed to [INVOKE]"
+--- PASS: TestGetSubscribedExternalAgents (0.00s)
+=== RUN   TestSuccessfulRuntimeTelemetryAPIStub202Response
+--- PASS: TestSuccessfulRuntimeTelemetryAPIStub202Response (0.00s)
+=== RUN   TestInitErrorHandler
+=== RUN   TestInitErrorHandler/GA
+--- PASS: TestInitErrorHandler/GA (0.00s)
+--- PASS: TestInitErrorHandler (0.00s)
+=== RUN   TestInvocationErrorHandlerSendsNilToXRayWhenXRayErrorCauseHeaderIsNotSet
+--- PASS: TestInvocationErrorHandlerSendsNilToXRayWhenXRayErrorCauseHeaderIsNotSet (0.00s)
+=== RUN   TestInternalAgentShutdownSubscription
+time="2026-02-25T11:21:42Z" level=warning msg="Failed to register internalShutdownAgent: event SHUTDOWN: ShutdownEventNotSupportedForInternalExtension"
+--- PASS: TestInternalAgentShutdownSubscription (0.00s)
+=== RUN   TestInvocationErrorHandlerSendsNilCauseToXRayWhenXRayErrorCauseHeaderContainsInvalidCause
+time="2026-02-25T11:21:42Z" level=error msg="errorCause validation error" error="failed to parse error cause JSON: invalid character 'i' looking for beginning of object key string"
+--- PASS: TestInvocationErrorHandlerSendsNilCauseToXRayWhenXRayErrorCauseHeaderContainsInvalidCause (0.00s)
+=== RUN   TestBrokenRenderer
+time="2026-02-25T11:21:42Z" level=error msg=Broken
+--- PASS: TestBrokenRenderer (0.00s)
+=== RUN   TestAgentInitErrorRequestAccepted
+time="2026-02-25T11:21:42Z" level=warning msg="First fatal error stored in appctx: Extension.InitError"
+--- PASS: TestAgentInitErrorRequestAccepted (0.00s)
+=== RUN   TestRenderAgentExternalShutdownEvent
+--- PASS: TestRenderAgentExternalShutdownEvent (0.00s)
+=== RUN   TestSuccessfulRuntimeLogsAPIStub202Response
+--- PASS: TestSuccessfulRuntimeLogsAPIStub202Response (0.00s)
+=== RUN   TestInvocationErrorHandlerSendsErrorCauseToXRayWhenXRayErrorCauseContainsUTF8Characters
+--- PASS: TestInvocationErrorHandlerSendsErrorCauseToXRayWhenXRayErrorCauseContainsUTF8Characters (0.00s)
+=== RUN   TestRenderTelemetrySubscriptionClosed
+time="2026-02-25T11:21:42Z" level=error msg="Telemetry API error: ErrTelemetryServiceOff"
+--- PASS: TestRenderTelemetrySubscriptionClosed (0.00s)
+=== RUN   TestRenderRestoreAfterInvoke
+time="2026-02-25T11:21:42Z" level=warning msg="State transition is not allowed"
+--- PASS: TestRenderRestoreAfterInvoke (0.00s)
+=== RUN   TestInvocationErrorHandlerSendsCompactedErrorCauseToXRayWhenXRayErrorCauseInHeaderIsTooLarge
+--- PASS: TestInvocationErrorHandlerSendsCompactedErrorCauseToXRayWhenXRayErrorCauseInHeaderIsTooLarge (0.01s)
+=== RUN   TestRenderInvokeEmptyHeaders
+time="2026-02-25T11:21:42Z" level=warning msg="Failed to compute deadline header" error="strconv.ParseInt: parsing \"\": invalid syntax"
+--- PASS: TestRenderInvokeEmptyHeaders (0.00s)
+=== RUN   TestArbitraryAuthorizationHeader
+time="2026-02-25T11:21:42Z" level=error msg="cannot get credentials for the provided token" error="credentials not found for the provided token"
+--- PASS: TestArbitraryAuthorizationHeader (0.00s)
+=== RUN   TestRenderInvokeDoesNotCallCgo
+--- PASS: TestRenderInvokeDoesNotCallCgo (0.00s)
+=== RUN   TestInvocationErrorHandlerSendsCompactedErrorCauseWhenErrorCauseIsTooLargeForContentTypeErrorCause
+--- PASS: TestInvocationErrorHandlerSendsCompactedErrorCauseWhenErrorCauseIsTooLargeForContentTypeErrorCause (0.00s)
+=== RUN   TestAgentInitErrorMissingErrorHeader
+time="2026-02-25T11:21:42Z" level=warning msg="Invalid /extension/init/error: missing Lambda-Extension-Function-Error-Type header, agentID: b3b6bc21-4350-49d5-a82c-fa654b093bdb"
+--- PASS: TestAgentInitErrorMissingErrorHeader (0.00s)
+=== RUN   TestRenderAgentInternalShutdownEvent
+--- PASS: TestRenderAgentInternalShutdownEvent (0.00s)
+=== RUN   TestEmptyAuthorizationHeader
+time="2026-02-25T11:21:42Z" level=error msg="cannot get credentials for the provided token" error="credentials not found for the provided token"
+--- PASS: TestEmptyAuthorizationHeader (0.00s)
+=== RUN   TestRender500AndExitOnInteropFailureDuringFirstInvoke
+time="2026-02-25T11:21:42Z" level=error msg=Broken
+--- PASS: TestRender500AndExitOnInteropFailureDuringFirstInvoke (0.00s)
+=== RUN   TestInternalAgentInvalidEventType
+time="2026-02-25T11:21:42Z" level=warning msg="Failed to register internalShutdownAgent: event abcdef: ErrorInvalidEventType"
+time="2026-02-25T11:21:42Z" level=warning msg="Failed to register internalShutdownAgent: event abcdef: ErrorInvalidEventType"
+--- PASS: TestInternalAgentInvalidEventType (0.00s)
+=== RUN   TestExternalAgentInvalidEventType
+time="2026-02-25T11:21:42Z" level=warning msg="Failed to register ABC: event abcdef: ErrorInvalidEventType"
+time="2026-02-25T11:21:42Z" level=warning msg="Failed to register ABC: event abcdef: ErrorInvalidEventType"
+--- PASS: TestExternalAgentInvalidEventType (0.00s)
+=== RUN   TestRenderAgentInvokeNextHappyEmptyTraceID
+--- PASS: TestRenderAgentInvokeNextHappyEmptyTraceID (0.00s)
+=== RUN   TestInvocationErrorHandlerSendsErrorCauseToXRayForContentTypeErrorCause
+--- PASS: TestInvocationErrorHandlerSendsErrorCauseToXRayForContentTypeErrorCause (0.00s)
+=== RUN   TestSuccessfulTelemetryAPIPutRequest
+--- PASS: TestSuccessfulTelemetryAPIPutRequest (0.00s)
+=== RUN   TestRenderAgentRegisterInvalidAgentState
+time="2026-02-25T11:21:42Z" level=warning msg="Failed to register dummyName (ac3a3f8a-213f-46c9-9666-d81b211e446d): State transition is not allowed"
+--- PASS: TestRenderAgentRegisterInvalidAgentState (0.00s)
+=== RUN   TestSuccessfulRuntimeLogsResponseProxy
+--- PASS: TestSuccessfulRuntimeLogsResponseProxy (0.00s)
+=== RUN   TestErrorUnregisteredAgentID
+time="2026-02-25T11:21:42Z" level=error msg="Agent Verification Error: Unknown agent a7d04592-f94c-444e-9f25-ff7cfe5453a2 tried to call /runtime/logs"
+--- PASS: TestErrorUnregisteredAgentID (0.00s)
+=== RUN   TestResponseTooLarge
+--- PASS: TestResponseTooLarge (0.02s)
+=== RUN   TestRenderAgentRegisterInvalidAgentName
+--- PASS: TestRenderAgentRegisterInvalidAgentName (0.00s)
+=== RUN   TestRenderAgentInvokeUnknownAgent
+time="2026-02-25T11:21:42Z" level=warning msg="Unknown agent a56377fa-0fc4-4796-a46f-1f88c402171b tried to call /next"
+--- PASS: TestRenderAgentInvokeUnknownAgent (0.00s)
+=== RUN   TestRenderAgentInternalInvokeNextHappy
+--- PASS: TestRenderAgentInternalInvokeNextHappy (0.00s)
+=== RUN   TestInvocationErrorHandlerSendsNullErrorCauseWhenErrorCauseFormatIsInvalidOrEmptyForContentTypeErrorCause
+time="2026-02-25T11:21:42Z" level=error msg="errorCause validation error, Content-Type: application/vnd.aws.lambda.error.cause+json" error="error cause body has invalid format: {\"foobar\":\"baz\"}"
+time="2026-02-25T11:21:42Z" level=error msg="errorCause validation error, Content-Type: application/vnd.aws.lambda.error.cause+json" error="failed to parse error cause JSON: json: cannot unmarshal string into Go value of type model.ErrorCause"
+--- PASS: TestInvocationErrorHandlerSendsNullErrorCauseWhenErrorCauseFormatIsInvalidOrEmptyForContentTypeErrorCause (0.00s)
+=== RUN   TestRenderAgentInvokeInvalidAgentState
+time="2026-02-25T11:21:42Z" level=warning msg="Ready() failed for dummyName (5e254efc-893b-4a0e-b612-8b9e368e3f2c): State transition is not allowed, state is Started"
+--- PASS: TestRenderAgentInvokeInvalidAgentState (0.00s)
+=== RUN   TestRestoreErrorHandler
+=== RUN   TestRestoreErrorHandler/GA
+--- PASS: TestRestoreErrorHandler/GA (0.00s)
+--- PASS: TestRestoreErrorHandler (0.00s)
+=== RUN   TestAgentInitErrorInternalError
+--- PASS: TestAgentInitErrorInternalError (0.00s)
+=== RUN   TestInvocationErrorHandlerSendsErrorCauseToXRayWhenXRayErrorCauseHeaderIsSet
+--- PASS: TestInvocationErrorHandlerSendsErrorCauseToXRayWhenXRayErrorCauseHeaderIsSet (0.00s)
+=== RUN   TestRenderRestoreNext
+--- PASS: TestRenderRestoreNext (0.00s)
+=== RUN   TestRenderAgentResponse
+=== RUN   TestRenderAgentResponse/no-config-external
+time="2026-02-25T11:21:42Z" level=info msg="External agent external (4adfe7e8-73eb-40dc-b203-b68850e86a5f) registered, subscribed to []"
+--- PASS: TestRenderAgentResponse/no-config-external (0.00s)
+=== RUN   TestRenderAgentResponse/with_non-existing_accept_feature
+time="2026-02-25T11:21:42Z" level=info msg="External agent external (8ef36198-0571-4ef8-a058-789caaa59b51) registered, subscribed to []"
+--- PASS: TestRenderAgentResponse/with_non-existing_accept_feature (0.00s)
+=== RUN   TestRenderAgentResponse/with_empty_account_id_data
+time="2026-02-25T11:21:42Z" level=info msg="External agent external (d277c16f-417b-45c6-92ed-097a10d75b67) registered, subscribed to []"
+--- PASS: TestRenderAgentResponse/with_empty_account_id_data (0.00s)
+=== RUN   TestRenderAgentResponse/function-md-override
+time="2026-02-25T11:21:42Z" level=info msg="External agent external (f762f7dc-b3ec-4cbb-891e-202c88cbfa83) registered, subscribed to []"
+--- PASS: TestRenderAgentResponse/function-md-override (0.00s)
+=== RUN   TestRenderAgentResponse/internal_with_account_id_feature
+time="2026-02-25T11:21:42Z" level=info msg="Internal agent internal (68cc2484-e6bf-479f-afbf-fc288ddb7100) registered, subscribed to []"
+--- PASS: TestRenderAgentResponse/internal_with_account_id_feature (0.00s)
+=== RUN   TestRenderAgentResponse/external_with_account_id_feature
+time="2026-02-25T11:21:42Z" level=info msg="External agent external (4ca7bfde-00f4-450f-a935-9ef87a0fd946) registered, subscribed to []"
+--- PASS: TestRenderAgentResponse/external_with_account_id_feature (0.00s)
+=== RUN   TestRenderAgentResponse/account_id_feature_and_some_non-existing_feature
+time="2026-02-25T11:21:42Z" level=info msg="External agent external (dd731f21-79f8-49eb-bb42-c3c91fd74a27) registered, subscribed to []"
+--- PASS: TestRenderAgentResponse/account_id_feature_and_some_non-existing_feature (0.00s)
+=== RUN   TestRenderAgentResponse/no-config-internal
+time="2026-02-25T11:21:42Z" level=info msg="Internal agent internal (1d6bb3ee-b958-4b01-80e7-16a8612254e9) registered, subscribed to []"
+--- PASS: TestRenderAgentResponse/no-config-internal (0.00s)
+--- PASS: TestRenderAgentResponse (0.00s)
+=== RUN   TestAgentInitErrorAgentInvalidState
+time="2026-02-25T11:21:42Z" level=warning msg="InitError() failed for dummyName (8cfd8f5a-a974-4492-9b30-184579db8815): State transition is not allowed, state is Started"
+--- PASS: TestAgentInitErrorAgentInvalidState (0.00s)
+=== RUN   TestResponseAccepted
+--- PASS: TestResponseAccepted (0.00s)
+=== RUN   TestSuccessfulGet
+2026/02/25 11:21:42 {"AccessKeyId":"sampleAwsKey","SecretAccessKey":"sampleAwsSecret","Token":"sampleAwsSessionToken","Expiration":"2026-02-25T11:51:42.246501593Z"}
+--- PASS: TestSuccessfulGet (0.00s)
+=== RUN   TestNumberOfSubscribersWhenAnExtensionIsAlreadySubscribed
+--- PASS: TestNumberOfSubscribersWhenAnExtensionIsAlreadySubscribed (0.00s)
+=== RUN   TestRenderLogsSubscriptionClosed
+time="2026-02-25T11:21:42Z" level=error msg="Telemetry API error: ErrTelemetryServiceOff"
+--- PASS: TestRenderLogsSubscriptionClosed (0.00s)
+=== RUN   TestInvocationErrorHandler
+=== RUN   TestInvocationErrorHandler/GA
+--- PASS: TestInvocationErrorHandler/GA (0.00s)
+--- PASS: TestInvocationErrorHandler (0.00s)
+=== RUN   TestInvocationErrorHandlerRemovesErrorCauseFromResponse
+time="2026-02-25T11:21:42Z" level=error msg="errorCause validation error, Content-Type: application/vnd.aws.lambda.error.cause+json" error="failed to parse error cause JSON: json: cannot unmarshal array into Go struct field ErrorCause.working_directory of type string"
+--- PASS: TestInvocationErrorHandlerRemovesErrorCauseFromResponse (0.00s)
+=== RUN   TestErrorTelemetryAPICallFailure
+time="2026-02-25T11:21:42Z" level=error msg="Telemetry API error: Error calling Telemetry API: connection refused"
+--- PASS: TestErrorTelemetryAPICallFailure (0.00s)
+=== RUN   TestResponseWithDifferentFunctionResponseModes
+--- PASS: TestResponseWithDifferentFunctionResponseModes (0.00s)
+PASS
+coverage: 71.2% of statements
+ok  	golang.a2z.com/LambdaRIEGithubSource/internal/lambda/rapi/handler	0.063s	coverage: 71.2% of statements
+-test.shuffle 1772018502382919880
+=== RUN   TestErrorCauseCropMessageAndWorkingDir
+--- PASS: TestErrorCauseCropMessageAndWorkingDir (0.00s)
+=== RUN   TestErrorCauseCroppedJSONForLargeCauseWithOnlyExceptionsAndPaths
+	golang.a2z.com/LambdaRIEGithubSource/internal/lambda/rapi/rendering		coverage: 0.0% of statements
+--- PASS: TestErrorCauseCroppedJSONForLargeCauseWithOnlyExceptionsAndPaths (0.04s)
+=== RUN   TestErrorCauseCroppedJSONForEmptyCause
+--- PASS: TestErrorCauseCroppedJSONForEmptyCause (0.00s)
+=== RUN   TestErrorCauseCropStackTraces
+--- PASS: TestErrorCauseCropStackTraces (0.03s)
+=== RUN   TestErrorCauseValidationWhenCauseIsInvalid
+--- PASS: TestErrorCauseValidationWhenCauseIsInvalid (0.00s)
+=== RUN   TestCropString
+--- PASS: TestCropString (0.00s)
+=== RUN   TestErrorCauseMarshallingWhenCauseIsValid
+--- PASS: TestErrorCauseMarshallingWhenCauseIsValid (0.00s)
+=== RUN   TestErrorCauseCroppedJSONForLargeCause
+--- PASS: TestExtensionsResetDurationProfilerEndToEnd (1.00s)
+=== RUN   TestEpochToMonoPrecision
+--- PASS: TestEpochToMonoPrecision (0.00s)
+=== RUN   TestMonoToEpochPrecision
+--- PASS: TestMonoToEpochPrecision (0.00s)
+=== RUN   TestExtensionsResetDurationProfilerForExtensionsResetWithNoExtensions
+--- PASS: TestExtensionsResetDurationProfilerForExtensionsResetWithNoExtensions (0.00s)
+=== RUN   TestExtensionsResetDurationProfilerForExtensionsResetWithinDeadline
+--- PASS: TestExtensionsResetDurationProfilerForExtensionsResetWithinDeadline (0.00s)
+=== RUN   TestExtensionsResetDurationProfilerForExtensionsResetTimeout
+--- PASS: TestExtensionsResetDurationProfilerForExtensionsResetTimeout (0.00s)
+PASS
+coverage: 100.0% of statements
+ok  	golang.a2z.com/LambdaRIEGithubSource/internal/lambda/metering	1.008s	coverage: 100.0% of statements
+--- PASS: TestErrorCauseCroppedJSONForLargeCause (0.04s)
+=== RUN   TestWorkingDirCropping
+--- PASS: TestWorkingDirCropping (0.00s)
+=== RUN   TestErrorCauseValidationWhenCauseIsValid
+--- PASS: TestErrorCauseValidationWhenCauseIsValid (0.00s)
+PASS
+coverage: 89.1% of statements
+ok  	golang.a2z.com/LambdaRIEGithubSource/internal/lambda/rapi/model	0.115s	coverage: 89.1% of statements
+-test.shuffle 1772018502943333748
+=== RUN   TestSetupEventWatcherErrorHandling
+time="2026-02-25T11:21:42Z" level=error msg="Could not get events stream from supervisor: events call failed"
+time="2026-02-25T11:21:42Z" level=error msg="Init failed" InvokeID= error="events call failed"
+--- PASS: TestSetupEventWatcherErrorHandling (0.00s)
+=== RUN   TestListen
+time="2026-02-25T11:21:42Z" level=info msg="Listening port was dynamically allocated" port=40491
+Connecting...
+-test.shuffle 1772018503100419815
+=== RUN   TestInvokeWithSuppressedInitErrorDueToInvokeError
+time="2026-02-25T11:21:43Z" level=info msg="Error releasing after init failure InitDoneFailed: %!s(<nil>)"
+--- PASS: TestInvokeWithSuppressedInitErrorDueToInvokeError (0.00s)
+=== RUN   TestInitErrorBeforeReserve
+time="2026-02-25T11:21:43Z" level=info msg="Error releasing after init failure InitDoneFailed: %!s(<nil>)"
+--- PASS: TestInitErrorBeforeReserve (0.00s)
+=== RUN   TestInvokeError
+-test.shuffle 1772018503100775952
+=== RUN   TestRAPIDInternalConfig
+--- PASS: TestRAPIDInternalConfig (0.00s)
+--- PASS: TestInvokeError (0.00s)
+=== RUN   TestMultipleInvokeSuccess
+=== RUN   TestEnvironmentParsing
+--- PASS: TestMultipleInvokeSuccess (0.00s)
+=== RUN   TestInitSuccess
+--- PASS: TestInitSuccess (0.00s)
+=== RUN   TestGetRuntimeRelease
+=== RUN   TestGetRuntimeRelease/simple
+--- PASS: TestEnvironmentParsing (0.00s)
+=== RUN   TestEnvironmentVariableSplitting
+--- PASS: TestEnvironmentVariableSplitting (0.00s)
+=== RUN   TestCustomerEnvironmentVariablesFromInitCanOverrideEnvironmentVariablesFromCLIOptions
+--- PASS: TestCustomerEnvironmentVariablesFromInitCanOverrideEnvironmentVariablesFromCLIOptions (0.00s)
+=== RUN   TestStoreEnvironmentVariablesFromInitCaching
+--- PASS: TestStoreEnvironmentVariablesFromInitCaching (0.00s)
+=== RUN   TestRuntimeExecEnvironmentVariables
+--- PASS: TestGetRuntimeRelease/simple (0.00s)
+=== RUN   TestGetRuntimeRelease/no_trailing_new_line
+--- PASS: TestGetRuntimeRelease/no_trailing_new_line (0.00s)
+=== RUN   TestGetRuntimeRelease/nonexistent_keys
+--- PASS: TestRuntimeExecEnvironmentVariables (0.00s)
+=== RUN   TestAgentExecEnvironmentVariables
+--- PASS: TestAgentExecEnvironmentVariables (0.00s)
+=== RUN   TestEnvironmentParsingUnsetPlatformAndInternalEnvVarKeysAreDeleted
+--- PASS: TestEnvironmentParsingUnsetPlatformAndInternalEnvVarKeysAreDeleted (0.00s)
+=== RUN   TestRuntimeExecEnvironmentVariablesPriority
+--- PASS: TestRuntimeExecEnvironmentVariablesPriority (0.00s)
+PASS
+coverage: 87.3% of statements
+--- PASS: TestGetRuntimeRelease/nonexistent_keys (0.00s)
+=== RUN   TestGetRuntimeRelease/empty_value
+--- PASS: TestGetRuntimeRelease/empty_value (0.00s)
+=== RUN   TestGetRuntimeRelease/delimiter_in_value
+--- PASS: TestGetRuntimeRelease/delimiter_in_value (0.00s)
+=== RUN   TestGetRuntimeRelease/empty_file
+--- PASS: TestGetRuntimeRelease/empty_file (0.00s)
+=== RUN   TestGetRuntimeRelease/quotes
+--- PASS: TestGetRuntimeRelease/quotes (0.00s)
+=== RUN   TestGetRuntimeRelease/double_quotes
+--- PASS: TestGetRuntimeRelease/double_quotes (0.00s)
+=== RUN   TestGetRuntimeRelease/empty_lines
+ok  	golang.a2z.com/LambdaRIEGithubSource/internal/lambda/rapidcore/env	0.008s	coverage: 87.3% of statements
+--- PASS: TestGetRuntimeRelease/empty_lines (0.00s)
+=== RUN   TestGetRuntimeRelease/comments
+--- PASS: TestGetRuntimeRelease/comments (0.00s)
+--- PASS: TestGetRuntimeRelease (0.00s)
+=== RUN   TestAwaitReleaseOnSuccess
+--- PASS: TestAwaitReleaseOnSuccess (0.00s)
+=== RUN   TestInvokeWithSuppressedInitErrorDueToInitError
+time="2026-02-25T11:21:43Z" level=info msg="Error releasing after init failure InitDoneFailed: %!s(<nil>)"
+time="2026-02-25T11:21:43Z" level=error msg="Invoke DONE failed: A.B"
+--- PASS: TestInvokeWithSuppressedInitErrorDueToInitError (0.00s)
+=== RUN   TestReserveDoesNotDeadlockWhenCalledMultipleTimes
+--- PASS: TestReserveDoesNotDeadlockWhenCalledMultipleTimes (0.00s)
+=== RUN   TestInitErrorDuringReserve
+time="2026-02-25T11:21:43Z" level=info msg="Error releasing after init failure InitDoneFailed: %!s(<nil>)"
+--- PASS: TestInitErrorDuringReserve (0.00s)
+=== RUN   TestInvokeSuccess
+--- PASS: TestInvokeSuccess (0.00s)
+=== RUN   TestGetRuntimeRelease_InvalidLine
+--- PASS: TestGetRuntimeRelease_InvalidLine (0.00s)
+=== RUN   TestInvokeWithSuppressedInitSuccess
+time="2026-02-25T11:21:43Z" level=info msg="Error releasing after init failure InitDoneFailed: %!s(<nil>)"
+--- PASS: TestInvokeWithSuppressedInitSuccess (0.00s)
+=== RUN   TestGetRuntimeRelease_NotFound
+--- PASS: TestGetRuntimeRelease_NotFound (0.00s)
+PASS
+coverage: 56.6% of statements
+ok  	golang.a2z.com/LambdaRIEGithubSource/internal/lambda/rapidcore	0.024s	coverage: 56.6% of statements
+--- PASS: TestNewBandwidthLimitingWriter (2.80s)
+=== RUN   TestNewThrottler_start_stop
+	golang.a2z.com/LambdaRIEGithubSource/internal/lambda/rapidcore/standalone/telemetry		coverage: 0.0% of statements
+	golang.a2z.com/LambdaRIEGithubSource/internal/lambda/rapidcore/standalone		coverage: 0.0% of statements
+-test.shuffle 1772018503589215654
+=== RUN   TestSimpleBootstrap
+--- PASS: TestSimpleBootstrap (0.00s)
+=== RUN   TestSimpleBootstrapCmdNonExistingCandidate
+--- PASS: TestSimpleBootstrapCmdNonExistingCandidate (0.00s)
+=== RUN   TestSimpleBootstrapCmdDefaultWorkingDir
+--- PASS: TestSimpleBootstrapCmdDefaultWorkingDir (0.00s)
+PASS
+coverage: 4.7% of statements
+ok  	golang.a2z.com/LambdaRIEGithubSource/internal/lambda/rie	0.026s	coverage: 4.7% of statements
+--- PASS: TestNewThrottler_start_stop (0.40s)
+=== RUN   TestNewThrottler
+time="2026-02-25T11:21:43Z" level=error msg="cannot create a throttler with nil bucket"
+--- PASS: TestNewThrottler (0.00s)
+=== RUN   TestBandwidthLimitingCopy
+--- PASS: TestBandwidthLimitingCopy (0.04s)
+=== RUN   TestNewChunkIterator
+--- PASS: TestNewChunkIterator (0.00s)
+=== RUN   TestBucket_produceTokens_consumeTokens
+--- PASS: TestBucket_produceTokens_consumeTokens (0.00s)
+=== RUN   TestNewThrottler_bandwidthLimitingWrite
+-test.shuffle 1772018503902663886
+=== RUN   TestKillExited
+-test.shuffle 1772018503903513135
+=== RUN   Test_KillDeadlineIsMarshalledIntoRFC3339
+--- PASS: Test_KillDeadlineIsMarshalledIntoRFC3339 (0.00s)
+PASS
+coverage: 0.0% of statements
+--- PASS: TestKillExited (0.01s)
+=== RUN   TestEvents
+--- PASS: TestEvents (0.00s)
+=== RUN   TestShutdown
+ok  	golang.a2z.com/LambdaRIEGithubSource/internal/lambda/supervisor/model	0.022s	coverage: 0.0% of statements
+-test.shuffle 1772018503932678861
+=== RUN   TestGetRuntimeDoneInvokeMetricsWhenInvokeResponseMetricsIsNil
+--- PASS: TestGetRuntimeDoneInvokeMetricsWhenInvokeResponseMetricsIsNil (0.00s)
+=== RUN   TestGetRuntimeDoneSpansWhenRuntimeStartedTimeIsMinusOne
+--- PASS: TestGetRuntimeDoneSpansWhenRuntimeStartedTimeIsMinusOne (0.00s)
+=== RUN   TestCalculateDuration
+=== RUN   TestCalculateDuration/milliseconds_only
+--- PASS: TestCalculateDuration/milliseconds_only (0.00s)
+=== RUN   TestCalculateDuration/with_microseconds
+--- PASS: TestCalculateDuration/with_microseconds (0.00s)
+=== RUN   TestCalculateDuration/nanoseconds_must_be_dropped
+--- PASS: TestCalculateDuration/nanoseconds_must_be_dropped (0.00s)
+=== RUN   TestCalculateDuration/microseconds_presented,_nanoseconds_dropped
+--- PASS: TestCalculateDuration/microseconds_presented,_nanoseconds_dropped (0.00s)
+--- PASS: TestCalculateDuration (0.00s)
+=== RUN   TestGetRuntimeDoneSpansWhenRuntimeCalledError
+--- PASS: TestGetRuntimeDoneSpansWhenRuntimeCalledError (0.00s)
+=== RUN   TestGetRuntimeDoneSpansWhenInvokeResponseMetricsNil
+--- PASS: TestGetRuntimeDoneSpansWhenInvokeResponseMetricsNil (0.00s)
+=== RUN   TestGetRuntimeDoneInvokeMetricsWhenRuntimeStartedTimeIsMinusOne
+--- PASS: TestGetRuntimeDoneInvokeMetricsWhenRuntimeStartedTimeIsMinusOne (0.00s)
+=== RUN   TestGetRuntimeDoneInvokeMetricsWhenRuntimeCalledError
+--- PASS: TestGetRuntimeDoneInvokeMetricsWhenRuntimeCalledError (0.00s)
+=== RUN   TestGetRuntimeDoneSpans
+--- PASS: TestGetRuntimeDoneSpans (0.00s)
+=== RUN   TestInferInitType
+=== RUN   TestInferInitType/on_demand
+--- PASS: TestInferInitType/on_demand (0.00s)
+=== RUN   TestInferInitType/pc
+--- PASS: TestInferInitType/pc (0.00s)
+=== RUN   TestInferInitType/snap-start_for_OD
+--- PASS: TestInferInitType/snap-start_for_OD (0.00s)
+=== RUN   TestInferInitType/snap-start_for_PC
+--- PASS: TestInferInitType/snap-start_for_PC (0.00s)
+--- PASS: TestInferInitType (0.00s)
+=== RUN   TestGetRuntimeDoneInvokeMetrics
+--- PASS: TestGetRuntimeDoneInvokeMetrics (0.00s)
+=== RUN   TestTracerDoesntSwallowErrorsFromCriticalFunctions
+=== RUN   TestTracerDoesntSwallowErrorsFromCriticalFunctions/NoOpTracer-success
+--- PASS: TestTracerDoesntSwallowErrorsFromCriticalFunctions/NoOpTracer-success (0.00s)
+=== RUN   TestTracerDoesntSwallowErrorsFromCriticalFunctions/NoOpTracer-fail
+--- PASS: TestTracerDoesntSwallowErrorsFromCriticalFunctions/NoOpTracer-fail (0.00s)
+--- PASS: TestTracerDoesntSwallowErrorsFromCriticalFunctions (0.00s)
+=== RUN   TestParseTracingHeader
+=== RUN   TestParseTracingHeader/Root=1-5b3cc918-939afd635f8891ba6a9e1df6;Parent=c88d77b0aef840e9;Sampled=1
+--- PASS: TestParseTracingHeader/Root=1-5b3cc918-939afd635f8891ba6a9e1df6;Parent=c88d77b0aef840e9;Sampled=1 (0.00s)
+=== RUN   TestParseTracingHeader/Root=1-5b3cc918-939afd635f8891ba6a9e1df6;Parent=c88d77b0aef840e9
+--- PASS: TestParseTracingHeader/Root=1-5b3cc918-939afd635f8891ba6a9e1df6;Parent=c88d77b0aef840e9 (0.00s)
+=== RUN   TestParseTracingHeader/1-5b3cc918-939afd635f8891ba6a9e1df6;Parent=c88d77b0aef840e9;Sampled=1
+--- PASS: TestParseTracingHeader/1-5b3cc918-939afd635f8891ba6a9e1df6;Parent=c88d77b0aef840e9;Sampled=1 (0.00s)
+=== RUN   TestParseTracingHeader/Root=1-5b3cc918-939afd635f8891ba6a9e1df6
+--- PASS: TestParseTracingHeader/Root=1-5b3cc918-939afd635f8891ba6a9e1df6 (0.00s)
+=== RUN   TestParseTracingHeader/#00
+--- PASS: TestParseTracingHeader/#00 (0.00s)
+=== RUN   TestParseTracingHeader/abc;;
+--- PASS: TestParseTracingHeader/abc;; (0.00s)
+=== RUN   TestParseTracingHeader/abc
+--- PASS: TestParseTracingHeader/abc (0.00s)
+=== RUN   TestParseTracingHeader/abc;asd
+--- PASS: TestParseTracingHeader/abc;asd (0.00s)
+=== RUN   TestParseTracingHeader/abc=as;asd=as
+--- PASS: TestParseTracingHeader/abc=as;asd=as (0.00s)
+=== RUN   TestParseTracingHeader/Root=abc
+--- PASS: TestParseTracingHeader/Root=abc (0.00s)
+=== RUN   TestParseTracingHeader/Root=abc;Parent=zxc;Sampled=1
+--- PASS: TestParseTracingHeader/Root=abc;Parent=zxc;Sampled=1 (0.00s)
+=== RUN   TestParseTracingHeader/Root=root;Parent=par
+--- PASS: TestParseTracingHeader/Root=root;Parent=par (0.00s)
+=== RUN   TestParseTracingHeader/Root=root;Par
+--- PASS: TestParseTracingHeader/Root=root;Par (0.00s)
+=== RUN   TestParseTracingHeader/Root=
+--- PASS: TestParseTracingHeader/Root= (0.00s)
+=== RUN   TestParseTracingHeader/;Root=root;;
+--- PASS: TestParseTracingHeader/;Root=root;; (0.00s)
+=== RUN   TestParseTracingHeader/Root=root;Parent=parent;
+--- PASS: TestParseTracingHeader/Root=root;Parent=parent; (0.00s)
+=== RUN   TestParseTracingHeader/Root=;Parent=parent;Sampled=1
+--- PASS: TestParseTracingHeader/Root=;Parent=parent;Sampled=1 (0.00s)
+=== RUN   TestParseTracingHeader/Root=abc;Parent=zxc;Sampled=1;Lineage
+--- PASS: TestParseTracingHeader/Root=abc;Parent=zxc;Sampled=1;Lineage (0.00s)
+=== RUN   TestParseTracingHeader/Root=abc;Parent=zxc;Sampled=1;Lineage=
+--- PASS: TestParseTracingHeader/Root=abc;Parent=zxc;Sampled=1;Lineage= (0.00s)
+=== RUN   TestParseTracingHeader/Root=abc;Parent=zxc;Sampled=1;Lineage=foo:1|bar:65535
+--- PASS: TestParseTracingHeader/Root=abc;Parent=zxc;Sampled=1;Lineage=foo:1|bar:65535 (0.00s)
+=== RUN   TestParseTracingHeader/Root=abc;Parent=zxc;Lineage=foo:1|bar:65535;Sampled=1
+--- PASS: TestParseTracingHeader/Root=abc;Parent=zxc;Lineage=foo:1|bar:65535;Sampled=1 (0.00s)
+=== RUN   TestParseTracingHeader/Root=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa;Parent=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa;Sampled=1;Lineage=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+--- PASS: TestParseTracingHeader/Root=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa;Parent=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa;Sampled=1;Lineage=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa (0.00s)
+--- PASS: TestParseTracingHeader (0.00s)
+=== RUN   TestBuildFullTraceID
+=== RUN   TestBuildFullTraceID/all_non-empty_components,_sampled
+--- PASS: TestBuildFullTraceID/all_non-empty_components,_sampled (0.00s)
+=== RUN   TestBuildFullTraceID/all_non-empty_components,_non-sampled
+--- PASS: TestBuildFullTraceID/all_non-empty_components,_non-sampled (0.00s)
+=== RUN   TestBuildFullTraceID/root_is_non-empty,_parent_and_sample_are_empty
+--- PASS: TestBuildFullTraceID/root_is_non-empty,_parent_and_sample_are_empty (0.00s)
+=== RUN   TestBuildFullTraceID/root_is_empty
+--- PASS: TestBuildFullTraceID/root_is_empty (0.00s)
+=== RUN   TestBuildFullTraceID/sample_is_empty
+--- PASS: TestBuildFullTraceID/sample_is_empty (0.00s)
+--- PASS: TestBuildFullTraceID (0.00s)
+PASS
+coverage: 56.0% of statements
+ok  	golang.a2z.com/LambdaRIEGithubSource/internal/lambda/telemetry	0.031s	coverage: 56.0% of statements
+Serving...
+time="2026-02-25T11:21:43Z" level=info msg="Runtime API Server closed"
+time="2026-02-25T11:21:43Z" level=info msg="Runtime API Server closed"
+--- PASS: TestListen (1.00s)
+=== RUN   TestRestoreErrorAndAwaitRestoreCompletionRaceCondition
+time="2026-02-25T11:21:44Z" level=info msg="Sending SIGKILL to agent-2(7908)."
+time="2026-02-25T11:21:44Z" level=info msg="Sending SIGKILL to agent-0(7906)."
+-test.shuffle 1772018504092803059
+=== RUN   TestFindAgentMixed
+--- PASS: TestFindAgentMixed (0.00s)
+=== RUN   TestBaseEmpty
+--- PASS: TestBaseEmpty (0.00s)
+=== RUN   TestChrootNotExist
+time=2026-02-25T11:21:44.0941Z level=INFO msg="The extension's directory does not exist, assuming no extensions to be loaded" fullDir=/does/not/exist/bin
+--- PASS: TestChrootNotExist (0.00s)
+=== RUN   TestFindAgentMixedInChroot
+--- PASS: TestFindAgentMixedInChroot (0.00s)
+=== RUN   TestBaseNotDir
+time=2026-02-25T11:21:44.0950Z level=ERROR msg="Cannot list external agents" err="open /tmp/ext-284831958/opt/extensions: not a directory"
+--- PASS: TestBaseNotDir (0.00s)
+=== RUN   TestBaseNotExist
+time=2026-02-25T11:21:44.0952Z level=INFO msg="The extension's directory does not exist, assuming no extensions to be loaded" fullDir=/path/which/does/not/exist
+--- PASS: TestBaseNotExist (0.00s)
+PASS
+coverage: 88.9% of statements
+ok  	golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/agents	0.006s	coverage: 88.9% of statements
+map[]--- PASS: TestShutdown (0.32s)
+=== RUN   TestTerminateExited
+--- PASS: TestTerminateExited (0.10s)
+=== RUN   TestInvalidRuntimeDomainExec
+--- PASS: TestInvalidRuntimeDomainExec (0.00s)
+=== RUN   TestRuntimeDomainExec
+--- PASS: TestRuntimeDomainExec (0.00s)
+=== RUN   TestKill
+time="2026-02-25T11:21:44Z" level=info msg="Sending SIGKILL to agent(8028)."
+--- PASS: TestKill (0.00s)
+=== RUN   TestKillUnknown
+--- PASS: TestKillUnknown (0.00s)
+=== RUN   TestTerminate
+-test.shuffle 1772018504356632332
+=== RUN   TestUpdateAppCtxWithRuntimeReleaseWithoutUserAgent
+--- PASS: TestUpdateAppCtxWithRuntimeReleaseWithoutUserAgent (0.00s)
+=== RUN   TestFirstFatalError
+2026/02/25 11:21:44 WARN First fatal error stored in appctx errorType=Extension.Crash
+2026/02/25 11:21:44 WARN Omitting fatal error: already stored err=Extension.ExitError existing=Extension.Crash
+--- PASS: TestFirstFatalError (0.00s)
+=== RUN   TestUpdateAppCtxWithRuntimeRelease
+--- PASS: TestUpdateAppCtxWithRuntimeRelease (0.00s)
+=== RUN   TestUpdateAppCtxWithRuntimeReleaseWithBlankUserAgent
+--- PASS: TestUpdateAppCtxWithRuntimeReleaseWithBlankUserAgent (0.00s)
+=== RUN   TestUpdateAppCtxWithRuntimeReleaseWithLambdaRuntimeFeatures
+--- PASS: TestUpdateAppCtxWithRuntimeReleaseWithLambdaRuntimeFeatures (0.00s)
+=== RUN   TestCreateRuntimeReleaseFromRequest
+--- PASS: TestCreateRuntimeReleaseFromRequest (0.00s)
+=== RUN   TestUpdateAppCtxWithRuntimeReleaseMultipleTimes
+--- PASS: TestUpdateAppCtxWithRuntimeReleaseMultipleTimes (0.00s)
+PASS
+coverage: 74.1% of statements
+ok  	golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/appctx	0.011s	coverage: 74.1% of statements
+--- PASS: TestTerminate (0.10s)
+PASS
+coverage: 69.4% of statements
+ok  	golang.a2z.com/LambdaRIEGithubSource/internal/lambda/supervisor	0.545s	coverage: 69.4% of statements
+-test.shuffle 1772018504649324743
+=== RUN   TestApp_ServeHTTP
+=== RUN   TestApp_ServeHTTP/successful_invocation
+--- PASS: TestApp_ServeHTTP/successful_invocation (0.00s)
+=== RUN   TestApp_ServeHTTP/init_failure
+--- PASS: TestApp_ServeHTTP/init_failure (0.00s)
+=== RUN   TestApp_ServeHTTP/platform_error_during_init
+--- PASS: TestApp_ServeHTTP/platform_error_during_init (0.00s)
+=== RUN   TestApp_ServeHTTP/invoke_error_with_response_not_sent
+time=2026-02-25T11:21:44.6510Z level=WARN msg="invoke failed" RequestId=e0624c6f-77da-45c7-a395-595e53148ac6 err=Runtime.Unknown
+--- PASS: TestApp_ServeHTTP/invoke_error_with_response_not_sent (0.00s)
+=== RUN   TestApp_ServeHTTP/invoke_error_with_response_already_sent
+time=2026-02-25T11:21:44.6516Z level=WARN msg="invoke failed" RequestId=d8ece33f-8eb3-419f-9919-d00ec83d0a50 err=Runtime.Unknown
+--- PASS: TestApp_ServeHTTP/invoke_error_with_response_already_sent (0.00s)
+--- PASS: TestApp_ServeHTTP (0.00s)
+=== RUN   TestParseAddr
+=== RUN   TestParseAddr/Valid_IPv6_address
+--- PASS: TestParseAddr/Valid_IPv6_address (0.00s)
+=== RUN   TestParseAddr/Use_default_address
+--- PASS: TestParseAddr/Use_default_address (0.00s)
+=== RUN   TestParseAddr/Invalid_address_format
+--- PASS: TestParseAddr/Invalid_address_format (0.00s)
+=== RUN   TestParseAddr/Invalid_port
+--- PASS: TestParseAddr/Invalid_port (0.02s)
+=== RUN   TestParseAddr/Invalid_IP
+--- PASS: TestParseAddr/Invalid_IP (0.00s)
+--- PASS: TestParseAddr (0.02s)
+=== RUN   TestConfigureLogging
+=== RUN   TestConfigureLogging/Debug_level
+--- PASS: TestConfigureLogging/Debug_level (0.00s)
+=== RUN   TestConfigureLogging/Info_level
+--- PASS: TestConfigureLogging/Info_level (0.00s)
+=== RUN   TestConfigureLogging/Warn_level
+--- PASS: TestConfigureLogging/Warn_level (0.00s)
+=== RUN   TestConfigureLogging/Error_level
+--- PASS: TestConfigureLogging/Error_level (0.00s)
+=== RUN   TestConfigureLogging/Invalid_level_defaults_to_Info
+--- PASS: TestConfigureLogging/Invalid_level_defaults_to_Info (0.00s)
+--- PASS: TestConfigureLogging (0.00s)
+=== RUN   TestApp_ServeHTTP_Concurrent
+--- PASS: TestNewThrottler_bandwidthLimitingWrite (0.83s)
+=== RUN   TestNewBucket
+time="2026-02-25T11:21:44Z" level=error msg="invalid bucket parameters (capacity: 8, initialTokenCount: 6, refillNumber: -100000000,refillInterval: -100000000)"
+time="2026-02-25T11:21:44Z" level=error msg="invalid bucket parameters (capacity: 8, initialTokenCount: 6, refillNumber: 100000000,refillInterval: 100000000)"
+time="2026-02-25T11:21:44Z" level=error msg="invalid bucket parameters (capacity: 8, initialTokenCount: -2, refillNumber: 100000000,refillInterval: 100000000)"
+time="2026-02-25T11:21:44Z" level=error msg="invalid bucket parameters (capacity: -2, initialTokenCount: 6, refillNumber: 100000000,refillInterval: 100000000)"
+time="2026-02-25T11:21:44Z" level=error msg="invalid bucket parameters (capacity: 8, initialTokenCount: 10, refillNumber: 100000000,refillInterval: 100000000)"
+--- PASS: TestNewBucket (0.00s)
+PASS
+coverage: 97.9% of statements
+ok  	golang.a2z.com/LambdaRIEGithubSource/internal/lambda/core/bandwidthlimiter	4.074s	coverage: 97.9% of statements
+-test.shuffle 1772018504693488742
+=== RUN   TestResponder_RuntimeInvocationErrorFlow
+--- PASS: TestResponder_RuntimeInvocationErrorFlow (0.00s)
+=== RUN   TestResponder_RuntimeResponseTrailerError
+--- PASS: TestResponder_RuntimeResponseTrailerError (0.00s)
+=== RUN   TestResponder_SendErrorFlow
+--- PASS: TestResponder_SendErrorFlow (0.00s)
+=== RUN   TestResponder_CompleteSuccessFlow
+--- PASS: TestResponder_CompleteSuccessFlow (0.00s)
+=== RUN   TestResponder_ErrorInTheMiddleOfResponse
+--- PASS: TestResponder_ErrorInTheMiddleOfResponse (0.00s)
+=== RUN   TestNewRieInvokeRequest
+=== RUN   TestNewRieInvokeRequest/no_headers_in_request
+--- PASS: TestNewRieInvokeRequest/no_headers_in_request (0.00s)
+=== RUN   TestNewRieInvokeRequest/all_headers_present_in_request
+--- PASS: TestNewRieInvokeRequest/all_headers_present_in_request (0.00s)
+=== RUN   TestNewRieInvokeRequest/malformed_cognito_identity_header
+time=2026-02-25T11:21:44.6949Z level=WARN msg="Failed to parse X-Amz-Cognito-Identity header" err="invalid character 'o' in literal null (expecting 'u')"
+--- PASS: TestNewRieInvokeRequest/malformed_cognito_identity_header (0.00s)
+=== RUN   TestNewRieInvokeRequest/malformed_client_context_header
+time=2026-02-25T11:21:44.6950Z level=WARN msg="Failed to decode X-Amz-Client-Context header" err="illegal base64 data at input byte 3"
+--- PASS: TestNewRieInvokeRequest/malformed_client_context_header (0.00s)
+=== RUN   TestNewRieInvokeRequest/partial_cognito_identity_header
+--- PASS: TestNewRieInvokeRequest/partial_cognito_identity_header (0.00s)
+--- PASS: TestNewRieInvokeRequest (0.00s)
+=== RUN   TestResponder_SendRuntimeResponseBody
+=== RUN   TestResponder_SendRuntimeResponseBody/OversizedResponse
+--- PASS: TestResponder_SendRuntimeResponseBody/OversizedResponse (0.00s)
+=== RUN   TestResponder_SendRuntimeResponseBody/ReadError
+--- PASS: TestResponder_SendRuntimeResponseBody/ReadError (0.00s)
+--- PASS: TestResponder_SendRuntimeResponseBody (0.00s)
+PASS
+coverage: 62.9% of statements
+ok  	golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/aws-lambda-rie/internal/invoke	0.006s	coverage: 62.9% of statements
+--- PASS: TestApp_ServeHTTP_Concurrent (0.12s)
+=== RUN   Test_getBootstrap
+=== RUN   Test_getBootstrap/with_bootstrap_arg
+time=2026-02-25T11:21:44.7931Z level=INFO msg="executing bootstrap" command=/path/to/bootstrap
+--- PASS: Test_getBootstrap/with_bootstrap_arg (0.00s)
+=== RUN   Test_getBootstrap/find_bootstrap_in_cwd
+--- PASS: Test_getBootstrap/find_bootstrap_in_cwd (0.00s)
+=== RUN   Test_getBootstrap/find_bootstrap_in_var_runtime
+time=2026-02-25T11:21:44.7933Z level=WARN msg="could not find bootstrap file" path=/test/cwd/bootstrap
+--- PASS: Test_getBootstrap/find_bootstrap_in_var_runtime (0.00s)
+=== RUN   Test_getBootstrap/bootstrap_is_directory
+time=2026-02-25T11:21:44.7935Z level=WARN msg="bootstrap file is a directory" path=/test/cwd/bootstrap
+time=2026-02-25T11:21:44.7935Z level=WARN msg="could not find bootstrap file" path=/var/runtime/bootstrap
+time=2026-02-25T11:21:44.7936Z level=WARN msg="could not find bootstrap file" path=/var/task/bootstrap
+time=2026-02-25T11:21:44.7937Z level=WARN msg="could not find bootstrap file" path=/opt/bootstrap
+--- PASS: Test_getBootstrap/bootstrap_is_directory (0.00s)
+=== RUN   Test_getBootstrap/no_bootstrap_found
+time=2026-02-25T11:21:44.7938Z level=WARN msg="could not find bootstrap file" path=/test/cwd/bootstrap
+time=2026-02-25T11:21:44.7939Z level=WARN msg="could not find bootstrap file" path=/var/runtime/bootstrap
+time=2026-02-25T11:21:44.7939Z level=WARN msg="could not find bootstrap file" path=/var/task/bootstrap
+time=2026-02-25T11:21:44.7940Z level=WARN msg="could not find bootstrap file" path=/opt/bootstrap
+--- PASS: Test_getBootstrap/no_bootstrap_found (0.00s)
+--- PASS: Test_getBootstrap (0.00s)
+=== RUN   Test_getHandler
+=== RUN   Test_getHandler/AWS_LAMBDA_FUNCTION_HANDLER_takes_precedence
+--- PASS: Test_getHandler/AWS_LAMBDA_FUNCTION_HANDLER_takes_precedence (0.00s)
+=== RUN   Test_getHandler/_HANDLER_takes_precedence
+--- PASS: Test_getHandler/_HANDLER_takes_precedence (0.00s)
+=== RUN   Test_getHandler/handler_from_args
+--- PASS: Test_getHandler/handler_from_args (0.00s)
+=== RUN   Test_getHandler/no_handler_specified
+--- PASS: Test_getHandler/no_handler_specified (0.00s)
+--- PASS: Test_getHandler (0.00s)
+=== RUN   Test_getInitRequestMessage
+=== RUN   Test_getInitRequestMessage/default_values
+time=2026-02-25T11:21:44.7943Z level=INFO msg="executing bootstrap" command=/path/to/bootstrap
+--- PASS: Test_getInitRequestMessage/default_values (0.00s)
+=== RUN   Test_getInitRequestMessage/all_env_vars_and_args
+time=2026-02-25T11:21:44.7945Z level=INFO msg="executing bootstrap" command=/custom/bootstrap
+--- PASS: Test_getInitRequestMessage/all_env_vars_and_args (0.00s)
+--- PASS: Test_getInitRequestMessage (0.00s)
+=== RUN   TestParseCLIArgs
+=== RUN   TestParseCLIArgs/Default_values
+--- PASS: TestParseCLIArgs/Default_values (0.00s)
+=== RUN   TestParseCLIArgs/Command_line_arguments
+--- PASS: TestParseCLIArgs/Command_line_arguments (0.00s)
+=== RUN   TestParseCLIArgs/Environment_variable_override
+--- PASS: TestParseCLIArgs/Environment_variable_override (0.00s)
+=== RUN   TestParseCLIArgs/Command_line_takes_precedence_over_env
+--- PASS: TestParseCLIArgs/Command_line_takes_precedence_over_env (0.00s)
+--- PASS: TestParseCLIArgs (0.00s)
+PASS
+coverage: 63.2% of statements
+ok  	golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/aws-lambda-rie/internal	0.167s	coverage: 63.2% of statements
+--- PASS: TestRestoreErrorAndAwaitRestoreCompletionRaceCondition (1.00s)
+=== RUN   TestGetExtensionNamesWithTooLongExtensionName
+--- PASS: TestGetExtensionNamesWithTooLongExtensionName (0.00s)
+=== RUN   TestGetExtensionNamesWithNoExtensions
+--- PASS: TestGetExtensionNamesWithNoExtensions (0.00s)
+=== RUN   TestGetExtensionNamesWithMultipleExtensions
+--- PASS: TestGetExtensionNamesWithMultipleExtensions (0.00s)
+=== RUN   TestGetExtensionNamesWithTooManyExtensions
+--- PASS: TestGetExtensionNamesWithTooManyExtensions (0.00s)
+PASS
+coverage: 12.9% of statements
+ok  	golang.a2z.com/LambdaRIEGithubSource/internal/lambda/rapid	2.011s	coverage: 12.9% of statements
+-test.shuffle 1772018505114983601
+=== RUN   TestEventsAPI_SendInvokeStart
+--- PASS: TestEventsAPI_SendInvokeStart (0.00s)
+=== RUN   TestEventsAPI_SendInitStart
+--- PASS: TestEventsAPI_SendInitStart (0.00s)
+=== RUN   TestEventsAPI_sendTelemetrySubscription
+--- PASS: TestEventsAPI_sendTelemetrySubscription (0.00s)
+=== RUN   TestLogsEgress
+=== RUN   TestLogsEgress/extension_sockets_use_extension_category
+-test.shuffle 1772018505118215940
+=== RUN   TestNewClient
+=== RUN   TestNewClient/creates_tcp_client_successfully
+--- PASS: TestNewClient/creates_tcp_client_successfully (0.00s)
+=== RUN   TestNewClient/tcp_client_fails_no_server
+--- PASS: TestNewClient/tcp_client_fails_no_server (0.00s)
+=== RUN   TestNewClient/tcp_client_with_zero_port
+--- PASS: TestNewClient/tcp_client_with_zero_port (0.00s)
+=== RUN   TestNewClient/creates_http_client_valid_sandbox_domain
+--- PASS: TestNewClient/creates_http_client_valid_sandbox_domain (0.00s)
+=== RUN   TestNewClient/http_client_with_https
+--- PASS: TestNewClient/http_client_with_https (0.00s)
+=== RUN   TestNewClient/http_client_missing_port
+--- PASS: TestNewClient/http_client_missing_port (0.00s)
+=== RUN   TestNewClient/http_client_with_path_and_query
+--- PASS: TestNewClient/http_client_with_path_and_query (0.00s)
+=== RUN   TestNewClient/http_client_invalid_uri_format
+--- PASS: TestNewClient/http_client_invalid_uri_format (0.00s)
+=== RUN   TestNewClient/http_client_invalid_hostname
+--- PASS: TestNewClient/http_client_invalid_hostname (0.00s)
+=== RUN   TestNewClient/invalid_protocol
+--- PASS: TestNewClient/invalid_protocol (0.00s)
+--- PASS: TestNewClient (0.00s)
+=== RUN   TestBatch
+=== RUN   TestBatch/sequential_event_addition_until_full
+--- PASS: TestBatch/sequential_event_addition_until_full (0.00s)
+=== RUN   TestBatch/mixed_size_events_reach_byte_limit
+--- PASS: TestBatch/mixed_size_events_reach_byte_limit (0.00s)
+--- PASS: TestBatch (0.00s)
+=== RUN   TestHTTPClient_send
+=== RUN   TestHTTPClient_send/sends_batch_successfully
+--- PASS: TestHTTPClient_send/sends_batch_successfully (0.00s)
+=== RUN   TestHTTPClient_send/handles_http_error_response
+--- PASS: TestHTTPClient_send/handles_http_error_response (0.00s)
+=== RUN   TestHTTPClient_send/handles_context_cancellation
+--- PASS: TestHTTPClient_send/handles_context_cancellation (0.00s)
+=== RUN   TestHTTPClient_send/sends_empty_batch
+--- PASS: TestHTTPClient_send/sends_empty_batch (0.00s)
+--- PASS: TestHTTPClient_send (0.00s)
+=== RUN   TestSubscriber
+=== PAUSE TestSubscriber
+=== CONT  TestSubscriber
+--- PASS: TestLogsEgress/extension_sockets_use_extension_category (0.01s)
+=== RUN   TestLogsEgress/runtime_sockets_use_function_category
+--- PASS: TestLogsEgress/runtime_sockets_use_function_category (0.01s)
+--- PASS: TestLogsEgress (0.02s)
+=== RUN   TestEventsAPI_SendInitReport
+--- PASS: TestEventsAPI_SendInitReport (0.00s)
+=== RUN   TestSubscriptionAPI_Subscribe
+=== RUN   TestSubscriptionAPI_Subscribe/valid_http_subscription_request
+2026/02/25 11:21:45 INFO Telemetry subscription created agentName=test-agent destinationURI=http://sandbox.localdomain:8080/telemetry destinationPort=0 protocol=HTTP categories="[platform function]"
+--- PASS: TestSubscriptionAPI_Subscribe/valid_http_subscription_request (0.00s)
+=== RUN   TestSubscriptionAPI_Subscribe/tcp_connection_refused
+--- PASS: TestSubscriptionAPI_Subscribe/tcp_connection_refused (0.00s)
+=== RUN   TestSubscriptionAPI_Subscribe/subscription_with_default_buffering
+2026/02/25 11:21:45 INFO Telemetry subscription created agentName=default-agent destinationURI=http://sandbox.localdomain:8080/events destinationPort=0 protocol=HTTP categories=[platform]
+--- PASS: TestSubscriptionAPI_Subscribe/subscription_with_default_buffering (0.00s)
+=== RUN   TestSubscriptionAPI_Subscribe/invalid_json_request
+--- PASS: TestSubscriptionAPI_Subscribe/invalid_json_request (0.00s)
+=== RUN   TestSubscriptionAPI_Subscribe/schema_validation_error_missing_required_fields
+--- PASS: TestSubscriptionAPI_Subscribe/schema_validation_error_missing_required_fields (0.02s)
+=== RUN   TestSubscriptionAPI_Subscribe/invalid_destination_protocol
+--- PASS: TestSubscriptionAPI_Subscribe/invalid_destination_protocol (0.00s)
+=== RUN   TestSubscriptionAPI_Subscribe/telemetry_subscription_event_api_error
+2026/02/25 11:21:45 INFO Telemetry subscription created agentName=event-error-agent destinationURI=http://sandbox.localdomain:8080/events destinationPort=0 protocol=HTTP categories=[platform]
+2026/02/25 11:21:45 ERROR Failed to send platform.telemetrySubscription event err="event API error"
+--- PASS: TestSubscriptionAPI_Subscribe/telemetry_subscription_event_api_error (0.00s)
+=== RUN   TestSubscriptionAPI_Subscribe/partial_buffering_config
+2026/02/25 11:21:45 INFO Telemetry subscription created agentName=partial-buffer-agent destinationURI=http://sandbox.localdomain:8080/events destinationPort=0 protocol=HTTP categories=[function]
+--- PASS: TestSubscriptionAPI_Subscribe/partial_buffering_config (0.00s)
+=== RUN   TestSubscriptionAPI_Subscribe/empty_types_array
+--- PASS: TestSubscriptionAPI_Subscribe/empty_types_array (0.00s)
+=== RUN   TestSubscriptionAPI_Subscribe/missing_required_field_destination
+--- PASS: TestSubscriptionAPI_Subscribe/missing_required_field_destination (0.00s)
+=== RUN   TestSubscriptionAPI_Subscribe/invalid_schema_version
+--- PASS: TestSubscriptionAPI_Subscribe/invalid_schema_version (0.00s)
+=== RUN   TestSubscriptionAPI_Subscribe/tcp_destination_missing_port
+--- PASS: TestSubscriptionAPI_Subscribe/tcp_destination_missing_port (0.00s)
+=== RUN   TestSubscriptionAPI_Subscribe/http_destination_missing_uri
+--- PASS: TestSubscriptionAPI_Subscribe/http_destination_missing_uri (0.00s)
+=== RUN   TestSubscriptionAPI_Subscribe/relay_add_subscriber_error
+--- PASS: TestSubscriptionAPI_Subscribe/relay_add_subscriber_error (0.00s)
+--- PASS: TestSubscriptionAPI_Subscribe (0.03s)
+=== RUN   TestEventsAPI_SendInitRuntimeDone
+--- PASS: TestEventsAPI_SendInitRuntimeDone (0.00s)
+=== RUN   TestEventsAPI_SendPlatformLogsDropped
+--- PASS: TestEventsAPI_SendPlatformLogsDropped (0.00s)
+=== RUN   TestRelay
+--- PASS: TestRelay (0.00s)
+=== RUN   TestSubscriptionAPI_Subscribe_ReadError
+--- PASS: TestSubscriptionAPI_Subscribe_ReadError (0.00s)
+=== RUN   TestEventsAPI_SendExtensionInit
+--- PASS: TestEventsAPI_SendExtensionInit (0.00s)
+=== RUN   TestEventsAPI_SendReport
+--- PASS: TestEventsAPI_SendReport (0.00s)
+PASS
+coverage: 84.4% of statements
+ok  	golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/aws-lambda-rie/internal/telemetry	0.070s	coverage: 84.4% of statements
+	golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/aws-lambda-rie/run		coverage: 0.0% of statements
+--- PASS: TestSubscriber (0.12s)
+PASS
+coverage: 72.5% of statements
+ok  	golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/aws-lambda-rie/internal/telemetry/internal	0.142s	coverage: 72.5% of statements
+-test.shuffle 1772018506137862787
+=== RUN   TestRie_InvokeFatalError
+=== PAUSE TestRie_InvokeFatalError
+=== RUN   TestRIE_TelemetryAPI
+=== PAUSE TestRIE_TelemetryAPI
+=== RUN   TestRie_InvokeWaitingForInitError
+=== PAUSE TestRie_InvokeWaitingForInitError
+=== RUN   TestRie_SingleInvoke
+=== PAUSE TestRie_SingleInvoke
+=== RUN   TestRie_InitError
+=== PAUSE TestRie_InitError
+=== RUN   TestRie_SigtermDuringInvoke
+=== PAUSE TestRie_SigtermDuringInvoke
+=== CONT  TestRie_InvokeFatalError
+time=2026-02-25T11:21:46.139Z level=INFO msg="executing bootstrap" command=hello
+-test.shuffle 1772018506144155305
+=== RUN   TestCancel
+--- PASS: TestCancel (0.00s)
+=== RUN   TestExternalAgentStateTransitionsFromStartedState
+--- PASS: TestExternalAgentStateTransitionsFromStartedState (0.00s)
+=== RUN   TestRuntimeInitErrorAfterReady
+=== CONT  TestRIE_TelemetryAPI
+--- PASS: TestRuntimeInitErrorAfterReady (0.00s)
+=== RUN   TestExternalAgentStateTransitionsFromRegisteredState
+--- PASS: TestExternalAgentStateTransitionsFromRegisteredState (0.00s)
+=== RUN   TestRegistrationServiceHappyPathDuringInit
+-test.shuffle 1772018506146652394
+=== RUN   TestBucket_produceTokens_consumeTokens
+--- PASS: TestBucket_produceTokens_consumeTokens (0.00s)
+=== RUN   TestNewThrottler_start_stop
+=== RUN   TestRIE_TelemetryAPI/simple_invoke
+=== PAUSE TestRIE_TelemetryAPI/simple_invoke
+=== CONT  TestRIE_TelemetryAPI/simple_invoke
+=== CONT  TestRie_InitError
+time=2026-02-25T11:21:46.145Z level=INFO msg="executing bootstrap" command=hello
+time=2026-02-25T11:21:46.145Z level=INFO msg="executing bootstrap" command=hello
+=== CONT  TestRie_SigtermDuringInvoke
+--- PASS: TestRegistrationServiceHappyPathDuringInit (0.00s)
+-test.shuffle 1772018506169597855
+=== RUN   TestCustomerHeadersEmpty
+--- PASS: TestCustomerHeadersEmpty (0.00s)
+=== RUN   TestCustomerHeaders
+--- PASS: TestCustomerHeaders (0.00s)
+PASS
+coverage: 28.6% of statements
+=== CONT  TestRie_SingleInvoke
+=== RUN   TestRie_SingleInvoke/simple_invoke
+=== PAUSE TestRie_SingleInvoke/simple_invoke
+=== CONT  TestRie_SingleInvoke/simple_invoke
+=== RUN   TestExternalAgentStateTransitionsFromShutdownFailedState
+--- PASS: TestExternalAgentStateTransitionsFromShutdownFailedState (0.00s)
+=== RUN   TestInternalAgentStateTransitionsFromInitErrorState
+--- PASS: TestInternalAgentStateTransitionsFromInitErrorState (0.00s)
+=== RUN   TestMapErrorToAgentInfoErrorType
+=== RUN   TestMapErrorToAgentInfoErrorType/ErrTooManyExtensions_returns_too_many_extensions_error
+--- PASS: TestMapErrorToAgentInfoErrorType/ErrTooManyExtensions_returns_too_many_extensions_error (0.00s)
+=== RUN   TestMapErrorToAgentInfoErrorType/wrapped_permission_error_with_fmt.Errorf_returns_permission_denied_error
+--- PASS: TestMapErrorToAgentInfoErrorType/wrapped_permission_error_with_fmt.Errorf_returns_permission_denied_error (0.00s)
+time=2026-02-25T11:21:46.174Z level=INFO msg="executing bootstrap" command=hello
+=== RUN   TestMapErrorToAgentInfoErrorType/random_error_returns_extension_launch_error
+--- PASS: TestMapErrorToAgentInfoErrorType/random_error_returns_extension_launch_error (0.00s)
+--- PASS: TestMapErrorToAgentInfoErrorType (0.00s)
+=== RUN   TestInternalAgentStateTransitionsFromRunningState
+--- PASS: TestInternalAgentStateTransitionsFromRunningState (0.00s)
+=== RUN   TestExternalAgentStateTransitionsFromReadyState
+--- PASS: TestExternalAgentStateTransitionsFromReadyState (0.00s)
+=== RUN   TestExternalAgentStateTransitionsFromExitErrorState
+--- PASS: TestExternalAgentStateTransitionsFromExitErrorState (0.00s)
+=== RUN   TestRuntimeStateTransitionsFromRunningState
+--- PASS: TestRuntimeStateTransitionsFromRunningState (0.00s)
+=== RUN   TestWalkThroughTwice
+--- PASS: TestWalkThroughTwice (0.00s)
+=== RUN   TestExternalAgentsMapInsertIDCollision
+--- PASS: TestExternalAgentsMapInsertIDCollision (0.00s)
+=== RUN   TestExternalAgentStateTransitionsFromExitedState
+--- PASS: TestExternalAgentStateTransitionsFromExitedState (0.00s)
+=== RUN   TestAwaitGateConditionWithDeadlineWalkthrough
+--- PASS: TestAwaitGateConditionWithDeadlineWalkthrough (0.00s)
+=== RUN   TestInternalAgentStateTransitionsFromExitErrorState
+--- PASS: TestInternalAgentStateTransitionsFromExitErrorState (0.00s)
+=== RUN   TestRuntimeStateTransitionsFromStartedState
+--- PASS: TestRuntimeStateTransitionsFromStartedState (0.00s)
+=== RUN   TestRuntimeStateTransitionsFromInitErrorState
+--- PASS: TestRuntimeStateTransitionsFromInitErrorState (0.00s)
+=== RUN   TestExternalAgentStateTransitionsFromLaunchErrorState
+--- PASS: TestExternalAgentStateTransitionsFromLaunchErrorState (0.00s)
+=== RUN   TestExternalAgentsMapLookupByID
+START RequestId: e96496d2-b5e9-43e7-9cbe-2a3cf1730e85	Version: $LATEST
+=== CONT  TestRie_InvokeWaitingForInitError
+--- PASS: TestExternalAgentsMapLookupByID (0.00s)
+=== RUN   TestAwaitGateConditionWithDeadlineTimeout
+--- PASS: TestAwaitGateConditionWithDeadlineTimeout (0.00s)
+=== RUN   TestCancelWithError
+--- PASS: TestCancelWithError (0.00s)
+=== RUN   TestInternalAgentStateTransitionsFromRegisteredState
+--- PASS: TestInternalAgentStateTransitionsFromRegisteredState (0.00s)
+=== RUN   TestWalkThrough
+--- PASS: TestWalkThrough (0.00s)
+=== RUN   TestInternalAgentStateTransitionsFromStartedState
+--- PASS: TestInternalAgentStateTransitionsFromStartedState (0.00s)
+=== RUN   TestInternalAgentStateTransitionsFromReadyState
+time=2026-02-25T11:21:46.175Z level=WARN msg="First fatal error stored in appctx" errorType=Runtime.ExitError
+time=2026-02-25T11:21:46.175Z level=WARN msg="Process exited" name=runtime event="exit status 0"
+--- PASS: TestInternalAgentStateTransitionsFromReadyState (0.00s)
+=== RUN   TestSetCount
+--- PASS: TestSetCount (0.00s)
+=== RUN   TestRuntimeStateTransitionsFromReadyState
+time=2026-02-25T11:21:46.175Z level=INFO msg="Shutting down" reason=Runtime.ExitError
+time=2026-02-25T11:21:46.175Z level=INFO msg="InvokeRouter: Aborting running invokes" reason=Runtime.ExitError
+time=2026-02-25T11:21:46.175Z level=INFO msg="cancel invoke" reason=Runtime.ExitError
+time=2026-02-25T11:21:46.175Z level=INFO msg="Received ctx cancellation" RequestId=e96496d2-b5e9-43e7-9cbe-2a3cf1730e85 err=Runtime.ExitError
+--- PASS: TestRuntimeStateTransitionsFromReadyState (0.00s)
+=== RUN   TestExternalAgentStateUnknownEventType
+--- PASS: TestExternalAgentStateUnknownEventType (0.00s)
+=== RUN   TestGetAgents
+--- PASS: TestGetAgents (0.00s)
+=== RUN   TestExternalAgentsMapInsertNameCollision
+--- PASS: TestExternalAgentsMapInsertNameCollision (0.00s)
+=== RUN   TestExternalAgentStateTransitionsFromRunningState
+--- PASS: TestExternalAgentStateTransitionsFromRunningState (0.00s)
+=== RUN   TestExternalAgentsMapLookupByName
+--- PASS: TestExternalAgentsMapLookupByName (0.00s)
+=== RUN   TestReset
+--- PASS: TestReset (0.00s)
+=== RUN   TestUseAfterCancel
+--- PASS: TestUseAfterCancel (0.00s)
+=== RUN   TestExternalAgentStateTransitionsFromInitErrorState
+--- PASS: TestExternalAgentStateTransitionsFromInitErrorState (0.00s)
+PASS
+coverage: 74.8% of statements
+ok  	golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/core/directinvoke	0.049s	coverage: 28.6% of statements
+ok  	golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/core	0.051s	coverage: 74.8% of statements
+END RequestId: e96496d2-b5e9-43e7-9cbe-2a3cf1730e85
+REPORT RequestId: e96496d2-b5e9-43e7-9cbe-2a3cf1730e85	Duration: 8.54 ms
+time=2026-02-25T11:21:46.183Z level=WARN msg="invoke failed" RequestId=e96496d2-b5e9-43e7-9cbe-2a3cf1730e85 err=Runtime.ExitError
+time=2026-02-25T11:21:46.184Z level=INFO msg="ShutdownContext shutdown() initiated" reason=failure
+time=2026-02-25T11:21:46.184Z level=INFO msg="Waiting for runtime domain processes termination"
+time=2026-02-25T11:21:46.184Z level=INFO msg="Runtime API Server closed"
+time=2026-02-25T11:21:46.184Z level=ERROR msg="Server error" err="http: Server closed"
+time=2026-02-25T11:21:46.184Z level=INFO msg="Runtime API Server closed"
+time=2026-02-25T11:21:46.184Z level=INFO msg="Shutting down HTTP server..."
+    rie_test.go:277: 
+        	Error Trace:	/workplace/siyuliao/LambdaRIEGithubSource_ws/src/LambdaRIEGithubSource/internal/lambda-managed-instances/aws-lambda-rie/test/rie_test.go:277
+        	Error:      	Received unexpected error:
+        	            	Post "http://127.0.0.1:41141/2015-03-31/functions/function/invocations": EOF
+        	Test:       	TestRie_InvokeFatalError
+--- FAIL: TestRie_InvokeFatalError (0.05s)
+time=2026-02-25T11:21:46.192Z level=INFO msg="executing bootstrap" command=hello
+time=2026-02-25T11:21:46.193Z level=INFO msg="executing bootstrap" command=hello
+time=2026-02-25T11:21:46.194Z level=WARN msg="Received Runtime Init Error" errType=Function.TestError
+time=2026-02-25T11:21:46.216Z level=WARN msg="First fatal error stored in appctx" errorType=Function.TestError
+time=2026-02-25T11:21:46.216Z level=WARN msg="Omitting fatal error: already stored" err=Runtime.ExitError existing=Function.TestError
+time=2026-02-25T11:21:46.216Z level=WARN msg="Process exited" name=runtime event="exit status 0"
+time=2026-02-25T11:21:46.216Z level=WARN msg="Ignoring gate error due to existing fatal error" gateError="runtime exited without providing a reason" existingFatalError=Function.TestError
+time=2026-02-25T11:21:46.216Z level=WARN msg="Received Init error" err=Function.TestError
+time=2026-02-25T11:21:46.216Z level=INFO msg="Shutting down" reason=Function.TestError
+time=2026-02-25T11:21:46.216Z level=INFO msg="InvokeRouter: Aborting running invokes" reason=Function.TestError
+time=2026-02-25T11:21:46.216Z level=INFO msg="ShutdownContext shutdown() initiated" reason=failure
+time=2026-02-25T11:21:46.216Z level=INFO msg="Waiting for runtime domain processes termination"
+time=2026-02-25T11:21:46.217Z level=INFO msg="Runtime API Server closed"
+time=2026-02-25T11:21:46.217Z level=ERROR msg="Server error" err="http: Server closed"
+time=2026-02-25T11:21:46.217Z level=INFO msg="Runtime API Server closed"
+time=2026-02-25T11:21:46.217Z level=INFO msg="Shutting down HTTP server..."
+--- PASS: TestRie_InitError (0.07s)
+START RequestId: d04bed9c-45e2-4fab-bfa7-1a74a52b5ce5	Version: $LATEST
+    runtime_actions.go:45: runtime sleeping for 100ms
+START RequestId: de41dc85-9c68-427b-b368-2b2516a2544c	Version: $LATEST
+END RequestId: de41dc85-9c68-427b-b368-2b2516a2544c
+REPORT RequestId: de41dc85-9c68-427b-b368-2b2516a2544c	Duration: 0.57 ms
+time=2026-02-25T11:21:46.220Z level=INFO msg="SignalHandler received:" signal=terminated
+time=2026-02-25T11:21:46.220Z level=INFO msg="Shutting down" reason=Client.ExecutionEnvironmentShutDown
+time=2026-02-25T11:21:46.220Z level=INFO msg="InvokeRouter: Aborting running invokes" reason=Client.ExecutionEnvironmentShutDown
+time=2026-02-25T11:21:46.220Z level=INFO msg="ShutdownContext shutdown() initiated" reason=spindown
+time=2026-02-25T11:21:46.220Z level=INFO msg="Waiting for runtime domain processes termination"
+time=2026-02-25T11:21:46.220Z level=INFO msg="Runtime API Server closed"
+time=2026-02-25T11:21:46.220Z level=ERROR msg="Server error" err="http: Server closed"
+time=2026-02-25T11:21:46.220Z level=INFO msg="Runtime API Server closed"
+time=2026-02-25T11:21:46.220Z level=INFO msg="Shutting down HTTP server..."
+--- PASS: TestRie_SingleInvoke/simple_invoke (0.05s)
+--- PASS: TestRie_SingleInvoke (0.00s)
+	golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/core/statejson		coverage: 0.0% of statements
+time=2026-02-25T11:21:46.295Z level=INFO msg="Telemetry subscription created" agentName=http destinationURI=http://sandbox.localdomain:41197 destinationPort=0 protocol=HTTP categories="[platform function extension]"
+extension http: test stdout log
+extension http: test stderr log
+time=2026-02-25T11:21:46.298Z level=INFO msg="Telemetry subscription created" agentName=tcp destinationURI="" destinationPort=38629 protocol=TCP categories="[platform function extension]"
+extension tcp: test stdout log
+extension tcp: test stderr log
+START RequestId: 127ad3c0-4c5e-4645-bfd5-633205175692	Version: $LATEST
+runtime: test stdout log
+runtime: test stderr log
+END RequestId: 127ad3c0-4c5e-4645-bfd5-633205175692
+REPORT RequestId: 127ad3c0-4c5e-4645-bfd5-633205175692	Duration: 0.46 ms
+time=2026-02-25T11:21:46.300Z level=INFO msg="SignalHandler received:" signal=terminated
+time=2026-02-25T11:21:46.300Z level=INFO msg="Shutting down" reason=Client.ExecutionEnvironmentShutDown
+time=2026-02-25T11:21:46.300Z level=INFO msg="InvokeRouter: Aborting running invokes" reason=Client.ExecutionEnvironmentShutDown
+time=2026-02-25T11:21:46.300Z level=INFO msg="ShutdownContext shutdown() initiated" reason=spindown
+    extension_actions.go:258: {"time":"2026-02-25T11:21:46.145Z","type":"platform.initStart","record":{"initializationType":"lambda-managed-instances","runtimeVersion":"","runtimeVersionArn":"","functionName":"test_function","functionVersion":"$LATEST","instanceId":"$LATEST","instanceMaxMemory":3154116608,"phase":"init"}}
+    extension_actions.go:258: {"time":"2026-02-25T11:21:46.216Z","type":"platform.initRuntimeDone","record":{"initializationType":"lambda-managed-instances","status":"success","phase":"init"}}
+    extension_actions.go:258: {"time":"2026-02-25T11:21:46.295Z","type":"platform.telemetrySubscription","record":{"name":"http","state":"Subscribed","types":["platform","function","extension"]}}
+    extension_actions.go:393: Received telemetry event of type platform.telemetrySubscription (not forwarded to EventsAPI)
+    extension_actions.go:258: {"time":"2026-02-25T11:21:46.296Z","type":"extension","record":"extension http: test stdout log"}
+    extension_actions.go:258: {"time":"2026-02-25T11:21:46.296Z","type":"extension","record":"extension http: test stderr log"}
+    extension_actions.go:258: {"time":"2026-02-25T11:21:46.298Z","type":"platform.telemetrySubscription","record":{"name":"tcp","state":"Subscribed","types":["platform","function","extension"]}}
+    extension_actions.go:393: Received telemetry event of type platform.telemetrySubscription (not forwarded to EventsAPI)
+time=2026-02-25T11:21:46.300Z level=INFO msg="[{\"time\":\"2026-02-25T11:21:46.145Z\",\"type\":\"platform.initStart\",\"record\":{\"initializationType\":\"lambda-managed-instances\",\"runtimeVersion\":\"\",\"runtimeVersionArn\":\"\",\"functionName\":\"test_function\",\"functionVersion\":\"$LATEST\",\"instanceId\":\"$LATEST\",\"instanceMaxMemory\":3154116608,\"phase\":\"init\"}},{\"time\":\"2026-02-25T11:21:46.216Z\",\"type\":\"platform.initRuntimeDone\",\"record\":{\"initializationType\":\"lambda-managed-instances\",\"status\":\"success\",\"phase\":\"init\"}},{\"time\":\"2026-02-25T11:21:46.295Z\",\"type\":\"platform.telemetrySubscription\",\"record\":{\"name\":\"http\",\"state\":\"Subscribed\",\"types\":[\"platform\",\"function\",\"extension\"]}},{\"time\":\"2026-02-25T11:21:46.296Z\",\"type\":\"extension\",\"record\":\"extension http: test stdout log\"},{\"time\":\"2026-02-25T11:21:46.296Z\",\"type\":\"extension\",\"record\":\"extension http: test stderr log\"},{\"time\":\"2026-02-25T11:21:46.298Z\",\"type\":\"platform.telemetrySubscription\",\"record\":{\"name\":\"tcp\",\"state\":\"Subscribed\",\"types\":[\"platform\",\"function\",\"extension\"]}},{\"time\":\"2026-02-25T11:21:46.298Z\",\"type\":\"extension\",\"record\":\"extension tcp: test stdout log\"},{\"time\":\"2026-02-25T11:21:46.298Z\",\"type\":\"extension\",\"record\":\"extension tcp: test stderr log\"},{\"time\":\"2026-02-25T11:21:46.299Z\",\"type\":\"platform.extension\",\"record\":{\"name\":\"http\",\"state\":\"Ready\",\"events\":[]}},{\"time\":\"2026-02-25T11:21:46.299Z\",\"type\":\"platform.extension\",\"record\":{\"name\":\"tcp\",\"state\":\"Ready\",\"events\":[]}},{\"time\":\"2026-02-25T11:21:46.299Z\",\"type\":\"platform.initReport\",\"record\":{\"initializationType\":\"lambda-managed-instances\",\"metrics\":{\"durationMs\":153.378},\"phase\":\"init\",\"status\":\"success\"}},{\"time\":\"2026-02-25T11:21:46.299Z\",\"type\":\"platform.start\",\"record\":{\"requestId\":\"127ad3c0-4c5e-4645-bfd5-633205175692\",\"version\":\"$LATEST\",\"functionArn\":\"arn:aws:lambda:us-east-1:123456789012:function:test_function\"}},{\"time\":\"2026-02-25T11:21:46.299Z\",\"type\":\"function\",\"record\":\"runtime: test stdout log\"},{\"time\":\"2026-02-25T11:21:46.299Z\",\"type\":\"function\",\"record\":\"runtime: test stderr log\"},{\"time\":\"2026-02-25T11:21:46.299Z\",\"type\":\"platform.report\",\"record\":{\"requestId\":\"127ad3c0-4c5e-4645-bfd5-633205175692\",\"status\":\"success\",\"metrics\":{\"durationMs\":0.459},\"spans\":[{\"name\":\"responseLatency\",\"start\":\"2026-02-25T11:21:46.299Z\",\"durationMs\":0.358},{\"name\":\"responseDuration\",\"start\":\"2026-02-25T11:21:46.299Z\",\"durationMs\":0.024}]}}]"
+    extension_actions.go:258: {"time":"2026-02-25T11:21:46.298Z","type":"extension","record":"extension tcp: test stdout log"}
+    extension_actions.go:258: {"time":"2026-02-25T11:21:46.298Z","type":"extension","record":"extension tcp: test stderr log"}
+    extension_actions.go:258: {"time":"2026-02-25T11:21:46.299Z","type":"platform.extension","record":{"name":"http","state":"Ready","events":[]}}
+    extension_actions.go:258: {"time":"2026-02-25T11:21:46.299Z","type":"platform.extension","record":{"name":"tcp","state":"Ready","events":[]}}
+    extension_actions.go:258: {"time":"2026-02-25T11:21:46.299Z","type":"platform.initReport","record":{"initializationType":"lambda-managed-instances","metrics":{"durationMs":153.378},"phase":"init","status":"success"}}
+    extension_actions.go:258: {"time":"2026-02-25T11:21:46.299Z","type":"platform.start","record":{"requestId":"127ad3c0-4c5e-4645-bfd5-633205175692","version":"$LATEST","functionArn":"arn:aws:lambda:us-east-1:123456789012:function:test_function"}}
+    extension_actions.go:258: {"time":"2026-02-25T11:21:46.299Z","type":"function","record":"runtime: test stdout log"}
+    extension_actions.go:258: {"time":"2026-02-25T11:21:46.299Z","type":"function","record":"runtime: test stderr log"}
+    extension_actions.go:258: {"time":"2026-02-25T11:21:46.299Z","type":"platform.report","record":{"requestId":"127ad3c0-4c5e-4645-bfd5-633205175692","status":"success","metrics":{"durationMs":0.459},"spans":[{"name":"responseLatency","start":"2026-02-25T11:21:46.299Z","durationMs":0.358},{"name":"responseDuration","start":"2026-02-25T11:21:46.299Z","durationMs":0.024}]}}
+    extension_actions.go:393: Received telemetry event of type platform.telemetrySubscription (not forwarded to EventsAPI)
+    extension_actions.go:393: Received telemetry event of type platform.telemetrySubscription (not forwarded to EventsAPI)
+time=2026-02-25T11:21:46.301Z level=INFO msg="Waiting for runtime domain processes termination"
+time=2026-02-25T11:21:46.301Z level=INFO msg="Runtime API Server closed"
+time=2026-02-25T11:21:46.301Z level=ERROR msg="Server error" err="http: Server closed"
+time=2026-02-25T11:21:46.301Z level=INFO msg="Runtime API Server closed"
+time=2026-02-25T11:21:46.301Z level=INFO msg="Shutting down HTTP server..."
+time=2026-02-25T11:21:46.301Z level=ERROR msg="extension HttpGetWithHeaders failed" err="Get \"http://127.0.0.1:33235/2020-01-01/extension/event/next\": dial tcp 127.0.0.1:33235: connect: connection refused"
+--- PASS: TestRIE_TelemetryAPI/simple_invoke (0.16s)
+--- PASS: TestRIE_TelemetryAPI (0.00s)
+time=2026-02-25T11:21:46.301Z level=ERROR msg="extension HttpGetWithHeaders failed" err="Get \"http://127.0.0.1:33235/2020-01-01/extension/event/next\": dial tcp 127.0.0.1:33235: connect: connection refused"
+time=2026-02-25T11:21:46.318Z level=WARN msg="First fatal error stored in appctx" errorType=Runtime.ExitError
+time=2026-02-25T11:21:46.318Z level=WARN msg="Process exited" name=runtime event="exit status 0"
+time=2026-02-25T11:21:46.318Z level=WARN msg="Ignoring gate error due to existing fatal error" gateError="runtime exited without providing a reason" existingFatalError=Runtime.ExitError
+time=2026-02-25T11:21:46.318Z level=WARN msg="Received Init error" err=Runtime.ExitError
+time=2026-02-25T11:21:46.319Z level=INFO msg="Shutting down" reason=Runtime.ExitError
+time=2026-02-25T11:21:46.319Z level=INFO msg="InvokeRouter: Aborting running invokes" reason=Runtime.ExitError
+time=2026-02-25T11:21:46.319Z level=INFO msg="ShutdownContext shutdown() initiated" reason=failure
+time=2026-02-25T11:21:46.319Z level=INFO msg="Waiting for runtime domain processes termination"
+time=2026-02-25T11:21:46.319Z level=INFO msg="Runtime API Server closed"
+time=2026-02-25T11:21:46.319Z level=ERROR msg="Server error" err="http: Server closed"
+time=2026-02-25T11:21:46.319Z level=INFO msg="Runtime API Server closed"
+time=2026-02-25T11:21:46.319Z level=INFO msg="Shutting down HTTP server..."
+-test.shuffle 1772018506354837634
+=== RUN   TestJsonMarshalInvokeRuntimeDoneWithProducedBytesEqualToZero
+--- PASS: TestJsonMarshalInvokeRuntimeDoneWithProducedBytesEqualToZero (0.00s)
+=== RUN   TestJsonMarshalInitReportErrorWithEmptyErrorType
+--- PASS: TestJsonMarshalInitReportErrorWithEmptyErrorType (0.00s)
+=== RUN   TestJsonMarshalReportWithTracing
+--- PASS: TestJsonMarshalReportWithTracing (0.00s)
+=== RUN   TestJsonMarshalInvokeRuntimeDoneNoMetrics
+--- PASS: TestJsonMarshalInvokeRuntimeDoneNoMetrics (0.00s)
+=== RUN   TestFaultDataRenderFluxpumpMsg
+=== RUN   TestFaultDataRenderFluxpumpMsg/TimeoutDataString
+--- PASS: TestFaultDataRenderFluxpumpMsg/TimeoutDataString (0.00s)
+=== RUN   TestFaultDataRenderFluxpumpMsg/ErrorDataString
+--- PASS: TestFaultDataRenderFluxpumpMsg/ErrorDataString (0.00s)
+=== RUN   TestFaultDataRenderFluxpumpMsg/FailureDataString
+--- PASS: TestFaultDataRenderFluxpumpMsg/FailureDataString (0.00s)
+--- PASS: TestFaultDataRenderFluxpumpMsg (0.00s)
+=== RUN   TestJsonMarshalInvokeRuntimeDone
+--- PASS: TestJsonMarshalInvokeRuntimeDone (0.00s)
+=== RUN   TestJsonMarshalExtensionInit
+--- PASS: TestJsonMarshalExtensionInit (0.00s)
+=== RUN   TestDoneMetadataMetricsDimensionsStringWhenInvokeResponseModeIsPresent
+=== RUN   TestDoneMetadataMetricsDimensionsStringWhenInvokeResponseModeIsPresent/invoke_response_mode_is_streaming
+--- PASS: TestDoneMetadataMetricsDimensionsStringWhenInvokeResponseModeIsPresent/invoke_response_mode_is_streaming (0.00s)
+=== RUN   TestDoneMetadataMetricsDimensionsStringWhenInvokeResponseModeIsPresent/invoke_response_mode_is_buffered
+--- PASS: TestDoneMetadataMetricsDimensionsStringWhenInvokeResponseModeIsPresent/invoke_response_mode_is_buffered (0.00s)
+--- PASS: TestDoneMetadataMetricsDimensionsStringWhenInvokeResponseModeIsPresent (0.00s)
+=== RUN   TestJsonMarshalInitReportTimeout
+    events_api_test.go:536: {"initializationType":"lambda-managed-instances","metrics":{"durationMs":17},"phase":"init","status":"timeout"}
+--- PASS: TestJsonMarshalInitReportTimeout (0.00s)
+=== RUN   TestJsonMarshalInvokeRuntimeDoneWithNoSpans
+--- PASS: TestJsonMarshalInvokeRuntimeDoneWithNoSpans (0.00s)
+=== RUN   TestJsonMarshalInitRuntimeDoneError
+--- PASS: TestJsonMarshalInitRuntimeDoneError (0.00s)
+=== RUN   TestJsonMarshalInvokeRuntimeDoneTimeout
+--- PASS: TestJsonMarshalInvokeRuntimeDoneTimeout (0.00s)
+=== RUN   TestJsonMarshalInvokeRuntimeDoneNoTracing
+--- PASS: TestJsonMarshalInvokeRuntimeDoneNoTracing (0.00s)
+=== RUN   TestJsonMarshalReportWithoutErrorSpansAndTracing
+--- PASS: TestJsonMarshalReportWithoutErrorSpansAndTracing (0.00s)
+=== RUN   TestTelemetryEventDataString
+=== RUN   TestTelemetryEventDataString/InitStartDataString
+--- PASS: TestTelemetryEventDataString/InitStartDataString (0.00s)
+=== RUN   TestTelemetryEventDataString/InitRuntimeDoneDataString
+--- PASS: TestTelemetryEventDataString/InitRuntimeDoneDataString (0.00s)
+=== RUN   TestTelemetryEventDataString/InitReportDataString
+--- PASS: TestTelemetryEventDataString/InitReportDataString (0.00s)
+=== RUN   TestTelemetryEventDataString/InvokeRuntimeDoneDataString
+--- PASS: TestTelemetryEventDataString/InvokeRuntimeDoneDataString (0.00s)
+=== RUN   TestTelemetryEventDataString/ExtensionInitDataString
+--- PASS: TestTelemetryEventDataString/ExtensionInitDataString (0.00s)
+=== RUN   TestTelemetryEventDataString/ReportDataString
+--- PASS: TestTelemetryEventDataString/ReportDataString (0.00s)
+--- PASS: TestTelemetryEventDataString (0.00s)
+=== RUN   TestGetErrorResponseWithFormattedErrorMessageWithoutInvokeRequestId
+--- PASS: TestGetErrorResponseWithFormattedErrorMessageWithoutInvokeRequestId (0.00s)
+=== RUN   TestJsonMarshalInitReportError
+--- PASS: TestJsonMarshalInitReportError (0.00s)
+=== RUN   TestJsonMarshalReportMetrics
+=== RUN   TestJsonMarshalReportMetrics/Report_metrics_with_lower_precision_than_reqd.
+--- PASS: TestJsonMarshalReportMetrics/Report_metrics_with_lower_precision_than_reqd. (0.00s)
+=== RUN   TestJsonMarshalReportMetrics/Report_metrics_with_enough_or_higher_precision_than_reqd.
+--- PASS: TestJsonMarshalReportMetrics/Report_metrics_with_enough_or_higher_precision_than_reqd. (0.00s)
+=== RUN   TestJsonMarshalReportMetrics/`DurationMs`_of_integer_type,_`InitDuration`_absent
+--- PASS: TestJsonMarshalReportMetrics/`DurationMs`_of_integer_type,_`InitDuration`_absent (0.00s)
+=== RUN   TestJsonMarshalReportMetrics/Report_metrics_with_zero_value
+--- PASS: TestJsonMarshalReportMetrics/Report_metrics_with_zero_value (0.00s)
+=== RUN   TestJsonMarshalReportMetrics/Report_metrics_not_explicitly_provided
+--- PASS: TestJsonMarshalReportMetrics/Report_metrics_not_explicitly_provided (0.00s)
+--- PASS: TestJsonMarshalReportMetrics (0.00s)
+=== RUN   TestJsonMarshalInitRuntimeDoneFailureWithEmptyErrorType
+--- PASS: TestJsonMarshalInitRuntimeDoneFailureWithEmptyErrorType (0.00s)
+=== RUN   TestGetErrorResponseWithFormattedErrorMessageWithInvokeRequestId
+--- PASS: TestGetErrorResponseWithFormattedErrorMessageWithInvokeRequestId (0.00s)
+=== RUN   TestDoneMetadataMetricsDimensionsStringWhenEmpty
+--- PASS: TestDoneMetadataMetricsDimensionsStringWhenEmpty (0.00s)
+=== RUN   TestBuildStatusFromError
+=== RUN   TestBuildStatusFromError/nilError
+--- PASS: TestBuildStatusFromError/nilError (0.00s)
+=== RUN   TestBuildStatusFromError/sandboxTimeoutError
+--- PASS: TestBuildStatusFromError/sandboxTimeoutError (0.00s)
+=== RUN   TestBuildStatusFromError/customerError
+--- PASS: TestBuildStatusFromError/customerError (0.00s)
+=== RUN   TestBuildStatusFromError/platformError
+--- PASS: TestBuildStatusFromError/platformError (0.00s)
+--- PASS: TestBuildStatusFromError (0.00s)
+=== RUN   TestJsonMarshalReportWithInit
+--- PASS: TestJsonMarshalReportWithInit (0.00s)
+=== RUN   TestJsonMarshalInitReportSuccess
+--- PASS: TestJsonMarshalInitReportSuccess (0.00s)
+=== RUN   TestJsonMarshalInvokeRuntimeDoneWithEmptyErrorType
+--- PASS: TestJsonMarshalInvokeRuntimeDoneWithEmptyErrorType (0.00s)
+=== RUN   TestJsonMarshalInvokeRuntimeDoneFailure
+--- PASS: TestJsonMarshalInvokeRuntimeDoneFailure (0.00s)
+=== RUN   TestJsonMarshalInitRuntimeDoneSuccess
+--- PASS: TestJsonMarshalInitRuntimeDoneSuccess (0.00s)
+=== RUN   TestGetDeadlineMs
+--- PASS: TestGetDeadlineMs (0.00s)
+=== RUN   TestJsonMarshalExtensionInitEmptyEvents
+--- PASS: TestJsonMarshalExtensionInitEmptyEvents (0.00s)
+=== RUN   TestJsonMarshalExtensionInitWithError
+--- PASS: TestJsonMarshalExtensionInitWithError (0.00s)
+PASS
+coverage: 7.1% of statements
+ok  	golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/interop	0.014s	coverage: 7.1% of statements
+--- PASS: TestRie_InvokeWaitingForInitError (0.24s)
+time=2026-02-25T11:21:46.418Z level=INFO msg="SignalHandler received:" signal=terminated
+time=2026-02-25T11:21:46.418Z level=INFO msg="Shutting down" reason=Client.ExecutionEnvironmentShutDown
+time=2026-02-25T11:21:46.418Z level=INFO msg="InvokeRouter: Aborting running invokes" reason=Client.ExecutionEnvironmentShutDown
+time=2026-02-25T11:21:46.418Z level=INFO msg="cancel invoke" reason=Client.ExecutionEnvironmentShutDown
+time=2026-02-25T11:21:46.418Z level=INFO msg="Received ctx cancellation" RequestId=d04bed9c-45e2-4fab-bfa7-1a74a52b5ce5 err=Client.ExecutionEnvironmentShutDown
+END RequestId: d04bed9c-45e2-4fab-bfa7-1a74a52b5ce5
+REPORT RequestId: d04bed9c-45e2-4fab-bfa7-1a74a52b5ce5	Duration: 200.72 ms
+time=2026-02-25T11:21:46.418Z level=ERROR msg="invoke failed" RequestId=d04bed9c-45e2-4fab-bfa7-1a74a52b5ce5 err=Client.ExecutionEnvironmentShutDown
+time=2026-02-25T11:21:46.418Z level=INFO msg="ShutdownContext shutdown() initiated" reason=spindown
+time=2026-02-25T11:21:46.418Z level=INFO msg="Waiting for runtime domain processes termination"
+time=2026-02-25T11:21:46.418Z level=INFO msg="Runtime API Server closed"
+time=2026-02-25T11:21:46.418Z level=ERROR msg="Server error" err="http: Server closed"
+time=2026-02-25T11:21:46.418Z level=INFO msg="Runtime API Server closed"
+time=2026-02-25T11:21:46.419Z level=INFO msg="Shutting down HTTP server..."
+--- PASS: TestRie_SigtermDuringInvoke (0.27s)
+FAIL
+coverage: [no statements]
+FAIL	golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/aws-lambda-rie/test	0.293s
+--- PASS: TestNewThrottler_start_stop (0.40s)
+=== RUN   TestNewChunkIterator
+--- PASS: TestNewChunkIterator (0.00s)
+=== RUN   TestNewThrottler
+time=2026-02-25T11:21:46.5494Z level=ERROR msg="cannot create a throttler with nil bucket"
+--- PASS: TestNewThrottler (0.00s)
+=== RUN   TestBandwidthLimitingCopy
+--- PASS: TestBandwidthLimitingCopy (0.04s)
+=== RUN   TestNewBandwidthLimitingWriter
+-test.shuffle 1772018506943796981
+=== RUN   TestRecentCache
+2026/02/25 11:21:46 WARN evicted invokeID from full timeout cache invokeID=invoke-1
+--- PASS: TestRecentCache (0.00s)
+=== RUN   TestRecentCache_Concurrency
+-test.shuffle 1772018506955722631
+=== RUN   TestRuntimeErrorFailure_ErrorWhileError
+=== PAUSE TestRuntimeErrorFailure_ErrorWhileError
+=== RUN   TestRuntimeErrorFailure
+=== RUN   TestRuntimeErrorFailure/InvokeIdNotFound
+=== PAUSE TestRuntimeErrorFailure/InvokeIdNotFound
+=== RUN   TestRuntimeErrorFailure/InvokeTimeout
+=== PAUSE TestRuntimeErrorFailure/InvokeTimeout
+=== CONT  TestRuntimeErrorFailure/InvokeIdNotFound
+time=2026-02-25T11:21:46.9562Z level=WARN msg="InvokeRouter: invoke id not found"
+--- PASS: TestRuntimeErrorFailure/InvokeIdNotFound (0.00s)
+=== CONT  TestRuntimeErrorFailure/InvokeTimeout
+time=2026-02-25T11:21:46.9564Z level=WARN msg="InvokeRouter: error is too late for timed out invoke"
+--- PASS: TestRuntimeErrorFailure/InvokeTimeout (0.00s)
+--- PASS: TestRuntimeErrorFailure (0.00s)
+=== RUN   TestSendResponseFailure_CtxCancelled
+=== PAUSE TestSendResponseFailure_CtxCancelled
+=== RUN   TestInvokeFailure_DublicatedInvokeId
+=== PAUSE TestInvokeFailure_DublicatedInvokeId
+=== RUN   TestRuntimeResponseFailure
+=== RUN   TestRuntimeResponseFailure/InvokeIdNotFound
+=== PAUSE TestRuntimeResponseFailure/InvokeIdNotFound
+=== RUN   TestRuntimeResponseFailure/InvokeTimeout
+=== PAUSE TestRuntimeResponseFailure/InvokeTimeout
+=== CONT  TestRuntimeResponseFailure/InvokeIdNotFound
+time=2026-02-25T11:21:46.9569Z level=WARN msg="InvokeRouter: invoke id not found"
+--- PASS: TestRuntimeResponseFailure/InvokeIdNotFound (0.00s)
+=== CONT  TestRuntimeResponseFailure/InvokeTimeout
+time=2026-02-25T11:21:46.9570Z level=WARN msg="InvokeRouter: response is too late for timed out invoke"
+--- PASS: TestRuntimeResponseFailure/InvokeTimeout (0.00s)
+--- PASS: TestRuntimeResponseFailure (0.00s)
+=== RUN   Test_invokeMetrics_TriggerInvokeDone
+=== RUN   Test_invokeMetrics_TriggerInvokeDone/timeStartRequest_empty
+--- PASS: Test_invokeMetrics_TriggerInvokeDone/timeStartRequest_empty (0.00s)
+=== RUN   Test_invokeMetrics_TriggerInvokeDone/timeStartRequest_non_empty
+--- PASS: Test_invokeMetrics_TriggerInvokeDone/timeStartRequest_non_empty (0.00s)
+--- PASS: Test_invokeMetrics_TriggerInvokeDone (0.00s)
+=== RUN   TestAbortRunningInvokes
+=== PAUSE TestAbortRunningInvokes
+=== RUN   TestRuntimeResponseFailure_ResponseWhileResponse
+=== PAUSE TestRuntimeResponseFailure_ResponseWhileResponse
+=== RUN   TestSendResponseSuccess
+=== PAUSE TestSendResponseSuccess
+=== RUN   TestRunInvokeAndSendResultFailure_ContextCancelled
+=== PAUSE TestRunInvokeAndSendResultFailure_ContextCancelled
+=== RUN   Test_invokeMetrics_SendReport_FullCycle
+=== RUN   Test_invokeMetrics_SendReport_FullCycle/InvokeResponse
+--- PASS: Test_invokeMetrics_SendReport_FullCycle/InvokeResponse (0.00s)
+=== RUN   Test_invokeMetrics_SendReport_FullCycle/InvokeError
+--- PASS: Test_invokeMetrics_SendReport_FullCycle/InvokeError (0.00s)
+=== RUN   Test_invokeMetrics_SendReport_FullCycle/InvokeFailure
+--- PASS: Test_invokeMetrics_SendReport_FullCycle/InvokeFailure (0.00s)
+--- PASS: Test_invokeMetrics_SendReport_FullCycle (0.00s)
+=== RUN   TestInvokeRouter_Counters
+=== PAUSE TestInvokeRouter_Counters
+=== RUN   TestRunInvokeAndSendResultSuccess_RuntimeTrailerError
+=== PAUSE TestRunInvokeAndSendResultSuccess_RuntimeTrailerError
+=== RUN   Test_invokeMetrics_SendReport_WithXrayErrorCause
+--- PASS: Test_invokeMetrics_SendReport_WithXrayErrorCause (0.00s)
+=== RUN   TestRunInvokeAndSendResultSuccess_RuntimeResponse
+=== PAUSE TestRunInvokeAndSendResultSuccess_RuntimeResponse
+=== RUN   TestGetValidatedErrorCause
+=== RUN   TestGetValidatedErrorCause/emptyHeaderReturnsNil
+--- PASS: TestGetValidatedErrorCause/emptyHeaderReturnsNil (0.00s)
+=== RUN   TestGetValidatedErrorCause/validErrorCauseWithMessage
+--- PASS: TestGetValidatedErrorCause/validErrorCauseWithMessage (0.00s)
+=== RUN   TestGetValidatedErrorCause/invalidJSONReturnsNil
+time=2026-02-25T11:21:46.9590Z level=WARN msg="errorCause JSON validation failed" err="failed to parse error cause JSON: invalid character 'i' looking for beginning of object key string"
+--- PASS: TestGetValidatedErrorCause/invalidJSONReturnsNil (0.00s)
+=== RUN   TestGetValidatedErrorCause/invalidErrorCauseFormatReturnsNil
+time=2026-02-25T11:21:46.9591Z level=WARN msg="errorCause JSON validation failed" err="error cause body has invalid format: {}"
+--- PASS: TestGetValidatedErrorCause/invalidErrorCauseFormatReturnsNil (0.00s)
+=== RUN   TestGetValidatedErrorCause/validErrorCauseWithPaths
+--- PASS: TestGetValidatedErrorCause/validErrorCauseWithPaths (0.00s)
+--- PASS: TestGetValidatedErrorCause (0.00s)
+=== RUN   Test_invokeMetrics_SendInvokeStart
+--- PASS: Test_invokeMetrics_SendInvokeStart (0.00s)
+=== RUN   Test_invokeMetrics_SendReport_ResponseWithUnfinishedBody
+--- PASS: Test_invokeMetrics_SendReport_ResponseWithUnfinishedBody (0.00s)
+=== RUN   TestRuntimeErrorFailure_SendInvokeToRuntime_Error
+=== PAUSE TestRuntimeErrorFailure_SendInvokeToRuntime_Error
+=== RUN   TestRuntimeErrorFailure_SendInvokeToRuntime_Timeout
+=== PAUSE TestRuntimeErrorFailure_SendInvokeToRuntime_Timeout
+=== RUN   TestRunInvokeAndSendResultFailure_Timeout
+=== PAUSE TestRunInvokeAndSendResultFailure_Timeout
+=== RUN   TestRuntimeNextFailure_TooManyIdleInvokes
+=== PAUSE TestRuntimeNextFailure_TooManyIdleInvokes
+=== RUN   TestRuntimeResponse_TrailerError
+=== RUN   TestRuntimeResponse_TrailerError/empty_error_type_returns_empty_values
+--- PASS: TestRuntimeResponse_TrailerError/empty_error_type_returns_empty_values (0.00s)
+=== RUN   TestRuntimeResponse_TrailerError/valid_runtime_error_with_valid_base64_body
+--- PASS: TestRuntimeResponse_TrailerError/valid_runtime_error_with_valid_base64_body (0.00s)
+=== RUN   TestRuntimeResponse_TrailerError/valid_function_error_with_empty_base64_body
+--- PASS: TestRuntimeResponse_TrailerError/valid_function_error_with_empty_base64_body (0.00s)
+=== RUN   TestRuntimeResponse_TrailerError/invalid_error_type_with_valid_base64_body
+--- PASS: TestRuntimeResponse_TrailerError/invalid_error_type_with_valid_base64_body (0.00s)
+=== RUN   TestRuntimeResponse_TrailerError/valid_error_type_with_invalid_base64_body
+time=2026-02-25T11:21:46.9604Z level=WARN msg="could not base64 decode lambda-runtime-function-error-body trailer" err="illegal base64 data at input byte 7"
+--- PASS: TestRuntimeResponse_TrailerError/valid_error_type_with_invalid_base64_body (0.00s)
+--- PASS: TestRuntimeResponse_TrailerError (0.00s)
+=== RUN   TestInvokeSuccess
+=== PAUSE TestInvokeSuccess
+=== RUN   TestInvokeFailure_NoIdleRuntime
+=== PAUSE TestInvokeFailure_NoIdleRuntime
+=== RUN   TestRunInvokeAndSendResultFailure_TimeoutWhileResponse
+=== PAUSE TestRunInvokeAndSendResultFailure_TimeoutWhileResponse
+=== RUN   TestRunInvokeAndSendResultSuccess_RuntimeError
+=== PAUSE TestRunInvokeAndSendResultSuccess_RuntimeError
+=== RUN   TestNewRuntimeError
+=== RUN   TestNewRuntimeError/validRuntimeErrorWithValidXrayCause
+--- PASS: TestNewRuntimeError/validRuntimeErrorWithValidXrayCause (0.00s)
+=== RUN   TestNewRuntimeError/invalidErrorTypeDefaultsToRuntimeUnknown
+--- PASS: TestNewRuntimeError/invalidErrorTypeDefaultsToRuntimeUnknown (0.00s)
+=== RUN   TestNewRuntimeError/emptyErrorTypeHeader
+--- PASS: TestNewRuntimeError/emptyErrorTypeHeader (0.00s)
+=== RUN   TestNewRuntimeError/invalidXrayErrorCauseReturnsNil
+time=2026-02-25T11:21:46.9615Z level=WARN msg="errorCause JSON validation failed" err="failed to parse error cause JSON: invalid character 'i' looking for beginning of object key string"
+--- PASS: TestNewRuntimeError/invalidXrayErrorCauseReturnsNil (0.00s)
+=== RUN   TestNewRuntimeError/emptyXrayErrorCauseHeader
+--- PASS: TestNewRuntimeError/emptyXrayErrorCauseHeader (0.00s)
+--- PASS: TestNewRuntimeError (0.00s)
+=== RUN   Test_invokeMetrics_SendReport_NoResponse
+--- PASS: Test_invokeMetrics_SendReport_NoResponse (0.00s)
+=== RUN   TestSendResponseFailure_Timeout
+=== PAUSE TestSendResponseFailure_Timeout
+=== RUN   Test_invokeMetrics_ServiceLogs
+=== RUN   Test_invokeMetrics_ServiceLogs/minimal_invoke_flow
+--- PASS: Test_invokeMetrics_ServiceLogs/minimal_invoke_flow (0.00s)
+=== RUN   Test_invokeMetrics_ServiceLogs/bad_request_invoke_flow
+--- PASS: Test_invokeMetrics_ServiceLogs/bad_request_invoke_flow (0.00s)
+=== RUN   Test_invokeMetrics_ServiceLogs/runtime_unavailable_error
+--- PASS: Test_invokeMetrics_ServiceLogs/runtime_unavailable_error (0.00s)
+=== RUN   Test_invokeMetrics_ServiceLogs/duplicated_invoke_id_error
+--- PASS: Test_invokeMetrics_ServiceLogs/duplicated_invoke_id_error (0.00s)
+=== RUN   Test_invokeMetrics_ServiceLogs/runtime_timeout_flow
+--- PASS: Test_invokeMetrics_ServiceLogs/runtime_timeout_flow (0.00s)
+=== RUN   Test_invokeMetrics_ServiceLogs/full_invoke_flow
+--- PASS: Test_invokeMetrics_ServiceLogs/full_invoke_flow (0.00s)
+=== RUN   Test_invokeMetrics_ServiceLogs/full_invoke_error_flow
+--- PASS: Test_invokeMetrics_ServiceLogs/full_invoke_error_flow (0.00s)
+--- PASS: Test_invokeMetrics_ServiceLogs (0.01s)
+=== CONT  TestRuntimeErrorFailure_ErrorWhileError
+-test.shuffle 1772018506972950810
+=== RUN   TestContextualLogger
+=== RUN   TestContextualLogger/Default_Info
+time=2026-02-25T11:21:46.9732Z level=INFO msg="info message" key=value
+--- PASS: TestContextualLogger/Default_Info (0.00s)
+=== RUN   TestContextualLogger/Default_Debug
+--- PASS: TestContextualLogger/Default_Debug (0.00s)
+=== RUN   TestContextualLogger/Default_Warn
+time=2026-02-25T11:21:46.9734Z level=WARN msg="warn message" warning=something
+--- PASS: TestContextualLogger/Default_Warn (0.00s)
+=== RUN   TestContextualLogger/Default_Error
+time=2026-02-25T11:21:46.9735Z level=ERROR msg="error message" error="something failed"
+--- PASS: TestContextualLogger/Default_Error (0.00s)
+=== RUN   TestContextualLogger/Context_InvokeId
+time=2026-02-25T11:21:46.9737Z level=INFO msg="processing request" RequestId=12345 error=something
+--- PASS: TestContextualLogger/Context_InvokeId (0.00s)
+=== RUN   TestContextualLogger/Context_Multiple_Values
+time=2026-02-25T11:21:46.9738Z level=INFO msg="chained context logging" RequestId=11111 userID=user-789 error=something
+--- PASS: TestContextualLogger/Context_Multiple_Values (0.00s)
+--- PASS: TestContextualLogger (0.00s)
+PASS
+coverage: 81.0% of statements
+time=2026-02-25T11:21:46.9760Z level=WARN msg="Received Runtime error" err=Function.Unknown
+time=2026-02-25T11:21:46.9765Z level=WARN msg="Invalid invoke state : error in progress"
+time=2026-02-25T11:21:46.9765Z level=WARN msg="Invalid invoke state : error in progress"
+--- PASS: TestRuntimeErrorFailure_ErrorWhileError (0.01s)
+=== CONT  TestSendResponseFailure_Timeout
+=== CONT  TestRunInvokeAndSendResultSuccess_RuntimeError
+=== CONT  TestRunInvokeAndSendResultFailure_TimeoutWhileResponse
+--- PASS: TestSendResponseFailure_Timeout (0.00s)
+=== CONT  TestInvokeFailure_NoIdleRuntime
+time=2026-02-25T11:21:46.9779Z level=WARN msg="InvokeRouter: no ready runtimes"
+--- PASS: TestInvokeFailure_NoIdleRuntime (0.00s)
+=== CONT  TestInvokeSuccess
+--- PASS: TestInvokeSuccess (0.00s)
+=== CONT  TestRuntimeNextFailure_TooManyIdleInvokes
+time=2026-02-25T11:21:46.9783Z level=ERROR msg="InvokeRouter: failed to add idle runtime to the queue" err=Runtime.TooManyIdleRuntimes
+--- PASS: TestRuntimeNextFailure_TooManyIdleInvokes (0.00s)
+=== CONT  TestRunInvokeAndSendResultFailure_Timeout
+=== CONT  TestRuntimeErrorFailure_SendInvokeToRuntime_Timeout
+time=2026-02-25T11:21:46.9787Z level=WARN msg="Failed to send Invoke to Runtime" err="Sandbox.Timedout: context deadline exceeded"
+ok  	golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/logging	0.019s	coverage: 81.0% of statements
+--- PASS: TestRuntimeErrorFailure_SendInvokeToRuntime_Timeout (0.00s)
+=== CONT  TestRuntimeErrorFailure_SendInvokeToRuntime_Error
+time=2026-02-25T11:21:46.9791Z level=WARN msg="Failed to send Invoke to Runtime" err=Runtime.Unknown
+--- PASS: TestRuntimeErrorFailure_SendInvokeToRuntime_Error (0.00s)
+=== CONT  TestRunInvokeAndSendResultSuccess_RuntimeResponse
+time=2026-02-25T11:21:46.9797Z level=INFO msg="Received ctx cancellation" err="Sandbox.Timedout: context deadline exceeded"
+=== CONT  TestRunInvokeAndSendResultFailure_ContextCancelled
+=== CONT  TestSendResponseFailure_CtxCancelled
+=== CONT  TestRunInvokeAndSendResultSuccess_RuntimeTrailerError
+=== CONT  TestInvokeRouter_Counters
+--- PASS: TestInvokeRouter_Counters (0.00s)
+--- PASS: TestSendResponseFailure_CtxCancelled (0.00s)
+=== CONT  TestRuntimeResponseFailure_ResponseWhileResponse
+=== CONT  TestSendResponseSuccess
+--- PASS: TestRunInvokeAndSendResultSuccess_RuntimeResponse (0.00s)
+=== CONT  TestAbortRunningInvokes
+--- PASS: TestRunInvokeAndSendResultFailure_Timeout (0.01s)
+time=2026-02-25T11:21:46.9817Z level=WARN msg="Failed sending body" err=Sandbox.Timedout
+time=2026-02-25T11:21:46.9823Z level=INFO msg="cancel invoke" reason="test fatal error"
+time=2026-02-25T11:21:46.9854Z level=INFO msg="Received ctx cancellation" err="test fatal error"
+time=2026-02-25T11:21:46.9824Z level=WARN msg="Received Runtime error" err=Function.Unknown
+time=2026-02-25T11:21:46.9827Z level=INFO msg="InvokeRouter: Aborting running invokes" reason=Client.ExecutionEnvironmentShutDown
+time=2026-02-25T11:21:46.9829Z level=WARN msg="Runtime sent error trailers after response body" err=Function.Unknown
+--- PASS: TestRunInvokeAndSendResultFailure_ContextCancelled (0.00s)
+--- PASS: TestSendResponseSuccess (0.00s)
+=== CONT  TestInvokeFailure_DublicatedInvokeId
+time=2026-02-25T11:21:46.9829Z level=WARN msg="Invalid Invoke state : Response in progress"
+--- PASS: TestRunInvokeAndSendResultFailure_TimeoutWhileResponse (0.01s)
+--- PASS: TestRuntimeResponseFailure_ResponseWhileResponse (0.01s)
+--- PASS: TestAbortRunningInvokes (0.01s)
+time=2026-02-25T11:21:46.9904Z level=WARN msg="InvokeRouter error: duplicated invokeId"
+--- PASS: TestRunInvokeAndSendResultSuccess_RuntimeError (0.01s)
+--- PASS: TestInvokeFailure_DublicatedInvokeId (0.00s)
+--- PASS: TestRunInvokeAndSendResultSuccess_RuntimeTrailerError (0.01s)
+PASS
+coverage: 67.4% of statements
+ok  	golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/invoke	0.066s	coverage: 67.4% of statements
+-test.shuffle 1772018507013056990
+=== RUN   TestInitRequestMessage_String
+=== RUN   TestInitRequestMessage_String/Test_Init_Message
+--- PASS: TestInitRequestMessage_String/Test_Init_Message (0.00s)
+--- PASS: TestInitRequestMessage_String (0.00s)
+=== RUN   TestDurationMS_UnmarshalJSON
+=== RUN   TestDurationMS_UnmarshalJSON/1000
+--- PASS: TestDurationMS_UnmarshalJSON/1000 (0.00s)
+=== RUN   TestDurationMS_UnmarshalJSON/1500
+--- PASS: TestDurationMS_UnmarshalJSON/1500 (0.00s)
+=== RUN   TestDurationMS_UnmarshalJSON/0
+--- PASS: TestDurationMS_UnmarshalJSON/0 (0.00s)
+=== RUN   TestDurationMS_UnmarshalJSON/-500
+--- PASS: TestDurationMS_UnmarshalJSON/-500 (0.00s)
+=== RUN   TestDurationMS_UnmarshalJSON/"invalid"
+--- PASS: TestDurationMS_UnmarshalJSON/"invalid" (0.00s)
+=== RUN   TestDurationMS_UnmarshalJSON/null
+--- PASS: TestDurationMS_UnmarshalJSON/null (0.00s)
+=== RUN   TestDurationMS_UnmarshalJSON/123.456
+--- PASS: TestDurationMS_UnmarshalJSON/123.456 (0.00s)
+--- PASS: TestDurationMS_UnmarshalJSON (0.00s)
+=== RUN   TestDurationMS_MarshalJSON
+=== RUN   TestDurationMS_MarshalJSON/1_second
+--- PASS: TestDurationMS_MarshalJSON/1_second (0.00s)
+=== RUN   TestDurationMS_MarshalJSON/1_5_seconds
+--- PASS: TestDurationMS_MarshalJSON/1_5_seconds (0.00s)
+=== RUN   TestDurationMS_MarshalJSON/zero_duration
+--- PASS: TestDurationMS_MarshalJSON/zero_duration (0.00s)
+=== RUN   TestDurationMS_MarshalJSON/negative_duration
+--- PASS: TestDurationMS_MarshalJSON/negative_duration (0.00s)
+=== RUN   TestDurationMS_MarshalJSON/large_duration
+--- PASS: TestDurationMS_MarshalJSON/large_duration (0.00s)
+--- PASS: TestDurationMS_MarshalJSON (0.00s)
+PASS
+coverage: 47.1% of statements
+ok  	golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/model	0.030s	coverage: 47.1% of statements
+--- PASS: TestRecentCache_Concurrency (0.11s)
+PASS
+coverage: 100.0% of statements
+	golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/ptr		coverage: 0.0% of statements
+ok  	golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/invoke/timeout	0.122s	coverage: 100.0% of statements
+-test.shuffle 1772018507385041266
+=== RUN   FuzzAgentRegisterHandler
+=== RUN   FuzzAgentRegisterHandler/seed#0
+time=2026-02-25T11:21:47.3881Z level=ERROR msg="External agent registration failed" err=ErrGateIntegrity
+--- PASS: FuzzAgentRegisterHandler/seed#0 (0.00s)
+=== RUN   FuzzAgentRegisterHandler/seed#1
+time=2026-02-25T11:21:47.3883Z level=WARN msg="No events allowed for internal extensions" agentName=agent
+--- PASS: FuzzAgentRegisterHandler/seed#1 (0.00s)
+--- PASS: FuzzAgentRegisterHandler (0.00s)
+=== RUN   FuzzAgentNextHandler
+=== RUN   FuzzAgentNextHandler/seed#0
+time=2026-02-25T11:21:47.3887Z level=WARN msg="Unknown extension /next request" agentID=3af82901-6f54-424b-9efe-b37a72c04bb0
+--- PASS: FuzzAgentNextHandler/seed#0 (0.00s)
+=== RUN   FuzzAgentNextHandler/seed#1
+time=2026-02-25T11:21:47.3889Z level=WARN msg="Unknown extension /next request" agentID=3af82901-6f54-424b-9efe-b37a72c04bb0
+--- PASS: FuzzAgentNextHandler/seed#1 (0.00s)
+--- PASS: FuzzAgentNextHandler (0.00s)
+=== RUN   FuzzAgentInitErrorHandler
+=== RUN   FuzzAgentInitErrorHandler/seed#0
+time=2026-02-25T11:21:47.3891Z level=WARN msg="Received extension Init error" agentID=dc3beec2-77c6-4ea5-a045-5aefb7d0b645 errorType=Extension.SomeError
+time=2026-02-25T11:21:47.3892Z level=WARN msg="Unknown agent tried to call /extension/init/error" agentID=dc3beec2-77c6-4ea5-a045-5aefb7d0b645
+--- PASS: FuzzAgentInitErrorHandler/seed#0 (0.00s)
+=== RUN   FuzzAgentInitErrorHandler/seed#1
+time=2026-02-25T11:21:47.3893Z level=WARN msg="Received extension Init error" agentID=dc3beec2-77c6-4ea5-a045-5aefb7d0b645 errorType=Extension.SomeError
+time=2026-02-25T11:21:47.3893Z level=WARN msg="Unknown agent tried to call /extension/init/error" agentID=dc3beec2-77c6-4ea5-a045-5aefb7d0b645
+--- PASS: FuzzAgentInitErrorHandler/seed#1 (0.00s)
+--- PASS: FuzzAgentInitErrorHandler (0.00s)
+=== RUN   FuzzAgentExitErrorHandler
+=== RUN   FuzzAgentExitErrorHandler/seed#0
+time=2026-02-25T11:21:47.3895Z level=WARN msg="Received Extension exit error request" agentID=977c3af8-e633-4fbf-8cf2-f2dfedb5007d errorType=Extension.SomeError
+time=2026-02-25T11:21:47.3896Z level=WARN msg="Unknown extension exit error request" agentID=977c3af8-e633-4fbf-8cf2-f2dfedb5007d
+--- PASS: FuzzAgentExitErrorHandler/seed#0 (0.00s)
+=== RUN   FuzzAgentExitErrorHandler/seed#1
+time=2026-02-25T11:21:47.3897Z level=WARN msg="Received Extension exit error request" agentID=977c3af8-e633-4fbf-8cf2-f2dfedb5007d errorType=Extension.SomeError
+time=2026-02-25T11:21:47.3897Z level=WARN msg="Unknown extension exit error request" agentID=977c3af8-e633-4fbf-8cf2-f2dfedb5007d
+--- PASS: FuzzAgentExitErrorHandler/seed#1 (0.00s)
+--- PASS: FuzzAgentExitErrorHandler (0.00s)
+=== RUN   FuzzTelemetryLogRouters
+=== RUN   FuzzTelemetryLogRouters/seed#0
+--- PASS: FuzzTelemetryLogRouters/seed#0 (0.00s)
+=== RUN   FuzzTelemetryLogRouters/seed#1
+--- PASS: FuzzTelemetryLogRouters/seed#1 (0.00s)
+=== RUN   FuzzTelemetryLogRouters/seed#2
+--- PASS: FuzzTelemetryLogRouters/seed#2 (0.00s)
+--- PASS: FuzzTelemetryLogRouters (0.00s)
+=== RUN   FuzzTelemetryHandler
+=== RUN   FuzzTelemetryHandler/seed#0
+--- PASS: FuzzTelemetryHandler/seed#0 (0.00s)
+=== RUN   FuzzTelemetryHandler/seed#1
+time=2026-02-25T11:21:47.3904Z level=WARN msg="Telemetry API error" err=ErrTelemetryServiceOff
+--- PASS: FuzzTelemetryHandler/seed#1 (0.00s)
+--- PASS: FuzzTelemetryHandler (0.00s)
+PASS
+coverage: 59.6% of statements
+ok  	golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/rapi	0.038s	coverage: 59.6% of statements
+-test.shuffle 1772018507756103593
+=== RUN   TestRuntimeReleaseMiddleware
+--- PASS: TestRuntimeReleaseMiddleware (0.00s)
+=== RUN   TestAgentUniqueIdentifierHeaderValidatorSuccess
+--- PASS: TestAgentUniqueIdentifierHeaderValidatorSuccess (0.00s)
+=== RUN   TestAgentUniqueIdentifierHeaderValidatorForbidden
+--- PASS: TestAgentUniqueIdentifierHeaderValidatorForbidden (0.00s)
+PASS
+coverage: 63.0% of statements
+-test.shuffle 1772018507762885252
+=== RUN   TestErrorCauseMarshallingWhenCauseIsValid
+--- PASS: TestErrorCauseMarshallingWhenCauseIsValid (0.00s)
+=== RUN   TestErrorCauseCropMessageAndWorkingDir
+--- PASS: TestErrorCauseCropMessageAndWorkingDir (0.00s)
+=== RUN   TestErrorCauseCroppedJSONForLargeCauseWithOnlyExceptionsAndPaths
+ok  	golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/rapi/middleware	0.027s	coverage: 63.0% of statements
+-test.shuffle 1772018507787492807
+=== RUN   TestRenderTelemetrySubscriptionClosed
+time=2026-02-25T11:21:47.7879Z level=WARN msg="Telemetry API error" err=ErrTelemetryServiceOff
+--- PASS: TestRenderTelemetrySubscriptionClosed (0.00s)
+=== RUN   TestSuccessfulRuntimeTelemetryAPIStub202Response
+--- PASS: TestSuccessfulRuntimeTelemetryAPIStub202Response (0.00s)
+=== RUN   TestRenderAgentRegisterInvalidAgentState
+time=2026-02-25T11:21:47.7884Z level=WARN msg="Failed to register agent" agentName=dummyName agent="dummyName (d2bd9d93-afb9-4116-9adb-eeb43d830d05)" err="state transition is not allowed"
+--- PASS: TestRenderAgentRegisterInvalidAgentState (0.00s)
+=== RUN   TestAgentInitErrorUnknownAgent
+time=2026-02-25T11:21:47.7887Z level=WARN msg="Received extension Init error" agentID=afd5f574-f095-4fb7-9c5c-da4b97977024 errorType=Extension.TestError
+time=2026-02-25T11:21:47.7887Z level=WARN msg="Unknown agent tried to call /extension/init/error" agentID=afd5f574-f095-4fb7-9c5c-da4b97977024
+--- PASS: TestAgentInitErrorUnknownAgent (0.00s)
+=== RUN   TestRenderLogsSubscriptionClosed
+time=2026-02-25T11:21:47.7889Z level=WARN msg="Telemetry API error" err=ErrTelemetryServiceOff
+--- PASS: TestRenderLogsSubscriptionClosed (0.00s)
+=== RUN   TestErrorTelemetryAPICallFailure
+time=2026-02-25T11:21:47.7891Z level=WARN msg="Telemetry API error" err="Error calling Telemetry API: connection refused"
+--- PASS: TestErrorTelemetryAPICallFailure (0.00s)
+=== RUN   TestRenderAgentInvokeNextHappyEmptyTraceID
+--- PASS: TestRenderAgentInvokeNextHappyEmptyTraceID (0.00s)
+=== RUN   TestRenderAgentResponse
+=== RUN   TestRenderAgentResponse/no-config-internal
+time=2026-02-25T11:21:47.7895Z level=INFO msg="Internal agent registered" agentName=internal agent="internal (e4449779-f54f-43f3-8855-b1499d89cead)"
+--- PASS: TestRenderAgentResponse/no-config-internal (0.00s)
+=== RUN   TestRenderAgentResponse/no-config-external
+time=2026-02-25T11:21:47.7904Z level=ERROR msg="External agent registration failed" err=ErrGateIntegrity
+--- PASS: TestRenderAgentResponse/no-config-external (0.00s)
+=== RUN   TestRenderAgentResponse/with_non-existing_accept_feature
+time=2026-02-25T11:21:47.7907Z level=ERROR msg="External agent registration failed" err=ErrGateIntegrity
+--- PASS: TestRenderAgentResponse/with_non-existing_accept_feature (0.00s)
+=== RUN   TestRenderAgentResponse/with_empty_account_id_data
+time=2026-02-25T11:21:47.7908Z level=ERROR msg="External agent registration failed" err=ErrGateIntegrity
+--- PASS: TestRenderAgentResponse/with_empty_account_id_data (0.00s)
+=== RUN   TestRenderAgentResponse/function-md-override
+time=2026-02-25T11:21:47.7910Z level=ERROR msg="External agent registration failed" err=ErrGateIntegrity
+--- PASS: TestRenderAgentResponse/function-md-override (0.00s)
+=== RUN   TestRenderAgentResponse/internal_with_account_id_feature
+time=2026-02-25T11:21:47.7912Z level=INFO msg="Internal agent registered" agentName=internal agent="internal (91c62f35-b576-4053-b010-5cd595bc4eb8)"
+--- PASS: TestRenderAgentResponse/internal_with_account_id_feature (0.00s)
+=== RUN   TestRenderAgentResponse/external_with_account_id_feature
+time=2026-02-25T11:21:47.7914Z level=ERROR msg="External agent registration failed" err=ErrGateIntegrity
+--- PASS: TestRenderAgentResponse/external_with_account_id_feature (0.00s)
+=== RUN   TestRenderAgentResponse/account_id_feature_and_some_non-existing_feature
+time=2026-02-25T11:21:47.7917Z level=ERROR msg="External agent registration failed" err=ErrGateIntegrity
+--- PASS: TestRenderAgentResponse/account_id_feature_and_some_non-existing_feature (0.00s)
+--- PASS: TestRenderAgentResponse (0.00s)
+=== RUN   TestSuccessfulTelemetryAPIPutRequest
+--- PASS: TestSuccessfulTelemetryAPIPutRequest (0.00s)
+=== RUN   TestRenderAgentInvokeInvalidAgentState
+time=2026-02-25T11:21:47.7921Z level=WARN msg="Extension ready failed" agentID=a17eb424-cda3-4723-9244-c116794398b3 agent=dummyName err="state transition is not allowed" state=Started
+--- PASS: TestRenderAgentInvokeInvalidAgentState (0.00s)
+=== RUN   TestSuccessfulRuntimeLogsResponseProxy
+time=2026-02-25T11:21:47.7925Z level=WARN msg="rendered telemetry api subscription client error response" body="barbaz"
+--- PASS: TestSuccessfulRuntimeLogsResponseProxy (0.00s)
+=== RUN   TestRenderAgentInvokeUnknownAgent
+time=2026-02-25T11:21:47.7927Z level=WARN msg="Unknown extension /next request" agentID=79545399-3a1c-4622-a623-d22f22a8172c
+--- PASS: TestRenderAgentInvokeUnknownAgent (0.00s)
+=== RUN   TestRenderAgentRegisterRegistrationClosed
+time=2026-02-25T11:21:47.7931Z level=WARN msg="Failed to create internal agent" agentName=dummyName err=ErrRegistrationServiceOff
+time=2026-02-25T11:21:47.7932Z level=WARN msg="Extension registration closed already" agentName=dummyName
+--- PASS: TestRenderAgentRegisterRegistrationClosed (0.00s)
+=== RUN   TestAgentInitErrorRequestAccepted
+time=2026-02-25T11:21:47.7936Z level=WARN msg="Received extension Init error" agentID=d51fca9b-de04-4929-b3ee-c971ed385f22 errorType=Extension.TestError
+time=2026-02-25T11:21:47.7936Z level=WARN msg="First fatal error stored in appctx" errorType=Extension.TestError
+--- PASS: TestAgentInitErrorRequestAccepted (0.00s)
+=== RUN   TestRenderAgentInternalError
+--- PASS: TestRenderAgentInternalError (0.00s)
+=== RUN   TestRenderAgentInternalShutdownEvent
+--- PASS: TestRenderAgentInternalShutdownEvent (0.00s)
+=== RUN   TestAgentInitErrorInternalError
+--- PASS: TestAgentInitErrorInternalError (0.00s)
+=== RUN   TestErrorUnregisteredAgentID
+time=2026-02-25T11:21:47.7943Z level=WARN msg="Agent Verification Error" err="Unknown agent 974041a1-20d2-430f-b777-60f753a2da3f tried to call /runtime/logs"
+--- PASS: TestErrorUnregisteredAgentID (0.00s)
+=== RUN   TestRenderAgentRegisterInvalidAgentName
+time=2026-02-25T11:21:47.7946Z level=WARN msg="Empty extension name" agentName=""
+--- PASS: TestRenderAgentRegisterInvalidAgentName (0.00s)
+=== RUN   TestNumberOfSubscribersWhenAnExtensionIsAlreadySubscribed
+--- PASS: TestNumberOfSubscribersWhenAnExtensionIsAlreadySubscribed (0.00s)
+=== RUN   TestRenderAgentInvokeNextHappy
+--- PASS: TestRenderAgentInvokeNextHappy (0.00s)
+=== RUN   TestAgentInitErrorAgentInvalidState
+time=2026-02-25T11:21:47.7954Z level=WARN msg="Received extension Init error" agentID=bc421c76-8f8f-45e4-aed5-85233b07c1a0 errorType=Extension.TestError
+time=2026-02-25T11:21:47.7955Z level=WARN msg="InitError() failed for external agent" agentID=bc421c76-8f8f-45e4-aed5-85233b07c1a0 agent="dummyName (bc421c76-8f8f-45e4-aed5-85233b07c1a0)" err="state transition is not allowed" state=Started
+--- PASS: TestAgentInitErrorAgentInvalidState (0.00s)
+=== RUN   TestInitErrorHandler
+=== RUN   TestInitErrorHandler/GA
+time=2026-02-25T11:21:47.7959Z level=WARN msg="Received Runtime Init Error" errType=Runtime.Unknown
+time=2026-02-25T11:21:47.7959Z level=WARN msg="First fatal error stored in appctx" errorType=Runtime.Unknown
+--- PASS: TestInitErrorHandler/GA (0.00s)
+--- PASS: TestInitErrorHandler (0.00s)
+=== RUN   TestExternalAgentInvalidEventType
+time=2026-02-25T11:21:47.7962Z level=WARN msg="Failed to register agent event" agentName=ABC agent="ABC (c2d98272-bfde-4f9a-855f-a104152d6443)" event=abcdef err=ErrorInvalidEventType
+time=2026-02-25T11:21:47.7963Z level=WARN msg="Failed to register agent event" agentName=ABC agent="ABC (c2d98272-bfde-4f9a-855f-a104152d6443)" event=abcdef err=ErrorInvalidEventType
+--- PASS: TestExternalAgentInvalidEventType (0.00s)
+=== RUN   TestRenderAgentInternalInvokeNextHappy
+--- PASS: TestRenderAgentInternalInvokeNextHappy (0.00s)
+=== RUN   TestAgentInitErrorMissingErrorHeader
+time=2026-02-25T11:21:47.7966Z level=WARN msg="Invalid /extension/init/error: missing header" agentID=6d2fc005-c8ae-45ed-8d4d-a95549abfbb1 header=Lambda-Extension-Function-Error-Type
+--- PASS: TestAgentInitErrorMissingErrorHeader (0.00s)
+=== RUN   TestRenderAgentExternalShutdownEvent
+--- PASS: TestRenderAgentExternalShutdownEvent (0.00s)
+=== RUN   TestGetSubscribedExternalAgents
+time=2026-02-25T11:21:47.7969Z level=ERROR msg="External agent registration failed" err=ErrGateIntegrity
+time=2026-02-25T11:21:47.7970Z level=INFO msg="Internal agent registered" agentName=internalInvokeAgent agent="internalInvokeAgent (51863600-102a-4ece-bc91-2315f37c241f)"
+--- PASS: TestGetSubscribedExternalAgents (0.00s)
+PASS
+coverage: 53.1% of statements
+ok  	golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/rapi/handler	0.051s	coverage: 53.1% of statements
+	golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/rapi/rendering		coverage: 0.0% of statements
+--- PASS: TestErrorCauseCroppedJSONForLargeCauseWithOnlyExceptionsAndPaths (0.05s)
+=== RUN   TestWorkingDirCropping
+--- PASS: TestWorkingDirCropping (0.00s)
+=== RUN   TestErrorCauseCroppedJSONForEmptyCause
+--- PASS: TestErrorCauseCroppedJSONForEmptyCause (0.00s)
+=== RUN   TestErrorCauseValidationWhenCauseIsInvalid
+--- PASS: TestErrorCauseValidationWhenCauseIsInvalid (0.00s)
+=== RUN   TestErrorCauseCropStackTraces
+--- PASS: TestErrorCauseCropStackTraces (0.02s)
+=== RUN   TestErrorCauseCroppedJSONForLargeCause
+--- PASS: TestErrorCauseCroppedJSONForLargeCause (0.05s)
+=== RUN   TestErrorCauseValidationWhenCauseIsValid
+--- PASS: TestErrorCauseValidationWhenCauseIsValid (0.00s)
+=== RUN   TestCropString
+--- PASS: TestCropString (0.00s)
+PASS
+coverage: 89.1% of statements
+ok  	golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/rapi/model	0.156s	coverage: 89.1% of statements
+-test.shuffle 1772018508044222707
+=== RUN   TestClientError
+=== RUN   TestClientError/New_Client_Error
+--- PASS: TestClientError/New_Client_Error (0.00s)
+--- PASS: TestClientError (0.00s)
+=== RUN   TestPlatformError
+=== RUN   TestPlatformError/WrapGoErrorIntoPlatformError
+--- PASS: TestPlatformError/WrapGoErrorIntoPlatformError (0.00s)
+--- PASS: TestPlatformError (0.00s)
+=== RUN   TestGetValidRuntimeOrFunctionErrorType
+=== RUN   TestGetValidRuntimeOrFunctionErrorType/TestGetValidRuntimeOrFunctionErrorType_with_
+--- PASS: TestGetValidRuntimeOrFunctionErrorType/TestGetValidRuntimeOrFunctionErrorType_with_ (0.00s)
+=== RUN   TestGetValidRuntimeOrFunctionErrorType/TestGetValidRuntimeOrFunctionErrorType_with_MyCustomError
+--- PASS: TestGetValidRuntimeOrFunctionErrorType/TestGetValidRuntimeOrFunctionErrorType_with_MyCustomError (0.00s)
+=== RUN   TestGetValidRuntimeOrFunctionErrorType/TestGetValidRuntimeOrFunctionErrorType_with_MyCustomError.Error
+--- PASS: TestGetValidRuntimeOrFunctionErrorType/TestGetValidRuntimeOrFunctionErrorType_with_MyCustomError.Error (0.00s)
+=== RUN   TestGetValidRuntimeOrFunctionErrorType/TestGetValidRuntimeOrFunctionErrorType_with_Runtime.MyCustomErrorTypeHere
+--- PASS: TestGetValidRuntimeOrFunctionErrorType/TestGetValidRuntimeOrFunctionErrorType_with_Runtime.MyCustomErrorTypeHere (0.00s)
+=== RUN   TestGetValidRuntimeOrFunctionErrorType/TestGetValidRuntimeOrFunctionErrorType_with_Function.MyCustomErrorTypeHere
+--- PASS: TestGetValidRuntimeOrFunctionErrorType/TestGetValidRuntimeOrFunctionErrorType_with_Function.MyCustomErrorTypeHere (0.00s)
+--- PASS: TestGetValidRuntimeOrFunctionErrorType (0.00s)
+=== RUN   TestGetValidExtensionErrorType
+=== RUN   TestGetValidExtensionErrorType/TestGetValidExtensionErrorType_with_
+--- PASS: TestGetValidExtensionErrorType/TestGetValidExtensionErrorType_with_ (0.00s)
+=== RUN   TestGetValidExtensionErrorType/TestGetValidExtensionErrorType_with_MyCustomError
+--- PASS: TestGetValidExtensionErrorType/TestGetValidExtensionErrorType_with_MyCustomError (0.00s)
+=== RUN   TestGetValidExtensionErrorType/TestGetValidExtensionErrorType_with_MyCustomError.Error
+--- PASS: TestGetValidExtensionErrorType/TestGetValidExtensionErrorType_with_MyCustomError.Error (0.00s)
+=== RUN   TestGetValidExtensionErrorType/TestGetValidExtensionErrorType_with_Runtime.MyCustomErrorTypeHere
+--- PASS: TestGetValidExtensionErrorType/TestGetValidExtensionErrorType_with_Runtime.MyCustomErrorTypeHere (0.00s)
+=== RUN   TestGetValidExtensionErrorType/TestGetValidExtensionErrorType_with_Function.MyCustomErrorTypeHere
+--- PASS: TestGetValidExtensionErrorType/TestGetValidExtensionErrorType_with_Function.MyCustomErrorTypeHere (0.00s)
+=== RUN   TestGetValidExtensionErrorType/TestGetValidExtensionErrorType_with_Extension.
+--- PASS: TestGetValidExtensionErrorType/TestGetValidExtensionErrorType_with_Extension. (0.00s)
+=== RUN   TestGetValidExtensionErrorType/TestGetValidExtensionErrorType_with_Extension.A
+--- PASS: TestGetValidExtensionErrorType/TestGetValidExtensionErrorType_with_Extension.A (0.00s)
+=== RUN   TestGetValidExtensionErrorType/TestGetValidExtensionErrorType_with_Extension.az
+--- PASS: TestGetValidExtensionErrorType/TestGetValidExtensionErrorType_with_Extension.az (0.00s)
+=== RUN   TestGetValidExtensionErrorType/TestGetValidExtensionErrorType_with_Extension.AA
+--- PASS: TestGetValidExtensionErrorType/TestGetValidExtensionErrorType_with_Extension.AA (0.00s)
+=== RUN   TestGetValidExtensionErrorType/TestGetValidExtensionErrorType_with_Extension.Az
+--- PASS: TestGetValidExtensionErrorType/TestGetValidExtensionErrorType_with_Extension.Az (0.00s)
+--- PASS: TestGetValidExtensionErrorType (0.00s)
+=== RUN   TestCustomerError
+=== RUN   TestCustomerError/WrapErrorIntoCustomerInvalidError
+--- PASS: TestCustomerError/WrapErrorIntoCustomerInvalidError (0.00s)
+=== RUN   TestCustomerError/WrapErrorIntoCustomerFatalError
+--- PASS: TestCustomerError/WrapErrorIntoCustomerFatalError (0.00s)
+--- PASS: TestCustomerError (0.00s)
+PASS
+coverage: 58.0% of statements
+ok  	golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/rapid/model	0.011s	coverage: 58.0% of statements
+-test.shuffle 1772018508060127612
+=== RUN   TestRuntimeExtensionTerminationWithDifferentCause
+=== RUN   TestRuntimeExtensionTerminationWithDifferentCause/extensionTerminationDueToOOM
+time=2026-02-25T11:21:48.0608Z level=WARN msg="First fatal error stored in appctx" errorType=Extension.Crash
+time=2026-02-25T11:21:48.0608Z level=WARN msg="Process exited" name=extension-example1 event="exit status 0"
+time=2026-02-25T11:21:48.0609Z level=WARN msg="Unknown process: possibly failed to launch, or it is from previous generation" name=extension-example1
+time=2026-02-25T11:21:48.0609Z level=WARN msg="Ignoring gate error due to existing fatal error" gateError="exit status 0" existingFatalError=Extension.Crash
+--- PASS: TestRuntimeExtensionTerminationWithDifferentCause/extensionTerminationDueToOOM (0.00s)
+=== RUN   TestRuntimeExtensionTerminationWithDifferentCause/extensionTerminationWithExitCodeZero
+time=2026-02-25T11:21:48.0616Z level=WARN msg="First fatal error stored in appctx" errorType=Extension.Crash
+time=2026-02-25T11:21:48.0616Z level=WARN msg="Process exited" name=extension-example1 event="exit status 0"
+time=2026-02-25T11:21:48.0617Z level=WARN msg="Unknown process: possibly failed to launch, or it is from previous generation" name=extension-example1
+time=2026-02-25T11:21:48.0617Z level=WARN msg="Ignoring gate error due to existing fatal error" gateError="exit code 0" existingFatalError=Extension.Crash
+--- PASS: TestRuntimeExtensionTerminationWithDifferentCause/extensionTerminationWithExitCodeZero (0.00s)
+=== RUN   TestRuntimeExtensionTerminationWithDifferentCause/extensionTerminationSiganled
+time=2026-02-25T11:21:48.0624Z level=WARN msg="First fatal error stored in appctx" errorType=Extension.Crash
+time=2026-02-25T11:21:48.0625Z level=WARN msg="Process exited" name=extension-example1 event="exit status 0"
+time=2026-02-25T11:21:48.0626Z level=WARN msg="Unknown process: possibly failed to launch, or it is from previous generation" name=extension-example1
+time=2026-02-25T11:21:48.0627Z level=WARN msg="Ignoring gate error due to existing fatal error" gateError="exit status 0" existingFatalError=Extension.Crash
+--- PASS: TestRuntimeExtensionTerminationWithDifferentCause/extensionTerminationSiganled (0.00s)
+--- PASS: TestRuntimeExtensionTerminationWithDifferentCause (0.00s)
+=== RUN   TestRuntimeExecFailureOnPlatformError
+time=2026-02-25T11:21:48.0640Z level=WARN msg="Could not Exec Runtime process" err=AnyErrorReason
+time=2026-02-25T11:21:48.0640Z level=WARN msg="First fatal error stored in appctx" errorType=Runtime.InvalidEntrypoint
+--- PASS: TestRuntimeExecFailureOnPlatformError (0.00s)
+=== RUN   TestGetExtensionNamesWithMultipleExtensions
+--- PASS: TestGetExtensionNamesWithMultipleExtensions (0.00s)
+=== RUN   TestAgentCountInitResponseFailure
+time=2026-02-25T11:21:48.0781Z level=WARN msg="Operation failed" err=lolError errorType=Extension.RegistrationFailed
+--- PASS: TestAgentCountInitResponseFailure (0.00s)
+=== RUN   TestPrepareRuntimeBootstrap
+=== RUN   TestPrepareRuntimeBootstrap/ZIP:_Bootstrap_order_-_first_location_exists
+--- PASS: TestPrepareRuntimeBootstrap/ZIP:_Bootstrap_order_-_first_location_exists (0.00s)
+=== RUN   TestPrepareRuntimeBootstrap/ZIP:_Bootstrap_order_-_second_location_exists
+time=2026-02-25T11:21:48.0786Z level=WARN msg="Ignoring invalid bootstrap path" path=/var/runtime/bootstrap err="not found"
+--- PASS: TestPrepareRuntimeBootstrap/ZIP:_Bootstrap_order_-_second_location_exists (0.00s)
+=== RUN   TestPrepareRuntimeBootstrap/ZIP:_Bootstrap_order_-_third_location_exists
+time=2026-02-25T11:21:48.0789Z level=WARN msg="Ignoring invalid bootstrap path" path=/var/runtime/bootstrap err="not found"
+time=2026-02-25T11:21:48.0789Z level=WARN msg="Ignoring invalid bootstrap path" path=/var/task/bootstrap err="not found"
+--- PASS: TestPrepareRuntimeBootstrap/ZIP:_Bootstrap_order_-_third_location_exists (0.00s)
+=== RUN   TestPrepareRuntimeBootstrap/ZIP:_Bootstrap_order_preference_-_multiple_bootstrap_files_exist
+--- PASS: TestPrepareRuntimeBootstrap/ZIP:_Bootstrap_order_preference_-_multiple_bootstrap_files_exist (0.00s)
+=== RUN   TestPrepareRuntimeBootstrap/ZIP:_No_bootstrap_command_and_no_valid_default_location
+time=2026-02-25T11:21:48.0797Z level=WARN msg="Ignoring invalid bootstrap path" path=/var/runtime/bootstrap err="not found"
+time=2026-02-25T11:21:48.0797Z level=WARN msg="Ignoring invalid bootstrap path" path=/var/task/bootstrap err="not found"
+time=2026-02-25T11:21:48.0798Z level=WARN msg="Ignoring invalid bootstrap path" path=/opt/bootstrap err="not found"
+time=2026-02-25T11:21:48.0798Z level=ERROR msg="No valid bootstrap binary found in default locations"
+time=2026-02-25T11:21:48.0798Z level=WARN msg="First fatal error stored in appctx" errorType=Runtime.InvalidEntrypoint
+--- PASS: TestPrepareRuntimeBootstrap/ZIP:_No_bootstrap_command_and_no_valid_default_location (0.00s)
+=== RUN   TestPrepareRuntimeBootstrap/Invalid_working_directory
+time=2026-02-25T11:21:48.0800Z level=WARN msg="Invalid working directory" cwd=/non/existent/dir error="directory does not exist"
+time=2026-02-25T11:21:48.0800Z level=WARN msg="First fatal error stored in appctx" errorType=Runtime.InvalidWorkingDir
+--- PASS: TestPrepareRuntimeBootstrap/Invalid_working_directory (0.00s)
+=== RUN   TestPrepareRuntimeBootstrap/OCI:_No_bootstrap_command_(should_not_look_for_default_locations)
+--- PASS: TestPrepareRuntimeBootstrap/OCI:_No_bootstrap_command_(should_not_look_for_default_locations) (0.00s)
+--- PASS: TestPrepareRuntimeBootstrap (0.00s)
+=== RUN   TestAgentCountInitResponseTimeout
+time=2026-02-25T11:21:48.1312Z level=WARN msg="Operation timed out" err=errTimeout errorType=Runtime.ReadyFailed
+--- PASS: TestAgentCountInitResponseTimeout (0.05s)
+=== RUN   TestRuntimeExecFailureOnCustomerError
+time=2026-02-25T11:21:48.1322Z level=WARN msg="Could not Exec Runtime process" err=AnyErrorReason
+time=2026-02-25T11:21:48.1322Z level=WARN msg="First fatal error stored in appctx" errorType=Runtime.InvalidEntrypoint
+--- PASS: TestRuntimeExecFailureOnCustomerError (0.00s)
+=== RUN   Test_shutdownMetrics
+=== RUN   Test_shutdownMetrics/shutdown_full_flow_no_extensions
+--- PASS: Test_shutdownMetrics/shutdown_full_flow_no_extensions (0.00s)
+=== RUN   Test_shutdownMetrics/shutdown_full_flow_with_extensions
+--- PASS: Test_shutdownMetrics/shutdown_full_flow_with_extensions (0.00s)
+=== RUN   Test_shutdownMetrics/shutdown_no_init_data
+--- PASS: Test_shutdownMetrics/shutdown_no_init_data (0.00s)
+=== RUN   Test_shutdownMetrics/shutdown_failed
+--- PASS: Test_shutdownMetrics/shutdown_failed (0.00s)
+--- PASS: Test_shutdownMetrics (0.00s)
+=== RUN   TestRuntimeProcessTerminationWithDifferentCause
+=== RUN   TestRuntimeProcessTerminationWithDifferentCause/runtimeTerminationDueToOOM
+time=2026-02-25T11:21:48.1348Z level=WARN msg="First fatal error stored in appctx" errorType=Runtime.OutOfMemory
+time=2026-02-25T11:21:48.1349Z level=WARN msg="Process exited" name=runtime event="exit status 0"
+time=2026-02-25T11:21:48.1349Z level=WARN msg="Ignoring gate error due to existing fatal error" gateError="runtime exited with error: exit status 0" existingFatalError=Runtime.OutOfMemory
+--- PASS: TestRuntimeProcessTerminationWithDifferentCause/runtimeTerminationDueToOOM (0.00s)
+=== RUN   TestRuntimeProcessTerminationWithDifferentCause/runtimeTerminationWithExitCodeZero
+time=2026-02-25T11:21:48.1358Z level=WARN msg="First fatal error stored in appctx" errorType=Runtime.ExitError
+time=2026-02-25T11:21:48.1358Z level=WARN msg="Process exited" name=runtime event="exit status 0"
+time=2026-02-25T11:21:48.1358Z level=WARN msg="Ignoring gate error due to existing fatal error" gateError="runtime exited without providing a reason" existingFatalError=Runtime.ExitError
+--- PASS: TestRuntimeProcessTerminationWithDifferentCause/runtimeTerminationWithExitCodeZero (0.00s)
+=== RUN   TestRuntimeProcessTerminationWithDifferentCause/runtimeTerminationSiganled
+time=2026-02-25T11:21:48.1367Z level=WARN msg="First fatal error stored in appctx" errorType=Runtime.ExitError
+time=2026-02-25T11:21:48.1368Z level=WARN msg="Process exited" name=runtime event="exit status 0"
+time=2026-02-25T11:21:48.1368Z level=WARN msg="Ignoring gate error due to existing fatal error" gateError="runtime exited with error: exit status 0" existingFatalError=Runtime.ExitError
+--- PASS: TestRuntimeProcessTerminationWithDifferentCause/runtimeTerminationSiganled (0.00s)
+--- PASS: TestRuntimeProcessTerminationWithDifferentCause (0.00s)
+=== RUN   TestMultipleNextFromRuntimesDuringInit
+--- PASS: TestMultipleNextFromRuntimesDuringInit (0.00s)
+=== RUN   TestInitTimeoutHandling
+-test.shuffle 1772018508230131640
+=== RUN   TestGetRuntimeRelease
+=== RUN   TestGetRuntimeRelease/simple
+--- PASS: TestGetRuntimeRelease/simple (0.00s)
+=== RUN   TestGetRuntimeRelease/no_trailing_new_line
+--- PASS: TestGetRuntimeRelease/no_trailing_new_line (0.00s)
+=== RUN   TestGetRuntimeRelease/nonexistent_keys
+--- PASS: TestGetRuntimeRelease/nonexistent_keys (0.00s)
+=== RUN   TestGetRuntimeRelease/empty_value
+--- PASS: TestGetRuntimeRelease/empty_value (0.00s)
+=== RUN   TestGetRuntimeRelease/delimiter_in_value
+--- PASS: TestGetRuntimeRelease/delimiter_in_value (0.00s)
+=== RUN   TestGetRuntimeRelease/empty_file
+--- PASS: TestGetRuntimeRelease/empty_file (0.00s)
+=== RUN   TestGetRuntimeRelease/quotes
+--- PASS: TestGetRuntimeRelease/quotes (0.00s)
+=== RUN   TestGetRuntimeRelease/double_quotes
+--- PASS: TestGetRuntimeRelease/double_quotes (0.00s)
+=== RUN   TestGetRuntimeRelease/empty_lines
+--- PASS: TestGetRuntimeRelease/empty_lines (0.00s)
+=== RUN   TestGetRuntimeRelease/comments
+--- PASS: TestGetRuntimeRelease/comments (0.00s)
+=== RUN   TestGetRuntimeRelease/file_exceeds_size_limit
+--- PASS: TestGetRuntimeRelease/file_exceeds_size_limit (0.00s)
+=== RUN   TestGetRuntimeRelease/invalid_format
+--- PASS: TestGetRuntimeRelease/invalid_format (0.00s)
+--- PASS: TestGetRuntimeRelease (0.00s)
+=== RUN   TestGetRuntimeRelease_NotFound
+--- PASS: TestGetRuntimeRelease_NotFound (0.00s)
+=== RUN   TestRuntimeRelease_GetUAProduct
+=== RUN   TestRuntimeRelease_GetUAProduct/no_name
+--- PASS: TestRuntimeRelease_GetUAProduct/no_name (0.00s)
+=== RUN   TestRuntimeRelease_GetUAProduct/no_version
+--- PASS: TestRuntimeRelease_GetUAProduct/no_version (0.00s)
+=== RUN   TestRuntimeRelease_GetUAProduct/name_and_version
+--- PASS: TestRuntimeRelease_GetUAProduct/name_and_version (0.00s)
+--- PASS: TestRuntimeRelease_GetUAProduct (0.00s)
+PASS
+coverage: 82.9% of statements
+ok  	golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/rapidcore	0.036s	coverage: 82.9% of statements
+time=2026-02-25T11:21:48.3413Z level=WARN msg="Operation timed out" err=errTimeout errorType=Extension.RegistrationFailed
+--- PASS: TestInitTimeoutHandling (0.20s)
+=== RUN   TestGetExtensionNamesWithTooManyExtensions
+--- PASS: TestGetExtensionNamesWithTooManyExtensions (0.00s)
+=== RUN   TestExecFailureOnPlatformErrorForExtensions
+time=2026-02-25T11:21:48.3423Z level=WARN msg="Could not exec extension process" err=AnyErrorReason agent=extension-NoOp.ext
+time=2026-02-25T11:21:48.3424Z level=WARN msg="First fatal error stored in appctx" errorType=Extension.LaunchError
+--- PASS: TestExecFailureOnPlatformErrorForExtensions (0.00s)
+=== RUN   TestShutdown
+=== RUN   TestShutdown/No_extensions,_runtime_kill_successful_->_shutdown_is_success
+time=2026-02-25T11:21:48.3428Z level=INFO msg="Waiting for runtime domain processes termination"
+--- PASS: TestShutdown/No_extensions,_runtime_kill_successful_->_shutdown_is_success (0.00s)
+=== RUN   TestShutdown/No_extensions,_runtime_kill_fails_->_shutdown_is_a_failure
+time=2026-02-25T11:21:48.3430Z level=WARN msg="Failed sending Kill signal to process" name=runtime err=boom
+--- PASS: TestShutdown/No_extensions,_runtime_kill_fails_->_shutdown_is_a_failure (0.00s)
+=== RUN   TestShutdown/No_extensions,_we_Kill_runtime,_but_don't_get_a_signal_runtime_actually_exited_->_shutdown_is_a_failure
+time=2026-02-25T11:21:48.3431Z level=INFO msg="Waiting for runtime domain processes termination"
+-test.shuffle 1772018508391594903
+=== RUN   TestEnvironmentVariableSplitting
+--- PASS: TestEnvironmentVariableSplitting (0.00s)
+=== RUN   TestSetupEnvironment
+=== RUN   TestSetupEnvironment/zip
+--- PASS: TestSetupEnvironment/zip (0.00s)
+=== RUN   TestSetupEnvironment/runtimeLoggingSocket
+--- PASS: TestSetupEnvironment/runtimeLoggingSocket (0.00s)
+=== RUN   TestSetupEnvironment/oci
+--- PASS: TestSetupEnvironment/oci (0.00s)
+=== RUN   TestSetupEnvironment/empty_AWS_LAMBDA_LOG_FORMAT
+--- PASS: TestSetupEnvironment/empty_AWS_LAMBDA_LOG_FORMAT (0.00s)
+=== RUN   TestSetupEnvironment/empty_AWS_LAMBDA_LOG_LEVEL
+--- PASS: TestSetupEnvironment/empty_AWS_LAMBDA_LOG_LEVEL (0.00s)
+=== RUN   TestSetupEnvironment/customer_sets_underscore_env_var
+--- PASS: TestSetupEnvironment/customer_sets_underscore_env_var (0.00s)
+=== RUN   TestSetupEnvironment/customer_overwrites_all_defined_env_vars_zip
+--- PASS: TestSetupEnvironment/customer_overwrites_all_defined_env_vars_zip (0.00s)
+=== RUN   TestSetupEnvironment/customer_overwrites_all_defined_env_vars_oci
+--- PASS: TestSetupEnvironment/customer_overwrites_all_defined_env_vars_oci (0.00s)
+--- PASS: TestSetupEnvironment (0.00s)
+PASS
+coverage: 75.5% of statements
+ok  	golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/rapidcore/env	0.032s	coverage: 75.5% of statements
+-test.shuffle 1772018508632975477
+=== RUN   TestGetState
+--- PASS: TestGetState (0.00s)
+=== RUN   TestStatus_String
+=== RUN   TestStatus_String/Idle
+--- PASS: TestStatus_String/Idle (0.00s)
+=== RUN   TestStatus_String/initializing_status
+--- PASS: TestStatus_String/initializing_status (0.00s)
+=== RUN   TestStatus_String/initialized_status
+--- PASS: TestStatus_String/initialized_status (0.00s)
+=== RUN   TestStatus_String/shutting_down_status
+--- PASS: TestStatus_String/shutting_down_status (0.00s)
+=== RUN   TestStatus_String/shutdown_status
+--- PASS: TestStatus_String/shutdown_status (0.00s)
+=== RUN   TestStatus_String/unknown_status
+--- PASS: TestStatus_String/unknown_status (0.00s)
+--- PASS: TestStatus_String (0.00s)
+=== RUN   TestNewStateGuard
+--- PASS: TestNewStateGuard (0.00s)
+=== RUN   TestSetState
+=== RUN   TestSetState/Valid:_Idle_to_Initializing
+--- PASS: TestSetState/Valid:_Idle_to_Initializing (0.00s)
+=== RUN   TestSetState/Valid:_Idle_to_ShuttingDown
+--- PASS: TestSetState/Valid:_Idle_to_ShuttingDown (0.00s)
+=== RUN   TestSetState/Valid:_Initializing_to_Initialized
+--- PASS: TestSetState/Valid:_Initializing_to_Initialized (0.00s)
+=== RUN   TestSetState/Valid:_Initializing_to_ShuttingDown
+--- PASS: TestSetState/Valid:_Initializing_to_ShuttingDown (0.00s)
+=== RUN   TestSetState/Valid:_Initialized_to_ShuttingDown
+--- PASS: TestSetState/Valid:_Initialized_to_ShuttingDown (0.00s)
+=== RUN   TestSetState/Valid:_ShuttingDown_to_Shutdown
+--- PASS: TestSetState/Valid:_ShuttingDown_to_Shutdown (0.00s)
+=== RUN   TestSetState/Invalid:_Idle_to_Initialized
+2026/02/25 11:21:48 ERROR invalid state transition from=Idle to=Initialized
+--- PASS: TestSetState/Invalid:_Idle_to_Initialized (0.00s)
+=== RUN   TestSetState/Invalid:_Idle_to_Shutdown
+2026/02/25 11:21:48 ERROR invalid state transition from=Idle to=Shutdown
+--- PASS: TestSetState/Invalid:_Idle_to_Shutdown (0.00s)
+=== RUN   TestSetState/Invalid:_Initializing_to_Idle
+--- PASS: TestSetState/Invalid:_Initializing_to_Idle (0.00s)
+=== RUN   TestSetState/Invalid:_Initialized_to_Idle
+--- PASS: TestSetState/Invalid:_Initialized_to_Idle (0.00s)
+=== RUN   TestSetState/Invalid:_Initialized_to_Initializing
+2026/02/25 11:21:48 ERROR invalid state transition from=Initialized to=Initializing
+--- PASS: TestSetState/Invalid:_Initialized_to_Initializing (0.00s)
+=== RUN   TestSetState/Invalid:_ShuttingDown_to_Idle
+--- PASS: TestSetState/Invalid:_ShuttingDown_to_Idle (0.00s)
+=== RUN   TestSetState/Valid:_Shutdown_to_Idle
+--- PASS: TestSetState/Valid:_Shutdown_to_Idle (0.00s)
+=== RUN   TestSetState/Invalid:_Shutdown_to_other_states
+2026/02/25 11:21:48 ERROR invalid state transition from=Shutdown to=Initializing
+--- PASS: TestSetState/Invalid:_Shutdown_to_other_states (0.00s)
+--- PASS: TestSetState (0.00s)
+=== RUN   TestIsValidTransition
+=== RUN   TestIsValidTransition/Idle_to_Initializing
+--- PASS: TestIsValidTransition/Idle_to_Initializing (0.00s)
+=== RUN   TestIsValidTransition/Idle_to_ShuttingDown
+--- PASS: TestIsValidTransition/Idle_to_ShuttingDown (0.00s)
+=== RUN   TestIsValidTransition/Initializing_to_Initialized
+--- PASS: TestIsValidTransition/Initializing_to_Initialized (0.00s)
+=== RUN   TestIsValidTransition/Initializing_to_ShuttingDown
+--- PASS: TestIsValidTransition/Initializing_to_ShuttingDown (0.00s)
+=== RUN   TestIsValidTransition/Initialized_to_ShuttingDown
+--- PASS: TestIsValidTransition/Initialized_to_ShuttingDown (0.00s)
+=== RUN   TestIsValidTransition/ShuttingDown_to_Shutdown
+--- PASS: TestIsValidTransition/ShuttingDown_to_Shutdown (0.00s)
+=== RUN   TestIsValidTransition/Idle_to_Initialized
+--- PASS: TestIsValidTransition/Idle_to_Initialized (0.00s)
+=== RUN   TestIsValidTransition/Idle_to_Shutdown
+--- PASS: TestIsValidTransition/Idle_to_Shutdown (0.00s)
+=== RUN   TestIsValidTransition/Initializing_to_Idle
+--- PASS: TestIsValidTransition/Initializing_to_Idle (0.00s)
+=== RUN   TestIsValidTransition/Initialized_to_Idle
+--- PASS: TestIsValidTransition/Initialized_to_Idle (0.00s)
+=== RUN   TestIsValidTransition/Initialized_to_Initializing
+--- PASS: TestIsValidTransition/Initialized_to_Initializing (0.00s)
+=== RUN   TestIsValidTransition/ShuttingDown_to_Idle
+--- PASS: TestIsValidTransition/ShuttingDown_to_Idle (0.00s)
+=== RUN   TestIsValidTransition/ShuttingDown_to_Initializing
+--- PASS: TestIsValidTransition/ShuttingDown_to_Initializing (0.00s)
+=== RUN   TestIsValidTransition/ShuttingDown_to_Initialized
+--- PASS: TestIsValidTransition/ShuttingDown_to_Initialized (0.00s)
+=== RUN   TestIsValidTransition/Shutdown_to_Idle
+--- PASS: TestIsValidTransition/Shutdown_to_Idle (0.00s)
+=== RUN   TestIsValidTransition/Shutdown_to_Initializing
+--- PASS: TestIsValidTransition/Shutdown_to_Initializing (0.00s)
+=== RUN   TestIsValidTransition/Shutdown_to_Initialized
+--- PASS: TestIsValidTransition/Shutdown_to_Initialized (0.00s)
+=== RUN   TestIsValidTransition/Shutdown_to_ShuttingDown
+--- PASS: TestIsValidTransition/Shutdown_to_ShuttingDown (0.00s)
+=== RUN   TestIsValidTransition/Idle_to_Idle
+--- PASS: TestIsValidTransition/Idle_to_Idle (0.00s)
+=== RUN   TestIsValidTransition/Initializing_to_Initializing
+--- PASS: TestIsValidTransition/Initializing_to_Initializing (0.00s)
+=== RUN   TestIsValidTransition/Initialized_to_Initialized
+--- PASS: TestIsValidTransition/Initialized_to_Initialized (0.00s)
+=== RUN   TestIsValidTransition/ShuttingDown_to_ShuttingDown
+--- PASS: TestIsValidTransition/ShuttingDown_to_ShuttingDown (0.00s)
+=== RUN   TestIsValidTransition/Shutdown_to_Shutdown
+--- PASS: TestIsValidTransition/Shutdown_to_Shutdown (0.00s)
+=== RUN   TestIsValidTransition/Invalid_state_to_Idle
+--- PASS: TestIsValidTransition/Invalid_state_to_Idle (0.00s)
+=== RUN   TestIsValidTransition/Idle_to_invalid_state
+--- PASS: TestIsValidTransition/Idle_to_invalid_state (0.00s)
+--- PASS: TestIsValidTransition (0.00s)
+PASS
+coverage: 96.6% of statements
+ok  	golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/raptor/internal	0.032s	coverage: 96.6% of statements
+-test.shuffle 1772018508653352341
+=== RUN   TestAppInitSuccessfulButStateError
+time=2026-02-25T11:21:48.6545Z level=ERROR msg="invalid state transition" from=ShuttingDown to=Initialized
+time=2026-02-25T11:21:48.6547Z level=ERROR msg="State error : can't switch to initalized state"
+--- PASS: TestAppInitSuccessfulButStateError (0.00s)
+=== RUN   TestStartNewServe_TCP_ListenError
+--- PASS: TestStartNewServe_TCP_ListenError (0.00s)
+=== RUN   TestStartApp
+=== RUN   TestStartApp/successful_start
+--- PASS: TestStartApp/successful_start (0.00s)
+--- PASS: TestStartApp (0.00s)
+=== RUN   TestStartNewServer_UDS_ListenError
+--- PASS: TestStartNewServer_UDS_ListenError (0.00s)
+=== RUN   TestStartNewServer_UDS
+--- PASS: TestStartNewServer_UDS (0.00s)
+=== RUN   TestStartNewServer_TCP
+--- PASS: TestStartNewServer_TCP (0.00s)
+=== RUN   TestAppInvokeStateValidation
+=== RUN   TestAppInvokeStateValidation/Idle
+time=2026-02-25T11:21:48.6703Z level=ERROR msg="Sandbox not Initialized" state=Idle
+--- PASS: TestAppInvokeStateValidation/Idle (0.00s)
+=== RUN   TestAppInvokeStateValidation/Initializing
+time=2026-02-25T11:21:48.6706Z level=ERROR msg="Sandbox not Initialized" state=Initializing
+--- PASS: TestAppInvokeStateValidation/Initializing (0.00s)
+=== RUN   TestAppInvokeStateValidation/ShuttingDown
+time=2026-02-25T11:21:48.6708Z level=ERROR msg="Invoke while Sandbox shutting down"
+--- PASS: TestAppInvokeStateValidation/ShuttingDown (0.00s)
+=== RUN   TestAppInvokeStateValidation/Shutdown
+time=2026-02-25T11:21:48.6711Z level=ERROR msg="Invoke while Sandbox shutting down"
+--- PASS: TestAppInvokeStateValidation/Shutdown (0.00s)
+--- PASS: TestAppInvokeStateValidation (0.00s)
+=== RUN   TestAppInitSuccessful
+--- PASS: TestAppInitSuccessful (0.00s)
+=== RUN   TestAppInitInvalidState
+time=2026-02-25T11:21:48.6717Z level=ERROR msg="invalid state transition" from=ShuttingDown to=Initializing
+time=2026-02-25T11:21:48.6717Z level=ERROR msg="State error : can't switch to initializing" state=ShuttingDown err="invalid state transition: from ShuttingDown to Initializing"
+--- PASS: TestAppInitInvalidState (0.00s)
+=== RUN   TestStartProcessTerminationMonitor
+time=2026-02-25T11:21:48.6721Z level=INFO msg="Shutting down" reason=<nil>
+--- PASS: TestStartProcessTerminationMonitor (0.00s)
+=== RUN   TestAppShutdown
+time=2026-02-25T11:21:48.6735Z level=INFO msg="Shutting down" reason=Runtime.Unknown
+--- PASS: TestAppShutdown (0.00s)
+=== RUN   TestAppInitFailure
+time=2026-02-25T11:21:48.6743Z level=WARN msg="Received Init error" err=RuntimeExecFailure
+time=2026-02-25T11:21:48.6744Z level=INFO msg="Shutting down" reason=RuntimeExecFailure
+--- PASS: TestAppInitFailure (0.00s)
+PASS
+coverage: 53.1% of statements
+ok  	golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/raptor	0.081s	coverage: 53.1% of statements
+	golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/servicelogs		coverage: 0.0% of statements
+-test.shuffle 1772018508765965721
+=== RUN   TestTerminateExited
+2026/02/25 11:21:48 INFO LocalProcessSupervisor.Exec pid=9469 path=/bin/bash args=[/bin/bash]
+--- PASS: TestTerminateExited (0.10s)
+=== RUN   TestKill
+2026/02/25 11:21:48 INFO LocalProcessSupervisor.Exec pid=9514 path=/bin/bash args="[/bin/bash -c sleep 10s]"
+2026/02/25 11:21:48 INFO Sending SIGKILL to process name=agent pid=9514
+--- PASS: TestKill (0.02s)
+=== RUN   TestTerminateCheckStatus
+2026/02/25 11:21:48 INFO LocalProcessSupervisor.Exec pid=9520 path=/bin/bash args="[/bin/bash -c sleep 10s]"
+-test.shuffle 1772018508903117845
+=== RUN   TestSupervisorErrorDerserilize
+=== RUN   TestSupervisorErrorDerserilize/hook_err
+--- PASS: TestSupervisorErrorDerserilize/hook_err (0.00s)
+=== RUN   TestSupervisorErrorDerserilize/client_err
+--- PASS: TestSupervisorErrorDerserilize/client_err (0.00s)
+--- PASS: TestSupervisorErrorDerserilize (0.00s)
+=== RUN   Test_KillDeadlineIsMarshalledIntoRFC3339
+--- PASS: Test_KillDeadlineIsMarshalledIntoRFC3339 (0.00s)
+=== RUN   TestEventsDerserilize
+=== RUN   TestEventsDerserilize/signaled
+--- PASS: TestEventsDerserilize/signaled (0.00s)
+=== RUN   TestEventsDerserilize/exited
+--- PASS: TestEventsDerserilize/exited (0.00s)
+=== RUN   TestEventsDerserilize/oom_killed
+--- PASS: TestEventsDerserilize/oom_killed (0.00s)
+--- PASS: TestEventsDerserilize (0.00s)
+=== RUN   TestOomKilledEvent
+--- PASS: TestOomKilledEvent (0.00s)
+=== RUN   TestEventToString
+--- PASS: TestEventToString (0.00s)
+=== RUN   TestSupervisorError
+--- PASS: TestSupervisorError (0.00s)
+PASS
+coverage: 13.2% of statements
+ok  	golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/supervisor/model	0.020s	coverage: 13.2% of statements
+--- PASS: TestTerminateCheckStatus (0.10s)
+=== RUN   TestRuntimeExec
+2026/02/25 11:21:48 INFO LocalProcessSupervisor.Exec pid=9547 path=/bin/bash args=[/bin/bash]
+--- PASS: TestRuntimeExec (0.00s)
+=== RUN   TestKillUnknown
+--- PASS: TestKillUnknown (0.00s)
+=== RUN   TestKillExited
+2026/02/25 11:21:48 INFO LocalProcessSupervisor.Exec pid=9548 path=/bin/bash args=[/bin/bash]
+--- PASS: TestKillExited (0.00s)
+=== RUN   TestStopAll
+2026/02/25 11:21:48 INFO LocalProcessSupervisor.Exec pid=9549 path=/bin/bash args="[/bin/bash -c sleep 10s]"
+2026/02/25 11:21:48 INFO LocalProcessSupervisor.Exec pid=9550 path=/bin/bash args="[/bin/bash -c sleep 10s]"
+2026/02/25 11:21:49 INFO Sending SIGKILL to process name=agent2 pid=9550
+2026/02/25 11:21:49 INFO Sending SIGKILL to process name=agent1 pid=9549
+--- PASS: TestStopAll (0.10s)
+=== RUN   TestTerminateUnknown
+2026/02/25 11:21:49 ERROR Process not found in local supervisor map name=unknown err=ProcessNotFound
+--- PASS: TestTerminateUnknown (0.00s)
+=== RUN   TestInvalidRuntimeExec
+--- PASS: TestInvalidRuntimeExec (0.00s)
+=== RUN   TestEvents
+2026/02/25 11:21:49 INFO LocalProcessSupervisor.Exec pid=9557 path=/bin/bash args=[/bin/bash]
+--- PASS: TestEvents (0.00s)
+=== RUN   TestTerminate
+2026/02/25 11:21:49 INFO LocalProcessSupervisor.Exec pid=9558 path=/bin/bash args="[/bin/bash -c sleep 10s]"
+-test.shuffle 1772018509112869606
+=== RUN   TestPrepareInitRuntimeDoneDataOnCustomerError
+2026/02/25 11:21:49 WARN First fatal error stored in appctx errorType=Runtime.InitError
+--- PASS: TestPrepareInitRuntimeDoneDataOnCustomerError (0.00s)
+PASS
+coverage: 20.3% of statements
+ok  	golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/telemetry	0.029s	coverage: 20.3% of statements
+-test.shuffle 1772018509140266440
+=== RUN   TestTracer
+=== RUN   TestTracer/Active
+--- PASS: TestTracer/Active (0.00s)
+=== RUN   TestTracer/Active_NoRoot
+--- PASS: TestTracer/Active_NoRoot (0.00s)
+=== RUN   TestTracer/Active_NoParent
+--- PASS: TestTracer/Active_NoParent (0.00s)
+=== RUN   TestTracer/Active_NotSampled
+--- PASS: TestTracer/Active_NotSampled (0.00s)
+=== RUN   TestTracer/Active_NoLineage
+--- PASS: TestTracer/Active_NoLineage (0.00s)
+=== RUN   TestTracer/Active_UnorderedComponents
+--- PASS: TestTracer/Active_UnorderedComponents (0.00s)
+=== RUN   TestTracer/Active_EmptyTraceId
+--- PASS: TestTracer/Active_EmptyTraceId (0.00s)
+=== RUN   TestTracer/Passthrough
+--- PASS: TestTracer/Passthrough (0.00s)
+--- PASS: TestTracer (0.00s)
+PASS
+coverage: 90.2% of statements
+ok  	golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/telemetry/xray	0.015s	coverage: 90.2% of statements
+--- PASS: TestTerminate (0.10s)
+=== RUN   TestEventsChannelShouldReturnEventsForRuntime
+2026/02/25 11:21:49 INFO LocalProcessSupervisor.Exec pid=9592 path=/usr/bin/sleep args="[sleep 0.001s]"
+--- PASS: TestEventsChannelShouldReturnEventsForRuntime (0.02s)
+PASS
+coverage: 77.2% of statements
+ok  	golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/supervisor/local	0.462s	coverage: 77.2% of statements
+-test.shuffle 1772018509228636868
+=== RUN   TestCreateTempSocketPath
+    socket_utils.go:24: could not cleanup unix socket file /tmp/99d15f4d-c47a-45d7-a4d3-a4c82cec9727.sock: remove /tmp/99d15f4d-c47a-45d7-a4d3-a4c82cec9727.sock: no such file or directory
+--- PASS: TestCreateTempSocketPath (0.00s)
+PASS
+coverage: 14.6% of statements
+ok  	golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/testutils	0.024s	coverage: 14.6% of statements
+	golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/testutils/mocks		coverage: 0.0% of statements
+	golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/testutils/functional		coverage: 0.0% of statements
+--- PASS: TestNewBandwidthLimitingWriter (2.80s)
+=== RUN   TestNewBucket
+time=2026-02-25T11:21:49.3922Z level=ERROR msg="invalid bucket parameters (capacity: 8, initialTokenCount: 6, refillNumber: -100000000,refillInterval: -100000000)"
+time=2026-02-25T11:21:49.3923Z level=ERROR msg="invalid bucket parameters (capacity: 8, initialTokenCount: 6, refillNumber: 100000000,refillInterval: 100000000)"
+time=2026-02-25T11:21:49.3923Z level=ERROR msg="invalid bucket parameters (capacity: 8, initialTokenCount: -2, refillNumber: 100000000,refillInterval: 100000000)"
+time=2026-02-25T11:21:49.3923Z level=ERROR msg="invalid bucket parameters (capacity: -2, initialTokenCount: 6, refillNumber: 100000000,refillInterval: 100000000)"
+time=2026-02-25T11:21:49.3923Z level=ERROR msg="invalid bucket parameters (capacity: 8, initialTokenCount: 10, refillNumber: 100000000,refillInterval: 100000000)"
+--- PASS: TestNewBucket (0.00s)
+=== RUN   TestNewThrottler_bandwidthLimitingWrite
+-test.shuffle 1772018509544978290
+=== RUN   TestGlobalImplementationIsOfExpectedType
+-test.shuffle 1772018509545041503
+--- PASS: TestGlobalImplementationIsOfExpectedType (0.00s)
+=== RUN   TestGlobalViolationsUseProvidedImplementation
+=== RUN   TestCreateStickyWorldWritableDir
+--- PASS: TestGlobalViolationsUseProvidedImplementation (0.00s)
+=== RUN   TestInvariantViolationError
+--- PASS: TestInvariantViolationError (0.00s)
+=== RUN   TestGlobalChecksDoNothingOnOk
+--- PASS: TestGlobalChecksDoNothingOnOk (0.00s)
+=== RUN   TestPanicExecutor
+--- PASS: TestCreateStickyWorldWritableDir (0.00s)
+=== RUN   TestCopyWithPool_BasicFunctionality
+--- PASS: TestPanicExecutor (0.00s)
+PASS
+coverage: 70.0% of statements
+=== RUN   TestCopyWithPool_BasicFunctionality/empty
+--- PASS: TestCopyWithPool_BasicFunctionality/empty (0.00s)
+=== RUN   TestCopyWithPool_BasicFunctionality/small
+--- PASS: TestCopyWithPool_BasicFunctionality/small (0.00s)
+=== RUN   TestCopyWithPool_BasicFunctionality/large
+--- PASS: TestCopyWithPool_BasicFunctionality/large (0.00s)
+--- PASS: TestCopyWithPool_BasicFunctionality (0.00s)
+=== RUN   TestTimedReader
+=== PAUSE TestTimedReader
+=== RUN   TestTimedWriter
+=== PAUSE TestTimedWriter
+ok  	golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/utils/invariant	0.006s	coverage: 70.0% of statements
+=== CONT  TestTimedReader
+--- PASS: TestTimedReader (0.00s)
+=== CONT  TestTimedWriter
+--- PASS: TestTimedWriter (0.00s)
+PASS
+coverage: 23.6% of statements
+ok  	golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/utils	0.020s	coverage: 23.6% of statements
+--- PASS: TestNewThrottler_bandwidthLimitingWrite (0.82s)
+PASS
+coverage: 96.6% of statements
+ok  	golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/core/bandwidthlimiter	4.088s	coverage: 96.6% of statements
+--- PASS: TestShutdown/No_extensions,_we_Kill_runtime,_but_don't_get_a_signal_runtime_actually_exited_->_shutdown_is_a_failure (2.00s)
+=== RUN   TestShutdown/Runtime_and_one_extensions_(subscribed_to_shutdown)_and_terminates_gracefully_->_shutdown_is_success
+time=2026-02-25T11:21:50.3434Z level=ERROR msg="External agent registration failed" err=ErrGateIntegrity
+time=2026-02-25T11:21:50.3637Z level=INFO msg="Waiting for runtime domain processes termination"
+--- PASS: TestShutdown/Runtime_and_one_extensions_(subscribed_to_shutdown)_and_terminates_gracefully_->_shutdown_is_success (0.02s)
+=== RUN   TestShutdown/Runtime_and_only_one_internal_extension_with_successful_runtime_termination_->_shutdown_is_success
+time=2026-02-25T11:21:50.3639Z level=INFO msg="Waiting for runtime domain processes termination"
+--- PASS: TestShutdown/Runtime_and_only_one_internal_extension_with_successful_runtime_termination_->_shutdown_is_success (0.00s)
+=== RUN   TestShutdown/Runtime_and_one_extensions_(subscribed_to_shutdown)_and_needs_to_be_killed_(fails)_->_shutdown_is_a_failure
+time=2026-02-25T11:21:50.3640Z level=ERROR msg="External agent registration failed" err=ErrGateIntegrity
+time=2026-02-25T11:21:50.3894Z level=WARN msg="Failed sending Kill signal to process" name=extension-agent1 err=boom
+--- PASS: TestShutdown/Runtime_and_one_extensions_(subscribed_to_shutdown)_and_needs_to_be_killed_(fails)_->_shutdown_is_a_failure (0.03s)
+=== RUN   TestShutdown/Runtime_and_one_extensions_(subscribed)._Runtime_doesn't_terminate_gracefully,_but_extension_shutdown_still_has_dedicated_time_->_success
+time=2026-02-25T11:21:50.3896Z level=ERROR msg="External agent registration failed" err=ErrGateIntegrity
+time=2026-02-25T11:21:50.4200Z level=INFO msg="Waiting for runtime domain processes termination"
+--- PASS: TestShutdown/Runtime_and_one_extensions_(subscribed)._Runtime_doesn't_terminate_gracefully,_but_extension_shutdown_still_has_dedicated_time_->_success (0.05s)
+=== RUN   TestShutdown/Runtime_and_one_extensions_(not_subscribed)_and_is_killed_successfully_->_shutdown_is_success
+time=2026-02-25T11:21:50.4507Z level=INFO msg="Waiting for runtime domain processes termination"
+--- PASS: TestShutdown/Runtime_and_one_extensions_(not_subscribed)_and_is_killed_successfully_->_shutdown_is_success (0.01s)
+=== RUN   TestShutdown/Runtime_and_one_extensions_(subscribed)._Runtime_terminate_gracefully,_but_extension_don't_and_needs_to_be_killed_->_success
+time=2026-02-25T11:21:50.4515Z level=ERROR msg="External agent registration failed" err=ErrGateIntegrity
+time=2026-02-25T11:21:50.5528Z level=INFO msg="Waiting for runtime domain processes termination"
+--- PASS: TestShutdown/Runtime_and_one_extensions_(subscribed)._Runtime_terminate_gracefully,_but_extension_don't_and_needs_to_be_killed_->_success (0.12s)
+--- PASS: TestShutdown (2.23s)
+=== RUN   Test_initMetrics
+=== RUN   Test_initMetrics/malformed_request_flow
+--- PASS: Test_initMetrics/malformed_request_flow (0.00s)
+=== RUN   Test_initMetrics/init_platform_error
+--- PASS: Test_initMetrics/init_platform_error (0.00s)
+=== RUN   Test_initMetrics/init_runtime_failed
+--- PASS: Test_initMetrics/init_runtime_failed (0.00s)
+=== RUN   Test_initMetrics/init_full_flow
+--- PASS: Test_initMetrics/init_full_flow (0.00s)
+--- PASS: Test_initMetrics (0.00s)
+=== RUN   TestSetupEventWatcherRuntimeErrorHandling
+--- PASS: TestSetupEventWatcherRuntimeErrorHandling (0.00s)
+=== RUN   TestGetExtensionNamesWithTooLongExtensionName
+--- PASS: TestGetExtensionNamesWithTooLongExtensionName (0.00s)
+=== RUN   TestGetExtensionNamesWithNoExtensions
+--- PASS: TestGetExtensionNamesWithNoExtensions (0.00s)
+PASS
+coverage: 83.3% of statements
+ok  	golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/rapid	2.535s	coverage: 83.3% of statements
+FAIL
+
+========================================
+                Failures
+========================================
+----------------------------------------
+-test.shuffle 1772018506137862787
+----------------------------------------
+----------------------------------------
+coverage: [no statements]
+----------------------------------------
+----------------------------------------
+FAIL: golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/aws-lambda-rie/test (0.293s)
+----------------------------------------
+TestRie_InvokeFatalError (0.05s)
+time=2026-02-25T11:21:46.139Z level=INFO msg="executing bootstrap" command=hello
+    rie_test.go:277: 
+        	Error Trace:	/workplace/siyuliao/LambdaRIEGithubSource_ws/src/LambdaRIEGithubSource/internal/lambda-managed-instances/aws-lambda-rie/test/rie_test.go:277
+        	Error:      	Received unexpected error:
+        	            	Post "http://127.0.0.1:41141/2015-03-31/functions/function/invocations": EOF
+        	Test:       	TestRie_InvokeFatalError
+time=2026-02-25T11:21:46.192Z level=INFO msg="executing bootstrap" command=hello
+time=2026-02-25T11:21:46.193Z level=INFO msg="executing bootstrap" command=hello
+time=2026-02-25T11:21:46.194Z level=WARN msg="Received Runtime Init Error" errType=Function.TestError
+time=2026-02-25T11:21:46.216Z level=WARN msg="First fatal error stored in appctx" errorType=Function.TestError
+time=2026-02-25T11:21:46.216Z level=WARN msg="Omitting fatal error: already stored" err=Runtime.ExitError existing=Function.TestError
+time=2026-02-25T11:21:46.216Z level=WARN msg="Process exited" name=runtime event="exit status 0"
+time=2026-02-25T11:21:46.216Z level=WARN msg="Ignoring gate error due to existing fatal error" gateError="runtime exited without providing a reason" existingFatalError=Function.TestError
+time=2026-02-25T11:21:46.216Z level=WARN msg="Received Init error" err=Function.TestError
+time=2026-02-25T11:21:46.216Z level=INFO msg="Shutting down" reason=Function.TestError
+time=2026-02-25T11:21:46.216Z level=INFO msg="InvokeRouter: Aborting running invokes" reason=Function.TestError
+time=2026-02-25T11:21:46.216Z level=INFO msg="ShutdownContext shutdown() initiated" reason=failure
+time=2026-02-25T11:21:46.216Z level=INFO msg="Waiting for runtime domain processes termination"
+time=2026-02-25T11:21:46.217Z level=INFO msg="Runtime API Server closed"
+time=2026-02-25T11:21:46.217Z level=ERROR msg="Server error" err="http: Server closed"
+time=2026-02-25T11:21:46.217Z level=INFO msg="Runtime API Server closed"
+time=2026-02-25T11:21:46.217Z level=INFO msg="Shutting down HTTP server..."
+
+========================================
+                Coverage
+========================================
+golang.a2z.com/LambdaRIEGithubSource/cmd/aws-lambda-rie (0.0%)
+golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/agents (88.9%)
+golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/appctx (74.1%)
+golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/aws-lambda-rie/internal (63.2%)
+golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/aws-lambda-rie/internal/invoke (62.9%)
+golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/aws-lambda-rie/internal/telemetry (84.4%)
+golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/aws-lambda-rie/internal/telemetry/internal (72.5%)
+golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/aws-lambda-rie/run (0.0%)
+golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/core (74.8%)
+golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/core/bandwidthlimiter (96.6%)
+golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/core/directinvoke (28.6%)
+golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/core/statejson (0.0%)
+golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/interop (7.1%)
+golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/invoke (67.4%)
+golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/invoke/timeout (100.0%)
+golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/logging (81.0%)
+golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/model (47.1%)
+golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/ptr (0.0%)
+golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/rapi (59.6%)
+golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/rapi/handler (53.1%)
+golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/rapi/middleware (63.0%)
+golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/rapi/model (89.1%)
+golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/rapi/rendering (0.0%)
+golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/rapid (83.3%)
+golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/rapid/model (58.0%)
+golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/rapidcore (82.9%)
+golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/rapidcore/env (75.5%)
+golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/raptor (53.1%)
+golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/raptor/internal (96.6%)
+golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/servicelogs (0.0%)
+golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/supervisor/local (77.2%)
+golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/supervisor/model (13.2%)
+golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/telemetry (20.3%)
+golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/telemetry/xray (90.2%)
+golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/testutils (14.6%)
+golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/testutils/functional (0.0%)
+golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/testutils/mocks (0.0%)
+golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/utils (23.6%)
+golang.a2z.com/LambdaRIEGithubSource/internal/lambda-managed-instances/utils/invariant (70.0%)
+golang.a2z.com/LambdaRIEGithubSource/internal/lambda/agents (88.9%)
+golang.a2z.com/LambdaRIEGithubSource/internal/lambda/appctx (74.7%)
+golang.a2z.com/LambdaRIEGithubSource/internal/lambda/core (70.6%)
+golang.a2z.com/LambdaRIEGithubSource/internal/lambda/core/bandwidthlimiter (97.9%)
+golang.a2z.com/LambdaRIEGithubSource/internal/lambda/core/directinvoke (76.3%)
+golang.a2z.com/LambdaRIEGithubSource/internal/lambda/core/statejson (0.0%)
+golang.a2z.com/LambdaRIEGithubSource/internal/lambda/extensions (0.0%)
+golang.a2z.com/LambdaRIEGithubSource/internal/lambda/fatalerror (83.3%)
+golang.a2z.com/LambdaRIEGithubSource/internal/lambda/interop (35.1%)
+golang.a2z.com/LambdaRIEGithubSource/internal/lambda/logging (100.0%)
+golang.a2z.com/LambdaRIEGithubSource/internal/lambda/metering (100.0%)
+golang.a2z.com/LambdaRIEGithubSource/internal/lambda/rapi (86.7%)
+golang.a2z.com/LambdaRIEGithubSource/internal/lambda/rapi/handler (71.2%)
+golang.a2z.com/LambdaRIEGithubSource/internal/lambda/rapi/middleware (52.4%)
+golang.a2z.com/LambdaRIEGithubSource/internal/lambda/rapi/model (89.1%)
+golang.a2z.com/LambdaRIEGithubSource/internal/lambda/rapi/rendering (0.0%)
+golang.a2z.com/LambdaRIEGithubSource/internal/lambda/rapid (12.9%)
+golang.a2z.com/LambdaRIEGithubSource/internal/lambda/rapidcore (56.6%)
+golang.a2z.com/LambdaRIEGithubSource/internal/lambda/rapidcore/env (87.3%)
+golang.a2z.com/LambdaRIEGithubSource/internal/lambda/rapidcore/standalone (0.0%)
+golang.a2z.com/LambdaRIEGithubSource/internal/lambda/rapidcore/standalone/telemetry (0.0%)
+golang.a2z.com/LambdaRIEGithubSource/internal/lambda/rie (4.7%)
+golang.a2z.com/LambdaRIEGithubSource/internal/lambda/supervisor (69.4%)
+golang.a2z.com/LambdaRIEGithubSource/internal/lambda/supervisor/model (0.0%)
+golang.a2z.com/LambdaRIEGithubSource/internal/lambda/telemetry (56.0%)
+
+========================================
+                Summary
+========================================
+PASS: 909
+SKIP: 1
+FAIL: 1
+failed to run "go": exit status 1
+failed running "bgo-test-json-ui": exit status 1
+make: *** [/home/siyuliao/brazil-pkg-cache/packages/BrazilMakeGo/BrazilMakeGo-3.0.97631.0/AL2_x86_64/DEV.STD.PTHREAD/build/bin/bgo.makefile:172: -generate-cover] Error 1
+[ERROR] failed to run build command: exit status 2
+BUILD FAILED
+*** command 'bgo-wrap-make' with arguments 'release' exited with return code '1'
