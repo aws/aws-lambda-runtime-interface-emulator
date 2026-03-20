@@ -1,5 +1,8 @@
 name: Validate PR Branch into Main 
 
+permissions:
+  contents: read
+
 on:
   pull_request:
     branches:
