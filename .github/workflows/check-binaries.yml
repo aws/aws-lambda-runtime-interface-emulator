@@ -15,11 +15,11 @@ jobs:
       report_contents: ${{ steps.save-output.outputs.report_contents }}
     steps:
       - name: Setup python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.11'
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: main
       - name: Download latest release
@@ -61,12 +61,14 @@ jobs:
         name: Save outputs for the check with the latest build
         id: save-new-version
         run: |
-          if [ "${{ steps.check-new-version.outcome }}" == "failure" ]; then
+          if [ "${CHECK_OUTCOME}" == "failure" ]; then
             fixed="No"
           else
             fixed="Yes"
           fi
           echo "fixed=$fixed" >> "$GITHUB_OUTPUT"
+        env:
+          CHECK_OUTCOME: ${{ steps.check-new-version.outcome }}
       - if: always() && steps.save-output.outputs.report_contents
         name: Create GitHub Issue indicating vulnerabilities
         id: create-issue
@@ -75,10 +77,13 @@ jobs:
             --title "CVEs found in latest RIE release" \
             --body "###  CVEs found in latest RIE release
           \`\`\`
-          ${{ steps.save-output.outputs.report_contents }}
+          ${REPORT_CONTENTS}
           \`\`\`
 
-          #### Are these resolved by building with the latest patch version of Go (${{ steps.check-new-version.outputs.latest_version }})?:
-          > **${{ steps.save-new-version.outputs.fixed }}**"
+          #### Are these resolved by building with the latest patch version of Go (${LATEST_VERSION})?:
+          > **${FIXED}**"
         env:
           GH_TOKEN: ${{ github.token }}
+          REPORT_CONTENTS: ${{ steps.save-output.outputs.report_contents }}
+          LATEST_VERSION: ${{ steps.check-new-version.outputs.latest_version }}
+          FIXED: ${{ steps.save-new-version.outputs.fixed }}

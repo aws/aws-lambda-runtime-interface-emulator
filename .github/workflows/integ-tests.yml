@@ -13,14 +13,14 @@ jobs:
   go-tests:
     runs-on: ubuntu-latest
     steps:
-        - uses: actions/checkout@v4
+        - uses: actions/checkout@v6
         - name: run go tests
           run: make tests-with-docker
   integ-tests-x86:
     runs-on: ubuntu-latest
     steps:
-        - uses: actions/checkout@v4
-        - uses: actions/setup-python@v5
+        - uses: actions/checkout@v6
+        - uses: actions/setup-python@v6
           with:
             python-version: '3.11'
         - name: run integration tests
@@ -28,8 +28,8 @@ jobs:
   integ-tests-arm64:
     runs-on: ubuntu-latest
     steps:
-        - uses: actions/checkout@v4
-        - uses: actions/setup-python@v5
+        - uses: actions/checkout@v6
+        - uses: actions/setup-python@v6
           with:
             python-version: '3.11'
         - name: run integration tests
@@ -37,8 +37,8 @@ jobs:
   integ-tests-old:
     runs-on: ubuntu-latest
     steps:
-        - uses: actions/checkout@v4
-        - uses: actions/setup-python@v5
+        - uses: actions/checkout@v6
+        - uses: actions/setup-python@v6
           with:
             python-version: '3.11'
         - name: run integration tests
