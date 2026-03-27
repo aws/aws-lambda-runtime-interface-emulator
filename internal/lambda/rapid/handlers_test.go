@@ -17,6 +17,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lmds"
+
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/appctx"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/core"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/fatalerror"
@@ -28,9 +32,6 @@ import (
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/supervisor/model"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/telemetry"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/testdata"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 )
 
 func BenchmarkChannelsSelect10(b *testing.B) {
@@ -139,7 +140,8 @@ func TestListen(t *testing.T) {
 
 	ctx := context.Background()
 	telemetryAPIEnabled := true
-	server := rapi.NewServer("127.0.0.1", 0, flowTest.AppCtx, flowTest.RegistrationService, flowTest.RenderingService, telemetryAPIEnabled, flowTest.TelemetrySubscription, flowTest.TelemetrySubscription, flowTest.CredentialsService)
+	metadataService := lmds.NewService("test-token")
+	server := rapi.NewServer("127.0.0.1", 0, flowTest.AppCtx, flowTest.RegistrationService, flowTest.RenderingService, telemetryAPIEnabled, flowTest.TelemetrySubscription, flowTest.TelemetrySubscription, flowTest.CredentialsService, metadataService)
 	err := server.Listen()
 	assert.NoError(t, err)
 

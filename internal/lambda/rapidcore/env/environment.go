@@ -66,6 +66,12 @@ func (e *Environment) StoreRuntimeAPIEnvironmentVariable(runtimeAPIAddress strin
 	e.runtimeAPISet = true
 }
 
+// StoreMetadataAPIEnvironmentVariables stores values for AWS_LAMBDA_METADATA_API and AWS_LAMBDA_METADATA_TOKEN
+func (e *Environment) StoreMetadataAPIEnvironmentVariables(metadataAPIAddress, metadataToken string) {
+	e.platform["AWS_LAMBDA_METADATA_API"] = metadataAPIAddress
+	e.platform["AWS_LAMBDA_METADATA_TOKEN"] = metadataToken
+}
+
 // SetHandler sets _HANDLER env variable value for Runtime
 func (e *Environment) SetHandler(handler string) {
 	e.runtime[handlerEnvKey] = handler
