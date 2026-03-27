@@ -23,11 +23,11 @@ jobs:
         with:
           ref: main
       - name: Download latest release
-        uses: robinraju/release-downloader@v1.10
-        with:
-          latest: true
-          fileName: 'aws-lambda-rie*'
-          out-file-path: "bin"
+        run: |
+          mkdir -p bin
+          gh release download --pattern 'aws-lambda-rie*' --dir bin
+        env:
+          GH_TOKEN: ${{ github.token }}
       - name: Run check for vulnerabilities
         id: check-binaries
         run: |
@@ -70,16 +70,15 @@ jobs:
       - if: always() && steps.save-output.outputs.report_contents
         name: Create GitHub Issue indicating vulnerabilities
         id: create-issue
-        uses: dacbd/create-issue-action@main
-        with:
-          token: ${{ github.token }}
-          title: |
-            CVEs found in latest RIE release
-          body: |
-            ###  CVEs found in latest RIE release
-            ```
-            ${{ steps.save-output.outputs.report_contents }}
-            ```
-            
-            #### Are these resolved by building with the latest patch version of Go (${{ steps.check-new-version.outputs.latest_version }})?:
-            > **${{ steps.save-new-version.outputs.fixed }}**
+        run: |
+          gh issue create \
+            --title "CVEs found in latest RIE release" \
+            --body "###  CVEs found in latest RIE release
+          \`\`\`
+          ${{ steps.save-output.outputs.report_contents }}
+          \`\`\`
+
+          #### Are these resolved by building with the latest patch version of Go (${{ steps.check-new-version.outputs.latest_version }})?:
+          > **${{ steps.save-new-version.outputs.fixed }}**"
+        env:
+          GH_TOKEN: ${{ github.token }}
