@@ -4,19 +4,25 @@
 package raptor
 
 import (
+	"encoding/json"
 	"net/netip"
 	"time"
+
+	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lmds"
 
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda-managed-instances/interop"
 	internalModel "github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda-managed-instances/model"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda-managed-instances/rapid/model"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda-managed-instances/rapidcore/env"
 	supvmodel "github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda-managed-instances/supervisor/model"
+	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda-managed-instances/utils/invariant"
 )
 
-func getInitExecutionData(initRequest *internalModel.InitRequestMessage, runtimePort, telemetryFDSocketPath string) interop.InitExecutionData {
+func getInitExecutionData(initRequest *internalModel.InitRequestMessage, runtimeAPIAddrPort, telemetryFDSocketPath, metadataToken string) interop.InitExecutionData {
 
-	runtimeEnv, extensionEnv := env.SetupEnvironment(initRequest, runtimePort, telemetryFDSocketPath)
+	metadataAPIAddrPort := runtimeAPIAddrPort
+
+	runtimeEnv, extensionEnv := env.SetupEnvironment(initRequest, runtimeAPIAddrPort, telemetryFDSocketPath, metadataAPIAddrPort, metadataToken)
 
 	initMessage := interop.InitExecutionData{
 
@@ -68,7 +74,19 @@ func getInitExecutionData(initRequest *internalModel.InitRequestMessage, runtime
 			APIAddr:    netip.AddrPort(initRequest.TelemetryAPIAddress),
 			Passphrase: initRequest.TelemetryPassphrase,
 		},
+		Metadata: getMetadataConfig(initRequest.AvailabilityZoneId),
 	}
 
 	return initMessage
+}
+
+func getMetadataConfig(availabilityZoneId string) lmds.MetadataConfig {
+	metadataBytes, err := json.Marshal(lmds.Metadata{
+		AvailabilityZoneID: availabilityZoneId,
+	})
+	invariant.Checkf(err == nil, "could not marshal metadata json: %s", err)
+	return lmds.MetadataConfig{
+		Data:   metadataBytes,
+		MaxAge: 12 * time.Hour,
+	}
 }

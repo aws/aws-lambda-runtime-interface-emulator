@@ -353,6 +353,7 @@ func Test_invokeMetrics_ServiceLogs(t *testing.T) {
 				{Type: servicelogs.TimerType, Key: "TotalDuration", Value: 1000000},
 				{Type: servicelogs.CounterType, Key: "InflightRequestCount", Value: 0},
 				{Type: servicelogs.CounterType, Key: "IdleRuntimesCount", Value: 0},
+				{Type: servicelogs.CounterType, Key: "ReservationUsed", Value: float64(0)},
 				{Type: servicelogs.TimerType, Key: "PlatformOverheadDuration", Value: 1000000},
 				{Type: servicelogs.CounterType, Key: "ClientError", Value: 1},
 				{Type: servicelogs.CounterType, Key: "CustomerError", Value: 0},
@@ -379,6 +380,7 @@ func Test_invokeMetrics_ServiceLogs(t *testing.T) {
 				{Type: servicelogs.TimerType, Key: "TotalDuration", Value: 1000000},
 				{Type: servicelogs.CounterType, Key: "InflightRequestCount", Value: 0},
 				{Type: servicelogs.CounterType, Key: "IdleRuntimesCount", Value: 0},
+				{Type: servicelogs.CounterType, Key: "ReservationUsed", Value: float64(0)},
 				{Type: servicelogs.TimerType, Key: "PlatformOverheadDuration", Value: 1000000},
 				{Type: servicelogs.CounterType, Key: "ClientError", Value: 1},
 				{Type: servicelogs.CounterType, Key: "CustomerError", Value: 0},
@@ -407,6 +409,7 @@ func Test_invokeMetrics_ServiceLogs(t *testing.T) {
 				{Type: servicelogs.TimerType, Key: "TotalDuration", Value: 1000000},
 				{Type: servicelogs.CounterType, Key: "InflightRequestCount", Value: 5},
 				{Type: servicelogs.CounterType, Key: "IdleRuntimesCount", Value: 3},
+				{Type: servicelogs.CounterType, Key: "ReservationUsed", Value: float64(0)},
 				{Type: servicelogs.TimerType, Key: "PlatformOverheadDuration", Value: 1000000},
 				{Type: servicelogs.CounterType, Key: "ClientError", Value: 1},
 				{Type: servicelogs.CounterType, Key: "CustomerError", Value: 0},
@@ -435,6 +438,7 @@ func Test_invokeMetrics_ServiceLogs(t *testing.T) {
 				{Type: servicelogs.TimerType, Key: "TotalDuration", Value: 1000000},
 				{Type: servicelogs.CounterType, Key: "InflightRequestCount", Value: 5},
 				{Type: servicelogs.CounterType, Key: "IdleRuntimesCount", Value: 3},
+				{Type: servicelogs.CounterType, Key: "ReservationUsed", Value: float64(0)},
 				{Type: servicelogs.TimerType, Key: "PlatformOverheadDuration", Value: 1000000},
 				{Type: servicelogs.CounterType, Key: "ClientError", Value: 1},
 				{Type: servicelogs.CounterType, Key: "CustomerError", Value: 0},
@@ -469,6 +473,7 @@ func Test_invokeMetrics_ServiceLogs(t *testing.T) {
 				{Type: servicelogs.TimerType, Key: "TotalDuration", Value: 4000000},
 				{Type: servicelogs.CounterType, Key: "InflightRequestCount", Value: 5},
 				{Type: servicelogs.CounterType, Key: "IdleRuntimesCount", Value: 3},
+				{Type: servicelogs.CounterType, Key: "ReservationUsed", Value: float64(0)},
 				{Type: servicelogs.TimerType, Key: "PlatformOverheadDuration", Value: 2000000},
 				{Type: servicelogs.TimerType, Key: "FunctionDuration", Value: 2000000},
 				{Type: servicelogs.TimerType, Key: "RequestSendDuration", Value: 1000000},
@@ -510,6 +515,56 @@ func Test_invokeMetrics_ServiceLogs(t *testing.T) {
 				{Type: servicelogs.TimerType, Key: "TotalDuration", Value: 5000000},
 				{Type: servicelogs.CounterType, Key: "InflightRequestCount", Value: 5},
 				{Type: servicelogs.CounterType, Key: "IdleRuntimesCount", Value: 3},
+				{Type: servicelogs.CounterType, Key: "ReservationUsed", Value: float64(0)},
+				{Type: servicelogs.CounterType, Key: "ResponsePayloadSizeBytes", Value: 100},
+				{Type: servicelogs.TimerType, Key: "ResponseThrottledDuration", Value: 1000000},
+				{Type: servicelogs.CounterType, Key: "ResponseThroughput", Value: 100},
+				{Type: servicelogs.TimerType, Key: "ResponsePayloadReadDuration", Value: 13},
+				{Type: servicelogs.TimerType, Key: "ResponsePayloadWriteDuration", Value: 14},
+				{Type: servicelogs.TimerType, Key: "PlatformOverheadDuration", Value: 2000000},
+				{Type: servicelogs.TimerType, Key: "FunctionDuration", Value: 3000000},
+				{Type: servicelogs.TimerType, Key: "RequestSendDuration", Value: 1000000},
+				{Type: servicelogs.CounterType, Key: "RequestPayloadSizeBytes", Value: 100},
+				{Type: servicelogs.TimerType, Key: "RequestPayloadReadDuration", Value: 11},
+				{Type: servicelogs.TimerType, Key: "RequestPayloadWriteDuration", Value: 12},
+				{Type: servicelogs.TimerType, Key: "ResponseLatency", Value: 1000000},
+				{Type: servicelogs.TimerType, Key: "ResponseDuration", Value: 1000000},
+				{Type: servicelogs.CounterType, Key: "ClientError", Value: 0},
+				{Type: servicelogs.CounterType, Key: "CustomerError", Value: 0},
+				{Type: servicelogs.CounterType, Key: "PlatformError", Value: 0},
+				{Type: servicelogs.CounterType, Key: "NonCustomerError", Value: 0},
+			},
+		},
+		{
+			name:          "full_invoke_flow_with_reservation",
+			expectedBytes: 200,
+			metricFlow: func(ev *invokeMetrics, mocks *invokeMetricsMocks) {
+				ev.AttachInvokeRequest(&mocks.invokeReq)
+				ev.AttachDependencies(&mocks.initData, &mocks.eventsApi)
+				mocks.timeStamp = mocks.timeStamp.Add(time.Second)
+				ev.UpdateConcurrencyMetrics(5, 3)
+				ev.SetReservationUsed(true)
+				ev.TriggerStartRequest()
+				mocks.timeStamp = mocks.timeStamp.Add(time.Second)
+				ev.TriggerSentRequest(100, 11*time.Microsecond, 12*time.Microsecond)
+				mocks.timeStamp = mocks.timeStamp.Add(time.Second)
+				ev.TriggerGetResponse()
+				mocks.timeStamp = mocks.timeStamp.Add(time.Second)
+				ev.TriggerSentResponse(true, nil, &mocks.responseMetrics, 0)
+				mocks.timeStamp = mocks.timeStamp.Add(time.Second)
+			},
+			expectedProps: []servicelogs.Property{
+				{Name: "RequestId", Value: "invoke-id"},
+			},
+			expectedDims: []servicelogs.Dimension{
+				{Name: "RequestMode", Value: "Streaming"},
+				{Name: "ResponseMode", Value: "Streaming"},
+			},
+			expectedMetrics: []servicelogs.Metric{
+				{Type: servicelogs.TimerType, Key: "TotalDuration", Value: 5000000},
+				{Type: servicelogs.CounterType, Key: "InflightRequestCount", Value: 5},
+				{Type: servicelogs.CounterType, Key: "IdleRuntimesCount", Value: 3},
+				{Type: servicelogs.CounterType, Key: ReserveUsedMetric, Value: float64(1)},
 				{Type: servicelogs.CounterType, Key: "ResponsePayloadSizeBytes", Value: 100},
 				{Type: servicelogs.TimerType, Key: "ResponseThrottledDuration", Value: 1000000},
 				{Type: servicelogs.CounterType, Key: "ResponseThroughput", Value: 100},
@@ -558,6 +613,7 @@ func Test_invokeMetrics_ServiceLogs(t *testing.T) {
 				{Type: servicelogs.TimerType, Key: "TotalDuration", Value: 5000000},
 				{Type: servicelogs.CounterType, Key: "InflightRequestCount", Value: 2},
 				{Type: servicelogs.CounterType, Key: "IdleRuntimesCount", Value: 1},
+				{Type: servicelogs.CounterType, Key: "ReservationUsed", Value: float64(0)},
 				{Type: servicelogs.CounterType, Key: "ResponsePayloadSizeBytes", Value: 100},
 				{Type: servicelogs.TimerType, Key: "ResponseThrottledDuration", Value: 0},
 				{Type: servicelogs.CounterType, Key: "ResponseThroughput", Value: 0},

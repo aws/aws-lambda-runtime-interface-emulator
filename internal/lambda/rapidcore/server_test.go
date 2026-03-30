@@ -87,7 +87,7 @@ func TestReserveDoesNotDeadlockWhenCalledMultipleTimes(t *testing.T) {
 		initHandler,
 		func() (interop.InvokeSuccess, *interop.InvokeFailure) { return interop.InvokeSuccess{}, nil },
 		func() (interop.ResetSuccess, *interop.ResetFailure) { return interop.ResetSuccess{}, nil },
-	}, "handler", "runtimeAPIhost:999"})
+	}, "handler", "runtimeAPIhost:999", "test-token"})
 
 	srv.Init(&interop.Init{EnvironmentVariables: env.NewEnvironment()}, int64(1*time.Second*time.Millisecond))
 
@@ -124,7 +124,7 @@ func TestInitSuccess(t *testing.T) {
 		initHandler,
 		func() (interop.InvokeSuccess, *interop.InvokeFailure) { return interop.InvokeSuccess{}, nil },
 		func() (interop.ResetSuccess, *interop.ResetFailure) { return interop.ResetSuccess{}, nil },
-	}, "handler", "runtimeAPIhost:999"})
+	}, "handler", "runtimeAPIhost:999", "test-token"})
 
 	srv.Init(&interop.Init{EnvironmentVariables: env.NewEnvironment()}, int64(1*time.Second*time.Millisecond))
 	require.Equal(t, phaseInitializing, srv.getRapidPhase())
@@ -148,7 +148,7 @@ func TestInitErrorBeforeReserve(t *testing.T) {
 		initHandler,
 		func() (interop.InvokeSuccess, *interop.InvokeFailure) { return interop.InvokeSuccess{}, nil },
 		func() (interop.ResetSuccess, *interop.ResetFailure) { return interop.ResetSuccess{}, nil },
-	}, "handler", "runtimeAPIhost:999"})
+	}, "handler", "runtimeAPIhost:999", "test-token"})
 
 	srv.Init(&interop.Init{EnvironmentVariables: env.NewEnvironment()}, int64(1*time.Second*time.Millisecond))
 
@@ -180,7 +180,7 @@ func TestInitErrorDuringReserve(t *testing.T) {
 		initHandler,
 		func() (interop.InvokeSuccess, *interop.InvokeFailure) { return interop.InvokeSuccess{}, nil },
 		func() (interop.ResetSuccess, *interop.ResetFailure) { return interop.ResetSuccess{}, nil },
-	}, "handler", "runtimeAPIhost:999"})
+	}, "handler", "runtimeAPIhost:999", "test-token"})
 
 	srv.Init(&interop.Init{EnvironmentVariables: env.NewEnvironment()}, int64(1*time.Second*time.Millisecond))
 	resp, err := srv.Reserve("", "", "")
@@ -213,7 +213,7 @@ func TestInvokeSuccess(t *testing.T) {
 	}
 
 	resetHandler := func() (interop.ResetSuccess, *interop.ResetFailure) { return interop.ResetSuccess{}, nil }
-	srv.SetSandboxContext(&SandboxContext{&mockRapidCtx{initHandler, invokeHandler, resetHandler}, "handler", "runtimeAPIhost:999"})
+	srv.SetSandboxContext(&SandboxContext{&mockRapidCtx{initHandler, invokeHandler, resetHandler}, "handler", "runtimeAPIhost:999", "test-token"})
 
 	srv.Init(&interop.Init{EnvironmentVariables: env.NewEnvironment()}, int64(1*time.Second*time.Millisecond))
 	require.Equal(t, phaseInitializing, srv.getRapidPhase())
@@ -256,7 +256,7 @@ func TestInvokeError(t *testing.T) {
 		return interop.ResetSuccess{}, nil
 	}
 
-	srv.SetSandboxContext(&SandboxContext{&mockRapidCtx{initHandler, invokeHandler, resetHandler}, "handler", "runtimeAPIhost:999"})
+	srv.SetSandboxContext(&SandboxContext{&mockRapidCtx{initHandler, invokeHandler, resetHandler}, "handler", "runtimeAPIhost:999", "test-token"})
 
 	srv.Init(&interop.Init{EnvironmentVariables: env.NewEnvironment()}, int64(1*time.Second*time.Millisecond))
 	require.Equal(t, phaseInitializing, srv.getRapidPhase())
@@ -310,7 +310,7 @@ func TestInvokeWithSuppressedInitSuccess(t *testing.T) {
 		return interop.ResetSuccess{}, nil
 	}
 
-	srv.SetSandboxContext(&SandboxContext{&mockRapidCtx{initHandler, invokeHandler, resetHandler}, "handler", "runtimeAPIhost:999"})
+	srv.SetSandboxContext(&SandboxContext{&mockRapidCtx{initHandler, invokeHandler, resetHandler}, "handler", "runtimeAPIhost:999", "test-token"})
 
 	srv.Init(&interop.Init{EnvironmentVariables: env.NewEnvironment()}, int64(1*time.Second*time.Millisecond))
 	require.Equal(t, phaseInitializing, srv.getRapidPhase())
@@ -374,7 +374,7 @@ func TestInvokeWithSuppressedInitErrorDueToInitError(t *testing.T) {
 		return interop.ResetSuccess{}, nil
 	}
 
-	srv.SetSandboxContext(&SandboxContext{&mockRapidCtx{initHandler, invokeHandler, resetHandler}, "handler", "runtimeAPIhost:999"})
+	srv.SetSandboxContext(&SandboxContext{&mockRapidCtx{initHandler, invokeHandler, resetHandler}, "handler", "runtimeAPIhost:999", "test-token"})
 
 	srv.Init(&interop.Init{EnvironmentVariables: env.NewEnvironment()}, int64(1*time.Second*time.Millisecond))
 
@@ -426,7 +426,7 @@ func TestInvokeWithSuppressedInitErrorDueToInvokeError(t *testing.T) {
 		return interop.ResetSuccess{}, nil
 	}
 
-	srv.SetSandboxContext(&SandboxContext{&mockRapidCtx{initHandler, invokeHandler, resetHandler}, "handler", "runtimeAPIhost:999"})
+	srv.SetSandboxContext(&SandboxContext{&mockRapidCtx{initHandler, invokeHandler, resetHandler}, "handler", "runtimeAPIhost:999", "test-token"})
 
 	srv.Init(&interop.Init{EnvironmentVariables: env.NewEnvironment()}, int64(1*time.Second*time.Millisecond))
 	require.Equal(t, phaseInitializing, srv.getRapidPhase())
@@ -477,7 +477,7 @@ func TestMultipleInvokeSuccess(t *testing.T) {
 		return interop.ResetSuccess{}, nil
 	}
 
-	srv.SetSandboxContext(&SandboxContext{&mockRapidCtx{initHandler, invokeHandler, resetHandler}, "handler", "runtimeAPIhost:999"})
+	srv.SetSandboxContext(&SandboxContext{&mockRapidCtx{initHandler, invokeHandler, resetHandler}, "handler", "runtimeAPIhost:999", "test-token"})
 
 	srv.Init(&interop.Init{EnvironmentVariables: env.NewEnvironment()}, int64(1*time.Second*time.Millisecond))
 	require.Equal(t, phaseInitializing, srv.getRapidPhase())

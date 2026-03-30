@@ -17,6 +17,8 @@ import (
 	"testing"
 	"unicode"
 
+	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lmds"
+
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda-managed-instances/testdata"
 )
 
@@ -28,6 +30,7 @@ func makeRapiServer(flowTest *testdata.FlowTest) *Server {
 		flowTest.RenderingService,
 		flowTest.TelemetrySubscription,
 		nil,
+		lmds.NewService("test-token"),
 	)
 	if err != nil {
 		panic(err)

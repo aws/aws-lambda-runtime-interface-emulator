@@ -74,6 +74,10 @@ func (_m *MockInvokeMetrics) SendMetrics(_a0 model.AppError) error {
 	return r0
 }
 
+func (_m *MockInvokeMetrics) SetReservationUsed(wasReserved bool) {
+	_m.Called(wasReserved)
+}
+
 func (_m *MockInvokeMetrics) TriggerGetRequest() {
 	_m.Called()
 }

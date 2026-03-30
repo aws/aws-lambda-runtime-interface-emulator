@@ -172,12 +172,13 @@ func (b *SandboxBuilder) Create() (interop.SandboxContext, interop.InternalState
 
 	// rapid.Start, among other things, starts the Runtime API server and
 	// terminates it gracefully if the cxt is canceled
-	rapidCtx, internalStateFn, runtimeAPIAddr := rapid.Start(ctx, b.sandbox)
+	rapidCtx, internalStateFn, runtimeAPIAddr, metadataToken := rapid.Start(ctx, b.sandbox)
 
 	b.sandboxContext = &SandboxContext{
 		rapidCtx:          rapidCtx,
 		handler:           b.handler,
 		runtimeAPIAddress: runtimeAPIAddr,
+		metadataToken:     metadataToken,
 	}
 
 	return b.sandboxContext, internalStateFn
