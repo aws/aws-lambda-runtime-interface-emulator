@@ -17,6 +17,7 @@ type SandboxContext struct {
 	rapidCtx          interop.RapidContext
 	handler           string
 	runtimeAPIAddress string
+	metadataToken     string
 }
 
 // initContext and its methods model the initialization lifecycle
@@ -55,6 +56,8 @@ func (s SandboxContext) Init(init *interop.Init, timeoutMs int64) interop.InitCo
 	}
 
 	init.EnvironmentVariables.StoreRuntimeAPIEnvironmentVariable(s.runtimeAPIAddress)
+	// Metadata API uses the same address as Runtime API
+	init.EnvironmentVariables.StoreMetadataAPIEnvironmentVariables(s.runtimeAPIAddress, s.metadataToken)
 	extensions.DisableViaMagicLayer()
 
 	// We start initialization handling in a separate goroutine so that control can be returned back to

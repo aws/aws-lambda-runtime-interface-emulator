@@ -21,6 +21,8 @@ import (
 	"unicode"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lmds"
+
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/appctx"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/extensions"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/fatalerror"
@@ -187,6 +189,7 @@ func FuzzRestoreErrorHandler(f *testing.F) {
 }
 
 func makeRapiServer(flowTest *testdata.FlowTest) *Server {
+	metadataService := lmds.NewService("test-token")
 	return NewServer(
 		"127.0.0.1",
 		0,
@@ -197,6 +200,7 @@ func makeRapiServer(flowTest *testdata.FlowTest) *Server {
 		&telemetry.NoOpSubscriptionAPI{},
 		flowTest.TelemetrySubscription,
 		flowTest.CredentialsService,
+		metadataService,
 	)
 }
 

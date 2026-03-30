@@ -9,6 +9,10 @@ import (
 	"fmt"
 	"io"
 	"sync"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lmds"
 
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/appctx"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/core"
@@ -52,7 +56,7 @@ type Sandbox struct {
 //
 // - Contexts & Data:
 //   - ctx is used to gracefully terminate Runtime API HTTP Server on exit
-func Start(ctx context.Context, s *Sandbox) (interop.RapidContext, interop.InternalStateGetter, string) {
+func Start(ctx context.Context, s *Sandbox) (interop.RapidContext, interop.InternalStateGetter, string, string) {
 	// Initialize internal state objects required by Rapid handlers
 	appCtx := appctx.NewApplicationContext()
 	initFlow := core.NewInitFlowSynchronization()
@@ -63,7 +67,18 @@ func Start(ctx context.Context, s *Sandbox) (interop.RapidContext, interop.Inter
 
 	appctx.StoreInitType(appCtx, s.InitCachingEnabled)
 
-	server := rapi.NewServer(s.RuntimeAPIHost, s.RuntimeAPIPort, appCtx, registrationService, renderingService, s.EnableTelemetryAPI, s.LogsSubscriptionAPI, s.TelemetrySubscriptionAPI, credentialsService)
+	// Create metadata service with hardcoded AZ ID for RIE
+	metadataToken := uuid.NewString()
+	metadataService := lmds.NewService(metadataToken)
+
+	// Set hardcoded metadata for RIE (use1-az1 per design)
+	metadataConfig := lmds.MetadataConfig{
+		Data:   []byte(`{"AvailabilityZoneID":"use1-az1"}`),
+		MaxAge: 12 * time.Hour,
+	}
+	metadataService.UpdateMetadata(metadataConfig)
+
+	server := rapi.NewServer(s.RuntimeAPIHost, s.RuntimeAPIPort, appCtx, registrationService, renderingService, s.EnableTelemetryAPI, s.LogsSubscriptionAPI, s.TelemetrySubscriptionAPI, credentialsService, metadataService)
 	runtimeAPIAddr := fmt.Sprintf("%s:%d", server.Host(), server.Port())
 
 	// TODO: pass this directly down to HTTP servers and handlers, instead of using
@@ -105,7 +120,7 @@ func Start(ctx context.Context, s *Sandbox) (interop.RapidContext, interop.Inter
 
 	go startRuntimeAPI(ctx, execCtx)
 
-	return execCtx, registrationService.GetInternalStateDescriptor(appCtx), runtimeAPIAddr
+	return execCtx, registrationService.GetInternalStateDescriptor(appCtx), runtimeAPIAddr, metadataToken
 }
 
 func (r *rapidContext) HandleInit(init *interop.Init, initSuccessResponseChan chan<- interop.InitSuccess, initFailureResponseChan chan<- interop.InitFailure) {

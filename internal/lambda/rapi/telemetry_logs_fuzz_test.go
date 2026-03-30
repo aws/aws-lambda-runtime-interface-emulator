@@ -13,6 +13,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
+	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lmds"
+
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/extensions"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/interop"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/rapi/handler"
@@ -133,6 +135,7 @@ func makeRapiServerWithMockSubscriptionAPI(
 		logsSubscription,
 		telemetrySubscription,
 		flowTest.CredentialsService,
+		lmds.NewService("test-token"),
 	)
 }
 

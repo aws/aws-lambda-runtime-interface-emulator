@@ -27,6 +27,8 @@ func predefinedPlatformEnvVarKeys() map[string]bool {
 		"AWS_LAMBDA_FUNCTION_MEMORY_SIZE": true,
 		"AWS_LAMBDA_FUNCTION_VERSION":     true,
 		"AWS_LAMBDA_RUNTIME_API":          true,
+		"AWS_LAMBDA_METADATA_API":         true,
+		"AWS_LAMBDA_METADATA_TOKEN":       true,
 		"TZ":                              true,
 	}
 }

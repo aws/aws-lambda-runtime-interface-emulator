@@ -14,6 +14,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
+	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lmds"
 
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda-managed-instances/interop"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda-managed-instances/rapi/model"
@@ -110,6 +111,7 @@ func makeRapiServerWithMockSubscriptionAPI(
 		flowTest.RenderingService,
 		telemetrySubscription,
 		nil,
+		lmds.NewService("test-token"),
 	)
 	if err != nil {
 		panic(err)
