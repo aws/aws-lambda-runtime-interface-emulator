@@ -340,7 +340,7 @@ func assertInvocationResponseTooLarge(t *testing.T, responseRecorder *httptest.R
 	assert.NotNil(t, errorResponse)
 	assert.Nil(t, flowTest.InteropServer.Response)
 	assert.Equal(t, fatalerror.FunctionOversizedResponse, errorResponse.FunctionError.Type)
-	assert.Equal(t, fmt.Sprintf("Response payload size (%v bytes) exceeded maximum allowed payload size (6291556 bytes).", len(responseBody)), errorResponse.FunctionError.Message)
+	assert.Equal(t, "Response payload size exceeded maximum allowed payload size (6291556 bytes).", errorResponse.FunctionError.Message)
 
 	var errorPayload map[string]interface{}
 	assert.NoError(t, json.Unmarshal(errorResponse.Payload, &errorPayload))
