@@ -11,6 +11,7 @@ import (
 	"io"
 	"math"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -288,6 +289,46 @@ func (s *Server) SetInternalStateGetter(cb interop.InternalStateGetter) {
 	s.InternalStateGetter = cb
 }
 
+// streamingCopy pumps bytes from src to dst with a small intermediate buffer
+// and an explicit Flush after every Write. This is the heart of the
+// response-streaming pass-through used by the local Runtime Interface
+// Emulator: every chunk the runtime writes to its /response HTTP body is
+// promptly forwarded to the caller (e.g. SAM CLI proxy → browser) instead of
+// being buffered until end-of-stream.
+//
+// The buffer is intentionally tiny so SSE frames (often only tens of bytes)
+// are not coalesced into larger reads when the runtime flushes one event at
+// a time. io.Copy's default 32KiB buffer would, in combination with TCP-level
+// merging, defeat that goal.
+func streamingCopy(dst io.Writer, src io.Reader) (int64, error) {
+	const bufSize = 4096
+	buf := make([]byte, bufSize)
+	flusher, _ := dst.(http.Flusher)
+	var total int64
+	for {
+		nr, rerr := src.Read(buf)
+		if nr > 0 {
+			nw, werr := dst.Write(buf[:nr])
+			total += int64(nw)
+			if werr != nil {
+				return total, werr
+			}
+			if nw < nr {
+				return total, io.ErrShortWrite
+			}
+			if flusher != nil {
+				flusher.Flush()
+			}
+		}
+		if rerr == io.EOF {
+			return total, nil
+		}
+		if rerr != nil {
+			return total, rerr
+		}
+	}
+}
+
 func (s *Server) sendResponseUnsafe(invokeID string, additionalHeaders map[string]string, payload io.Reader, trailers http.Header, request *interop.CancellableRequest, runtimeCalledResponse bool) error {
 	if s.invokeCtx == nil || invokeID != s.invokeCtx.Token.InvokeID {
 		return interop.ErrInvalidInvokeID
@@ -309,37 +350,81 @@ func (s *Server) sendResponseUnsafe(invokeID string, additionalHeaders map[strin
 			reportedErr = err
 		}
 	} else {
-		data, err := io.ReadAll(payload)
-		if err != nil {
-			return fmt.Errorf("Failed to read response on %s: %s", invokeID, err)
-		}
-		if len(data) > interop.MaxPayloadSize {
-			return &interop.ErrorResponseTooLarge{
-				ResponseSize:    len(data),
-				MaxResponseSize: interop.MaxPayloadSize,
-			}
-		}
+		// Determine whether the runtime told us this is a streaming
+		// response. Streaming runtimes (e.g. Node.js awslambda.streamifyResponse)
+		// post chunks of bytes over time and rely on the platform to forward
+		// each chunk to the caller as it arrives. The header lives in
+		// additionalHeaders because the runtime API handler
+		// (rapi/handler/invocationresponse.go) parses it from the runtime's
+		// POST /response request.
+		// The runtime API handler stores the response mode the runtime sent
+		// (e.g. Node.js "streamifyResponse" sends `streaming`, lowercase),
+		// while the interop constant has the capitalized form `Streaming`.
+		// Compare case-insensitively so we recognize streaming responses
+		// regardless of which casing the runtime used.
+		functionResponseMode := additionalHeaders[directinvoke.FunctionResponseModeHeader]
+		isStreaming := strings.EqualFold(functionResponseMode, string(interop.FunctionResponseModeStreaming))
 
 		startReadingResponseMonoTimeMs := metering.Monotime()
-		s.invokeCtx.ReplyStream.Header().Add(directinvoke.ContentTypeHeader, additionalHeaders[directinvoke.ContentTypeHeader])
-		written, err := s.invokeCtx.ReplyStream.Write(data)
-		if err != nil {
-			return fmt.Errorf("Failed to write response to %s: %s", invokeID, err)
+
+		// Set Content-Type before any byte is written so the reply stream
+		// can commit headers on the first Write.
+		if ct, ok := additionalHeaders[directinvoke.ContentTypeHeader]; ok && ct != "" {
+			s.invokeCtx.ReplyStream.Header().Add(directinvoke.ContentTypeHeader, ct)
+		}
+		if isStreaming {
+			// Advertise the function response mode to the caller (SAM CLI)
+			// so it can switch into streaming pass-through itself.
+			s.invokeCtx.ReplyStream.Header().Add(directinvoke.FunctionResponseModeHeader, functionResponseMode)
+		}
+
+		var written int64
+		var copyErr error
+		if isStreaming {
+			// Pump bytes from the runtime's /response request body straight
+			// through to the caller. A small buffer is used so even tiny
+			// chunks (e.g. SSE frames a few dozen bytes long) flow with
+			// minimal latency. Each Write on ReplyStream is flushed by the
+			// rie.ResponseWriterProxy when an http.Flusher is available.
+			//
+			// Streaming responses do not enforce interop.MaxPayloadSize:
+			// Lambda response streaming is explicitly designed for payloads
+			// larger than 6MB and for unbounded SSE-style streams.
+			written, copyErr = streamingCopy(s.invokeCtx.ReplyStream, payload)
+		} else {
+			// Buffered legacy path: collect the whole body, enforce the
+			// 6MB response cap, and emit it in one Write.
+			data, err := io.ReadAll(payload)
+			if err != nil {
+				return fmt.Errorf("Failed to read response on %s: %s", invokeID, err)
+			}
+			if len(data) > interop.MaxPayloadSize {
+				return &interop.ErrorResponseTooLarge{
+					ResponseSize:    len(data),
+					MaxResponseSize: interop.MaxPayloadSize,
+				}
+			}
+			n, err := s.invokeCtx.ReplyStream.Write(data)
+			written = int64(n)
+			copyErr = err
+		}
+		if copyErr != nil {
+			return fmt.Errorf("Failed to write response to %s: %s", invokeID, copyErr)
+		}
+
+		responseMode := interop.FunctionResponseModeBuffered
+		if isStreaming {
+			responseMode = interop.FunctionResponseModeStreaming
 		}
 
 		s.sendResponseChan <- &interop.InvokeResponseMetrics{
-			ProducedBytes:                   int64(written),
+			ProducedBytes:                   written,
 			StartReadingResponseMonoTimeMs:  startReadingResponseMonoTimeMs,
 			FinishReadingResponseMonoTimeMs: metering.Monotime(),
 			TimeShapedNs:                    int64(-1),
 			OutboundThroughputBps:           int64(-1),
-			// FIXME:
-			// The runtime tells whether the function response mode is streaming or not.
-			// Ideally, we would want to use that value here. Since I'm just rebasing, I will leave
-			// as-is, but we should use that instead of relying on our memory to set this here
-			// because we "know" it's a streaming code path.
-			FunctionResponseMode:  interop.FunctionResponseModeBuffered,
-			RuntimeCalledResponse: runtimeCalledResponse,
+			FunctionResponseMode:            responseMode,
+			RuntimeCalledResponse:           runtimeCalledResponse,
 		}
 	}
 
