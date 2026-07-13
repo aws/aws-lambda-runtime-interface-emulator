@@ -75,7 +75,7 @@ func Run(supv supvmodel.ProcessSupervisor, args []string, fileUtil utils.FileUti
 	}
 
 	rieApp := NewHTTPHandler(raptorApp, initMsg)
-	s, err := raptor.StartServer(raptorApp, rieApp, &raptor.TCPAddress{AddrPort: rieAddr})
+	s, err := raptor.StartServer(raptorApp, rieApp, &raptor.TCPAddress{AddrPort: rieAddr}, false)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("could not start RIE server: %w", err)
 	}

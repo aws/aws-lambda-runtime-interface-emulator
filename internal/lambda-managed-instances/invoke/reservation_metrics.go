@@ -13,11 +13,13 @@ import (
 )
 
 const (
-	ReserveSuccessMetric = "ReserveSuccess"
-	ReserveFailedMetric  = "ReserveFailed"
+	ReserveSuccessMetric       = "ReserveSuccess"
+	ReserveFailedMetric        = "ReserveFailed"
+	ReserveParseDurationMetric = "ReserveParseDuration"
+	ReserveLogicDurationMetric = "ReserveLogicDuration"
 )
 
-func ReserveServiceLog(logger servicelogs.Logger, opStart time.Time, invokeID string, appErr model.AppError) {
+func ReserveServiceLog(logger servicelogs.Logger, opStart time.Time, invokeID string, appErr model.AppError, parseDuration, reserveDuration time.Duration) {
 	props := []servicelogs.Property{
 		{Name: "invoke_id", Value: invokeID},
 	}
@@ -43,6 +45,11 @@ func ReserveServiceLog(logger servicelogs.Logger, opStart time.Time, invokeID st
 		servicelogs.Counter(ReserveFailedMetric, failed),
 		servicelogs.Counter(interop.ClientErrorMetric, clientErrCnt),
 		servicelogs.Counter(interop.NonCustomerErrorMetric, nonCustomerErrCnt),
+		servicelogs.Timer(ReserveParseDurationMetric, parseDuration),
+	}
+
+	if reserveDuration > 0 {
+		metrics = append(metrics, servicelogs.Timer(ReserveLogicDurationMetric, reserveDuration))
 	}
 
 	if appErr != nil {

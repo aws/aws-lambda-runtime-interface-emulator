@@ -4,12 +4,13 @@
 package model
 
 type FunctionMetadata struct {
-	AccountID       string
-	FunctionName    string
-	FunctionVersion string
-	MemorySizeBytes uint64
-	Handler         string
-	RuntimeInfo     RuntimeInfo
+	AccountID          string
+	FunctionName       string
+	FunctionVersion    string
+	MemorySizeBytes    uint64
+	Handler            string
+	RuntimeInfo        RuntimeInfo
+	RuntimeWorkerCount int
 }
 
 type RuntimeInfo struct {

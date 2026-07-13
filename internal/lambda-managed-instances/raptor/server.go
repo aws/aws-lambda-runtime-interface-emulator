@@ -4,6 +4,7 @@
 package raptor
 
 import (
+	"context"
 	"log/slog"
 	"net"
 	"net/http"
@@ -18,7 +19,7 @@ import (
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda-managed-instances/rapid/model"
 )
 
-func StartServer(shutdownHandler shutdownHandler, handler http.Handler, addr Address) (*Server, error) {
+func StartServer(shutdownHandler shutdownHandler, handler http.Handler, addr Address, h2Only bool) (*Server, error) {
 	listener, err := net.Listen(addr.Protocol(), addr.String())
 	if err != nil {
 		return nil, err
@@ -27,10 +28,25 @@ func StartServer(shutdownHandler shutdownHandler, handler http.Handler, addr Add
 	addr.UpdateFromListener(listener)
 
 	s := &Server{
-		httpServer:      &http.Server{Handler: handler, ReadHeaderTimeout: 15 * time.Second},
+		httpServer: &http.Server{
+			Handler:           handler,
+			ReadHeaderTimeout: 15 * time.Second,
+			Protocols:         &http.Protocols{},
+		},
 		doneCh:          make(chan struct{}),
 		shutdownHandler: shutdownHandler,
 		Addr:            addr,
+	}
+	if h2Only {
+
+		s.httpServer.Protocols.SetUnencryptedHTTP2(true)
+
+		s.httpServer.HTTP2 = &http.HTTP2Config{
+			MaxConcurrentStreams: 2048,
+		}
+	} else {
+
+		s.httpServer.Protocols.SetHTTP1(true)
 	}
 
 	go func() {
@@ -46,9 +62,17 @@ func (s *Server) Shutdown(err error) {
 	s.shutdownOnce.Do(func() {
 		s.shutdownHandler.Shutdown(model.NewClientError(err, model.ErrorSeverityFatal, model.ErrorExecutionEnvironmentShutdown))
 		slog.Info("Shutting down HTTP server...")
-		if err := s.httpServer.Close(); err != nil {
-			slog.Warn("error shutdown EA http server", "err", err)
+
+		start := time.Now()
+		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+		defer cancel()
+		if err := s.httpServer.Shutdown(ctx); err != nil {
+			slog.Warn("EA server graceful shutdown timed out, forcing close", "err", err)
+			if closeErr := s.httpServer.Close(); closeErr != nil {
+				slog.Warn("EA server force close failed", "err", closeErr)
+			}
 		}
+		slog.Info("EA HTTP server closed", "duration", time.Since(start))
 
 		if err != nil {
 			s.err.Store(err)

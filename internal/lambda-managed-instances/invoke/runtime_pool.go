@@ -5,6 +5,7 @@ package invoke
 
 import (
 	"errors"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -44,8 +45,13 @@ func (p *RuntimePool) Add(runtime runningInvoke) error {
 }
 
 func (p *RuntimePool) Reserve(invokeID interop.InvokeID, timeout time.Duration, onExpire func()) error {
+	lockStart := time.Now()
 	p.mu.Lock()
 	defer p.mu.Unlock()
+
+	if lockWait := time.Since(lockStart); lockWait > time.Millisecond {
+		slog.Warn("RuntimePool.Reserve lock contention", "wait_us", lockWait.Microseconds())
+	}
 
 	if _, exists := p.reserved[invokeID]; exists {
 		return ErrInvokeIdAlreadyExists

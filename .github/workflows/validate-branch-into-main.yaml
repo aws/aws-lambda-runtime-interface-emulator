@@ -10,8 +10,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check source branch
+        env:
+          SOURCE_BRANCH: ${{ github.head_ref }}
         run: |
-          SOURCE_BRANCH="${{ github.head_ref }}"
           if [[ "$SOURCE_BRANCH" != "develop" ]]; then
             echo "Error: Only pull requests from develop branch are allowed into main"
             echo "Current source branch ($SOURCE_BRANCH)."

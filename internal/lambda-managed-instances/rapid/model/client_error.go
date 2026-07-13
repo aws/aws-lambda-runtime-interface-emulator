@@ -17,6 +17,11 @@ const (
 	ErrorInvalidResponseBandwidthRate      ErrorType = "ErrInvalidResponseBandwidthRate"
 	ErrorInvalidResponseBandwidthBurstSize ErrorType = "ErrInvalidResponseBandwidthBurstSize"
 	ErrorExecutionEnvironmentShutdown      ErrorType = "Client.ExecutionEnvironmentShutDown"
+
+	ErrorInvalidInvokeId ErrorType = "Client.InvalidInvokeId"
+
+	ErrorInvalidConnectionHoldTimeout ErrorType = "ErrInvalidConnectionHoldTimeout"
+	ErrorInvalidResponseHoldTimeout   ErrorType = "ErrInvalidResponseHoldTimeout"
 )
 
 type ClientError struct {

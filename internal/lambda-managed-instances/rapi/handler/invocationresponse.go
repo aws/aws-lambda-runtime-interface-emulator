@@ -28,7 +28,7 @@ func (h *invocationResponseHandler) ServeHTTP(writer http.ResponseWriter, reques
 	ctx := logging.WithInvokeID(request.Context(), invokeID)
 
 	logging.Debug(ctx, "Received Runtime Response")
-	resp := invoke.NewRuntimeResponse(ctx, request, invokeID)
+	resp := invoke.NewRuntimeResponse(ctx, request, writer, invokeID)
 
 	err := h.runtimeRespHandler.RuntimeResponse(ctx, &resp)
 	if err == nil {

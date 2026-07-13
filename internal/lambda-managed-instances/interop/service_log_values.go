@@ -27,6 +27,10 @@ const (
 	ShutdownWaitAllProcessesDuration          = "WaitCustomerProcessesExitDuration"
 	ShutdownRuntimeServerDuration             = "StopRuntimeServerDuration"
 
+	RuntimeNextCountMetric = "RuntimeNextCount"
+
+	RuntimeWorkerCountMetric = "RuntimeWorkerCount"
+
 	ClientErrorMetric           = "ClientError"
 	ClientErrorReasonTemplate   = "ClientErrorReason-%s"
 	CustomerErrorMetric         = "CustomerError"
