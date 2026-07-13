@@ -253,6 +253,7 @@ type EEStaticData struct {
 	XRayTracingMode    intmodel.XrayTracingMode
 	ArtefactType       intmodel.ArtefactType
 	RuntimeVersion     string
+	RuntimeRelease     string
 	AmiId              string
 	AvailabilityZoneId string
 }

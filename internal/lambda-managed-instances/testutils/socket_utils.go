@@ -11,7 +11,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/google/uuid"
 )
@@ -38,10 +37,22 @@ func NewUnixSocketClient(socketPath string) *http.Client {
 	}
 
 	transport := &http.Transport{
-		DialContext:           dialer,
-		DisableCompression:    true,
-		ResponseHeaderTimeout: 5 * time.Second,
+		DialContext:        dialer,
+		DisableCompression: true,
+		Protocols:          &http.Protocols{},
 	}
+	transport.Protocols.SetUnencryptedHTTP2(true)
+
+	return &http.Client{
+		Transport: transport,
+	}
+}
+
+func NewH2CClient() *http.Client {
+	transport := &http.Transport{
+		Protocols: &http.Protocols{},
+	}
+	transport.Protocols.SetUnencryptedHTTP2(true)
 
 	return &http.Client{
 		Transport: transport,

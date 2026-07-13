@@ -30,7 +30,7 @@ func TestStartNewServer_UDS(t *testing.T) {
 
 	server, err := StartServer(mockShutdownHandler, handler, &UnixAddress{
 		Path: socketPath,
-	})
+	}, true)
 	require.NoError(t, err)
 	assert.Equal(t, socketPath, server.Addr.String())
 
@@ -53,7 +53,7 @@ func TestStartNewServer_TCP(t *testing.T) {
 
 	server, err := StartServer(mockShutdownHandler, handler, &TCPAddress{
 		eaAPIAddrPort,
-	})
+	}, false)
 	require.NoError(t, err)
 	assert.Equal(t, eaAPIAddrPort, server.Addr.(*TCPAddress).AddrPort)
 
@@ -69,7 +69,7 @@ func TestStartNewServer_UDS_ListenError(t *testing.T) {
 
 	_, err := StartServer(mockShutdownHandler, handler, &UnixAddress{
 		Path: invalidSocketPath,
-	})
+	}, true)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), invalidSocketPath)
 }
@@ -80,7 +80,7 @@ func TestStartNewServe_TCP_ListenError(t *testing.T) {
 	mockShutdownHandler := newMockShutdownHandler(t)
 	handler := mocks.NewNoOpHandler()
 
-	_, err := StartServer(mockShutdownHandler, handler, &TCPAddress{eaAPIAddrPort})
+	_, err := StartServer(mockShutdownHandler, handler, &TCPAddress{eaAPIAddrPort}, false)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "1.1.1.1:49275")
 }

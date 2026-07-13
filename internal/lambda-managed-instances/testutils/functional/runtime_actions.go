@@ -215,6 +215,7 @@ func (a InvocationResponseErrorAction) String() string {
 
 type InvocationStreamingResponseAction struct {
 	Chunks             []string
+	Body               io.Reader
 	ContentType        string
 	InvokeID           interop.InvokeID
 	ResponseModeHeader string
@@ -223,10 +224,14 @@ type InvocationStreamingResponseAction struct {
 }
 
 func (a InvocationStreamingResponseAction) Execute(t *testing.T, client *Client) (*http.Response, error) {
+	var body io.Reader
+	if a.Body != nil {
+		body = a.Body
+	} else {
+		body = NewChunkedReader(a.Chunks, a.ChunkDelay)
+	}
 
-	chunkedReader := NewChunkedReader(a.Chunks, a.ChunkDelay)
-
-	return client.Response(a.InvokeID, chunkedReader, a.ContentType, a.ResponseModeHeader, a.Trailers)
+	return client.Response(a.InvokeID, body, a.ContentType, a.ResponseModeHeader, a.Trailers)
 }
 
 func (a InvocationStreamingResponseAction) ValidateStatus(t *testing.T, resp *http.Response) {}

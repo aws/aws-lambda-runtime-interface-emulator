@@ -399,6 +399,29 @@ func TestReserveIdleRuntime_DuplicateInvokeID(t *testing.T) {
 	assert.Equal(t, model.ErrorDuplicatedInvokeId, appErr.ErrorType())
 }
 
+func TestReserveIdleRuntime_DuplicateAgainstRunningInvoke(t *testing.T) {
+	t.Parallel()
+
+	mocks, router := createMocksAndInitRouter()
+
+	_, err := router.RuntimeNext(mocks.ctx, mocks.runtimeNextRequest)
+	require.NoError(t, err)
+
+	const inFlightID = "reserve-vs-running"
+	router.runningInvokes.Set(inFlightID, &mocks.runnningInvoke)
+
+	resp, appErr := router.ReserveIdleRuntime(mocks.ctx, inFlightID, 100*time.Millisecond)
+
+	require.NotNil(t, appErr)
+	failResp, ok := resp.(interop.ReserveIdleRuntimeFailureResponse)
+	assert.True(t, ok, "expected ReserveIdleRuntimeFailureResponse")
+	assert.Equal(t, model.ErrorDuplicatedInvokeId, failResp.ErrorType)
+	assert.Equal(t, model.ErrorDuplicatedInvokeId, appErr.ErrorType())
+
+	assert.Equal(t, 0, router.runtimePool.ReservedCount(), "no reservation should have been recorded")
+	assert.Equal(t, 1, router.GetRuntimePoolCounts().Idle, "idle runtime should still be available")
+}
+
 func TestReserveIdleRuntime_Expiration(t *testing.T) {
 	t.Parallel()
 

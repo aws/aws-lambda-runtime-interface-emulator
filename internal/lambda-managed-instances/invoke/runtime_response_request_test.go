@@ -5,6 +5,7 @@ package invoke
 
 import (
 	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -66,7 +67,7 @@ func TestRuntimeResponse_TrailerError(t *testing.T) {
 			req.Trailer = make(http.Header)
 			req.Trailer.Set(FunctionErrorTypeTrailer, tc.errorTypeTrailer)
 			req.Trailer.Set(FunctionErrorBodyTrailer, tc.errorBodyTrailer)
-			resp := NewRuntimeResponse(req.Context(), req, "test-invoke-id")
+			resp := NewRuntimeResponse(req.Context(), req, httptest.NewRecorder(), "test-invoke-id")
 
 			actualTrailerError := resp.TrailerError()
 
