@@ -61,10 +61,30 @@ type tailLogs struct {
 	Events []SandboxEvent `json:"events,omitempty"`
 }
 
+// EventDispatcher receives every sandbox event as it is produced, so that
+// subscribers to the Telemetry API can be sent the same records the event log
+// records.
+type EventDispatcher interface {
+	Dispatch(event SandboxEvent)
+}
+
 type StandaloneEventsAPI struct {
-	lock      sync.Mutex
-	requestID interop.RequestID
-	eventLog  EventLog
+	lock       sync.Mutex
+	requestID  interop.RequestID
+	eventLog   EventLog
+	dispatcher EventDispatcher
+	// quiet suppresses the per-event log line. The emulator already reports the
+	// lifecycle in its own output, so repeating every event there is noise.
+	quiet bool
+}
+
+// SetDispatcher attaches a dispatcher, and stops each event being logged
+// individually since the dispatcher is now responsible for reporting them.
+func (s *StandaloneEventsAPI) SetDispatcher(dispatcher EventDispatcher) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	s.dispatcher = dispatcher
+	s.quiet = true
 }
 
 func (s *StandaloneEventsAPI) LogTrace(entry TracingEvent) {
@@ -275,11 +295,22 @@ func (s *StandaloneEventsAPI) sendLogEvent(eventType, logMessage string) error {
 
 func (s *StandaloneEventsAPI) appendEvent(event SandboxEvent) {
 	s.lock.Lock()
-	defer s.lock.Unlock()
 	s.eventLog.Events = append(s.eventLog.Events, event)
+	dispatcher := s.dispatcher
+	s.lock.Unlock()
+
+	if dispatcher != nil {
+		dispatcher.Dispatch(event)
+	}
 }
 
 func (s *StandaloneEventsAPI) logEvent(e SandboxEvent) {
+	s.lock.Lock()
+	quiet := s.quiet
+	s.lock.Unlock()
+	if quiet {
+		return
+	}
 	log.WithField("event", e).Info("sandbox event")
 }
 

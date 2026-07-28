@@ -10,10 +10,11 @@ import (
 	"os"
 	"runtime/debug"
 
-	"github.com/jessevdk/go-flags"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/interop"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/rapidcore"
+	"github.com/jessevdk/go-flags"
 
+	standalonetelemetry "github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/rapidcore/standalone/telemetry"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -64,11 +65,23 @@ func Run() {
 	}
 
 	bootstrap, handler := getBootstrap(args, opts)
+
+	// Serve the Telemetry API rather than the stub. Events are produced by the
+	// same code that reports the sandbox lifecycle, so subscribers receive the
+	// documented record types; log lines still reach the console as well.
+	eventsAPI := &standalonetelemetry.StandaloneEventsAPI{}
+	telemetrySubscriptions := NewTelemetrySubscriptionService()
+	eventsAPI.SetDispatcher(telemetrySubscriptions)
+	SetTelemetryEvents(telemetrySubscriptions)
+
 	sandbox := rapidcore.
 		NewSandboxBuilder().
 		AddShutdownFunc(context.CancelFunc(func() { os.Exit(0) })).
 		SetExtensionsFlag(true).
-		SetInitCachingFlag(opts.InitCachingEnabled)
+		SetInitCachingFlag(opts.InitCachingEnabled).
+		SetEventsAPI(eventsAPI).
+		SetLogsEgressAPI(newTeeLogsEgressAPI(eventsAPI)).
+		SetTelemetrySubscription(telemetrySubscriptions, telemetrySubscriptions)
 
 	if len(handler) > 0 {
 		sandbox.SetHandler(handler)

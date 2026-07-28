@@ -24,6 +24,8 @@ import (
 	"github.com/google/uuid"
 
 	log "github.com/sirupsen/logrus"
+
+	standalonetelemetry "github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/rapidcore/standalone/telemetry"
 )
 
 type Sandbox interface {
@@ -46,6 +48,16 @@ type InteropServer interface {
 
 var initDone bool
 
+// telemetryEvents, when set, receives the end-of-invoke events. The emulator
+// prints END and REPORT but has never reported them as telemetry, so extensions
+// that measure billed duration or memory had nothing to read.
+var telemetryEvents *TelemetrySubscriptionService
+
+// SetTelemetryEvents attaches the service that end-of-invoke events are reported to.
+func SetTelemetryEvents(service *TelemetrySubscriptionService) {
+	telemetryEvents = service
+}
+
 func GetenvWithDefault(key string, defaultValue string) string {
 	envValue := os.Getenv(key)
 
@@ -62,6 +74,26 @@ func printEndReports(invokeId string, initDuration string, memorySize string, in
 		float64(timeoutDuration.Nanoseconds())) / float64(time.Millisecond)
 
 	fmt.Println("END RequestId: " + invokeId)
+
+	if telemetryEvents != nil {
+		now := time.Now().Format(time.RFC3339)
+		// platform.end is deliberately not emitted: it is absent from telemetry
+		// captured off a real function under the current schema version.
+		telemetryEvents.Dispatch(standalonetelemetry.SandboxEvent{
+			Time: now,
+			Type: "platform.report",
+			PlatformEvent: map[string]interface{}{
+				"requestId": invokeId,
+				"status":    "success",
+				"metrics": map[string]interface{}{
+					"durationMs":       invokeDuration,
+					"billedDurationMs": math.Ceil(invokeDuration),
+					"memorySizeMB":     memorySize,
+					"maxMemoryUsedMB":  memorySize,
+				},
+			},
+		})
+	}
 	// We set the Max Memory Used and Memory Size to be the same (whatever it is set to) since there is
 	// not a clean way to get this information from rapidcore
 	fmt.Printf(
