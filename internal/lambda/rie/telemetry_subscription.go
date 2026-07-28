@@ -172,13 +172,6 @@ func (s *TelemetrySubscriptionService) Subscribe(agentName string, body io.Reade
 // soon as initialization finishes, which stops new subscriptions but must leave
 // delivery to existing ones running for the life of the environment.
 func (s *TelemetrySubscriptionService) Dispatch(event standalonetelemetry.SandboxEvent) {
-	s.lock.Lock()
-	subscriptions := make([]*subscription, 0, len(s.subscriptions))
-	for _, sub := range s.subscriptions {
-		subscriptions = append(subscriptions, sub)
-	}
-	s.lock.Unlock()
-
 	record := telemetryRecord{Time: event.Time, Type: event.Type}
 	if event.PlatformEvent != nil {
 		record.Record = event.PlatformEvent
@@ -186,14 +179,23 @@ func (s *TelemetrySubscriptionService) Dispatch(event standalonetelemetry.Sandbo
 		record.Record = event.LogMessage
 	}
 
-	if len(subscriptions) == 0 {
-		s.lock.Lock()
+	// Buffering and delivery are chosen under a single held lock. Deciding in one
+	// lock section and acting in another lets a Subscribe interleave: it would
+	// insert itself and replay a copy of the buffer that does not yet hold this
+	// event, and the event would then be buffered for nobody.
+	s.lock.Lock()
+	if len(s.subscriptions) == 0 {
 		if len(s.earlyEvents) < maxEarlyEvents {
 			s.earlyEvents = append(s.earlyEvents, record)
 		}
 		s.lock.Unlock()
 		return
 	}
+	subscriptions := make([]*subscription, 0, len(s.subscriptions))
+	for _, sub := range s.subscriptions {
+		subscriptions = append(subscriptions, sub)
+	}
+	s.lock.Unlock()
 
 	for _, sub := range subscriptions {
 		if sub.wants(event.Type) {
@@ -262,7 +264,7 @@ func (sub *subscription) deliver(batch []telemetryRecord) {
 		log.WithError(err).Warn("Telemetry API: could not encode a batch")
 		return
 	}
-	response, err := http.Post(sub.destination, "application/json", bytes.NewReader(body))
+	response, err := deliveryClient.Post(sub.destination, "application/json", bytes.NewReader(body))
 	if err != nil {
 		log.WithError(err).Warnf("Telemetry API: could not deliver to %s", sub.destination)
 		return
@@ -339,6 +341,12 @@ func (s *TelemetrySubscriptionService) GetServiceClosedErrorType() string {
 }
 
 const telemetryEndpointPath = "/2022-07-01/telemetry"
+
+// Batches that reach a size limit are delivered on the goroutine producing the
+// event, so a subscriber that accepts a connection and never answers would stall
+// the sandbox's event pipeline. The default client has no timeout; this one gives
+// up instead.
+var deliveryClient = &http.Client{Timeout: 5 * time.Second}
 
 // resolveDestination rewrites the hostname extensions are told to use. Inside a
 // real execution environment "sandbox" resolves to the host running the runtime;

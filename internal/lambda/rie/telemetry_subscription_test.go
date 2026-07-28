@@ -284,3 +284,84 @@ func TestSandboxHostIsRewritten(t *testing.T) {
 		})
 	}
 }
+
+// Exercises Subscribe and Dispatch concurrently, for the race detector and to
+// confirm the event still arrives.
+//
+// This does not reproduce the lost-event window that motivated deciding
+// buffer-versus-deliver under a single lock: the two lock sections it needed to
+// interleave between were adjacent, and 400 attempts never hit it. The
+// correctness of that arrangement rests on reading the code, not on this test.
+func TestConcurrentSubscribeAndDispatch(t *testing.T) {
+	for attempt := 0; attempt < 100; attempt++ {
+		service := NewTelemetrySubscriptionService()
+		extension := newReceiver(t)
+
+		var wg sync.WaitGroup
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			service.Dispatch(platformEvent("platform.initStart", map[string]interface{}{"phase": "init"}))
+		}()
+		go func() {
+			defer wg.Done()
+			subscribe(t, service, "ext", extension.server.URL, []string{"platform"})
+		}()
+		wg.Wait()
+
+		// Whichever order they interleaved in, the event is either delivered or
+		// still buffered for the next subscriber. It must not be stranded.
+		deadline := time.Now().Add(2 * time.Second)
+		var seen bool
+		for time.Now().Before(deadline) && !seen {
+			for _, event := range extension.received() {
+				if event["type"] == "platform.initStart" {
+					seen = true
+				}
+			}
+			if !seen {
+				time.Sleep(10 * time.Millisecond)
+			}
+		}
+		if !seen {
+			t.Fatalf("attempt %d: initStart reached no subscriber", attempt)
+		}
+	}
+}
+
+// A subscriber that accepts a connection and never answers must not stall the
+// sandbox: delivery happens on the event-producing goroutine when a batch fills.
+func TestDeliveryToAHungSubscriberDoesNotBlockForever(t *testing.T) {
+	blocked := make(chan struct{})
+
+	hung := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		<-blocked // never answers while the test runs
+	}))
+	// Close waits for handlers in flight, so the handler has to be released
+	// first. Defers run last-in-first-out, hence this order.
+	defer hung.Close()
+	defer close(blocked)
+
+	service := NewTelemetrySubscriptionService()
+	body, _ := json.Marshal(map[string]interface{}{
+		"types":       []string{"function"},
+		"buffering":   map[string]int{"timeoutMs": 60000, "maxItems": 1, "maxBytes": 262144},
+		"destination": map[string]string{"protocol": "HTTP", "URI": hung.URL},
+	})
+	_, status, _, err := service.Subscribe("ext", strings.NewReader(string(body)), nil, "")
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, status)
+
+	// maxItems of 1 means this dispatch delivers synchronously.
+	done := make(chan struct{})
+	go func() {
+		service.Dispatch(logEvent("function", "hello"))
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(deliveryClient.Timeout + 5*time.Second):
+		t.Fatal("Dispatch never returned; a hung subscriber can stall the event pipeline")
+	}
+}
