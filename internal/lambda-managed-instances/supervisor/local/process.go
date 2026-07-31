@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -159,7 +160,11 @@ func (s *ProcessSupervisor) Exec(ctx context.Context, req *model.ExecRequest) er
 
 					cell = int32(status.Signal())
 					signo = &cell
-					cause = model.Signaled
+					if status.Signal() == syscall.SIGKILL && wasOomKill() {
+						cause = model.OomKilled
+					} else {
+						cause = model.Signaled
+					}
 				}
 			}
 		}
@@ -320,5 +325,43 @@ func (s *ProcessSupervisor) setProcessGroupPriorities(pid int) error {
 		return fmt.Errorf("failed to set nice score for %d: %w", pgid, err)
 	}
 
+	oomScorePath := fmt.Sprintf("/proc/%d/oom_score_adj", pid)
+
+	f, err := os.OpenFile(oomScorePath, os.O_WRONLY, 0)
+	if err != nil {
+		return fmt.Errorf("could not open file %s: %w", oomScorePath, err)
+	}
+	defer func() {
+		if err := f.Close(); err != nil {
+			slog.Error("could not close file", "file", oomScorePath, "err", err)
+		}
+	}()
+	if _, err := f.WriteString("1000"); err != nil {
+		return fmt.Errorf("could not write to file %s: %w", oomScorePath, err)
+	}
+
 	return nil
+}
+
+func wasOomKill() bool {
+	return checkOomKill("/sys/fs/cgroup/memory.events")
+}
+
+func checkOomKill(eventsPath string) bool {
+	data, err := os.ReadFile(eventsPath)
+	if err != nil {
+		slog.Warn("could not read memory.events", "path", eventsPath, "err", err)
+		return false
+	}
+	for _, line := range strings.Split(string(data), "\n") {
+		if after, found := strings.CutPrefix(line, "oom_kill "); found {
+			count, err := strconv.Atoi(after)
+			if err != nil {
+				slog.Warn("could not parse oom_kill count", "line", line, "err", err)
+				return false
+			}
+			return count > 0
+		}
+	}
+	return false
 }

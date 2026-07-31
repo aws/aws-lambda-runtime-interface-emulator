@@ -253,6 +253,7 @@ type EEStaticData struct {
 	XRayTracingMode    intmodel.XrayTracingMode
 	ArtefactType       intmodel.ArtefactType
 	RuntimeVersion     string
+	RuntimeRelease     string
 	AmiId              string
 	AvailabilityZoneId string
 }
@@ -301,6 +302,8 @@ type InvokeRequest interface {
 
 	UpdateFromInitData(InitStaticDataProvider) model.AppError
 	FunctionVersionID() string
+
+	InternalInvocationID() string
 }
 
 type InitStaticDataProvider interface {

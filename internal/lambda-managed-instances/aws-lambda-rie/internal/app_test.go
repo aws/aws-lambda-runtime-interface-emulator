@@ -79,7 +79,7 @@ func TestApp_ServeHTTP(t *testing.T) {
 			defer mockApp.AssertExpectations(t)
 			mockApp.On("Init", mock.Anything, mock.Anything, mock.Anything).Return(tt.initResponse)
 			if tt.initResponse == nil {
-				mockApp.On("Invoke", mock.Anything, mock.Anything, mock.Anything).Return(tt.invokeErr, tt.responseSent)
+				mockApp.On("Invoke", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(tt.invokeErr, tt.responseSent, false)
 			}
 
 			initMsg := intmodel.InitRequestMessage{

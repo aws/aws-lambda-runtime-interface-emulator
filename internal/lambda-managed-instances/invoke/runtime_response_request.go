@@ -9,6 +9,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda-managed-instances/interop"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda-managed-instances/logging"
@@ -23,24 +24,28 @@ const (
 
 type runtimeResponse struct {
 	request *http.Request
+	rc      *http.ResponseController
 
 	parsingErr model.AppError
 
 	contentType  string
 	invokeID     interop.InvokeID
 	responseMode string
+	invocationID string
 }
 
-func NewRuntimeResponse(ctx context.Context, request *http.Request, invokeID interop.InvokeID) runtimeResponse {
+func NewRuntimeResponse(ctx context.Context, request *http.Request, writer http.ResponseWriter, invokeID interop.InvokeID) runtimeResponse {
 	contentType := request.Header.Get(RuntimeContentTypeHeader)
 	if contentType == "" {
 
 		contentType = "application/octet-stream"
 	}
 	resp := runtimeResponse{
-		request:     request,
-		contentType: contentType,
-		invokeID:    invokeID,
+		request:      request,
+		rc:           http.NewResponseController(writer),
+		contentType:  contentType,
+		invokeID:     invokeID,
+		invocationID: request.Header.Get(RuntimeInvocationIdHeader),
 	}
 
 	switch mode := request.Header.Get(RuntimeResponseModeHeader); mode {
@@ -74,8 +79,18 @@ func (r *runtimeResponse) BodyReader() io.Reader {
 	return r.request.Body
 }
 
+func (r *runtimeResponse) Cancel() {
+	if err := r.rc.SetReadDeadline(time.Unix(0, 0)); err != nil {
+		slog.Warn("Cancel: SetReadDeadline failed", "err", err)
+	}
+}
+
 func (r *runtimeResponse) ResponseMode() string {
 	return r.responseMode
+}
+
+func (r *runtimeResponse) InvocationID() string {
+	return r.invocationID
 }
 
 func (r *runtimeResponse) TrailerError() ErrorForInvoker {

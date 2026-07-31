@@ -62,6 +62,7 @@ func buildInvokeReqMocks(invokeReq *interop.MockInvokeRequest) {
 	invokeReq.On("ClientContext").Return("client-context-example")
 	invokeReq.On("CognitoId").Return("cognito_id_12345")
 	invokeReq.On("CognitoPoolId").Return("cognito_pool_id_6789")
+	invokeReq.On("InternalInvocationID").Return("")
 }
 
 func buildInitDataMocks(initData *interop.MockInitStaticDataProvider) {
@@ -131,6 +132,40 @@ func TestSendResponseFailure_CtxCancelled(t *testing.T) {
 	assert.Equal(t, model.ErrorReasonExtensionExecFailed, err.ErrorType())
 	assert.Zero(t, readerDuration)
 	assert.Zero(t, writerDuration)
+
+	checkResponseSenderExpectations(t, mocks)
+}
+
+func TestSendResponse_OmitsEmptyOptionalHeaders(t *testing.T) {
+	t.Parallel()
+
+	mocks := createMocksAndRuntimeResponder()
+	buildInitDataMocks(&mocks.initData)
+
+	mocks.invokeReq.On("ContentType").Return("application/json")
+	mocks.invokeReq.On("InvokeID").Return("123456")
+	mocks.invokeReq.On("Deadline").Return(time.Now().Add(time.Second))
+	mocks.invokeReq.On("ClientContext").Return("")
+	mocks.invokeReq.On("CognitoId").Return("")
+	mocks.invokeReq.On("CognitoPoolId").Return("")
+	mocks.invokeReq.On("InternalInvocationID").Return("")
+	mocks.invokeReq.On("BodyReader").Return(mocks.reader)
+
+	recorder := httptest.NewRecorder()
+	mocks.runtimeReq = recorder
+
+	_, _, _, err := sendInvokeToRuntime(mocks.ctx, &mocks.initData, &mocks.invokeReq, mocks.runtimeReq, "")
+	assert.NoError(t, err)
+
+	headers := recorder.Header()
+	assert.Empty(t, headers.Get(RuntimeTraceIdHeader))
+	assert.Empty(t, headers.Get(RuntimeClientContextHeader))
+	assert.Empty(t, headers.Get(RuntimeCognitoIdentifyHeader))
+
+	assert.NotEmpty(t, headers.Get(RuntimeRequestIdHeader))
+	assert.NotEmpty(t, headers.Get(RuntimeDeadlineHeader))
+	assert.NotEmpty(t, headers.Get(RuntimeFunctionArnHeader))
+	assert.NotEmpty(t, headers.Get(RuntimeContentTypeHeader))
 
 	checkResponseSenderExpectations(t, mocks)
 }

@@ -33,9 +33,18 @@ func sendInvokeToRuntime(ctx context.Context, initData interop.InitStaticDataPro
 	runtimeReq.Header().Set(RuntimeRequestIdHeader, invokeReq.InvokeID())
 	runtimeReq.Header().Set(RuntimeDeadlineHeader, strconv.FormatInt(invokeReq.Deadline().UnixMilli(), 10))
 	runtimeReq.Header().Set(RuntimeFunctionArnHeader, initData.FunctionARN())
-	runtimeReq.Header().Set(RuntimeTraceIdHeader, traceId)
-	runtimeReq.Header().Set(RuntimeClientContextHeader, invokeReq.ClientContext())
-	runtimeReq.Header().Set(RuntimeCognitoIdentifyHeader, buildCognitoIdentifyHeader(invokeReq))
+	if traceId != "" {
+		runtimeReq.Header().Set(RuntimeTraceIdHeader, traceId)
+	}
+	if cc := invokeReq.ClientContext(); cc != "" {
+		runtimeReq.Header().Set(RuntimeClientContextHeader, cc)
+	}
+	if cogId := buildCognitoIdentifyHeader(invokeReq); cogId != "" {
+		runtimeReq.Header().Set(RuntimeCognitoIdentifyHeader, cogId)
+	}
+	if internalInvocationID := invokeReq.InternalInvocationID(); internalInvocationID != "" {
+		runtimeReq.Header().Set(RuntimeInvocationIdHeader, internalInvocationID)
+	}
 	runtimeReq.WriteHeader(http.StatusOK)
 
 	timedReader := &utils.TimedReader{

@@ -29,6 +29,7 @@ type runtimeError struct {
 	invokeID      interop.InvokeID
 	errorType     model.ErrorType
 	errorCategory model.ErrorCategory
+	invocationID  string
 
 	errorDetails   string
 	xrayErrorCause json.RawMessage
@@ -42,6 +43,7 @@ func NewRuntimeError(ctx context.Context, request *http.Request, invokeID intero
 		invokeID:       invokeID,
 		errorType:      model.GetValidRuntimeOrFunctionErrorType(request.Header.Get(RuntimeErrorTypeHeader)),
 		errorCategory:  RuntimeErrorCategory,
+		invocationID:   request.Header.Get(RuntimeInvocationIdHeader),
 		errorDetails:   errorDetails,
 		xrayErrorCause: getValidatedErrorCause(ctx, request.Header.Get(LambdaXRayErrorCauseHeader)),
 	}
@@ -87,6 +89,10 @@ func (r *runtimeError) ErrorDetails() string {
 
 func (r *runtimeError) GetXrayErrorCause() json.RawMessage {
 	return r.xrayErrorCause
+}
+
+func (r *runtimeError) InvocationID() string {
+	return r.invocationID
 }
 
 func (r *runtimeError) ReturnCode() int {

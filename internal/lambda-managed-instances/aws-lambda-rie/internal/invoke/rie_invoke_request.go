@@ -40,6 +40,7 @@ type rieInvokeRequest struct {
 	cognitoIdentityPoolId      string
 	clientContext              string
 	responseMode               string
+	internalInvocationID       string
 
 	functionVersionID string
 }
@@ -98,6 +99,7 @@ func NewRieInvokeRequest(request *http.Request, writer http.ResponseWriter) (*ri
 		cognitoIdentityPoolId:      cognitoIdentityPoolId,
 		clientContext:              clientContext,
 		responseMode:               request.Header.Get(invoke.ResponseModeHeader),
+		internalInvocationID:       uuid.New().String(),
 	}
 
 	return req, nil
@@ -183,4 +185,8 @@ func (r *rieInvokeRequest) UpdateFromInitData(initData interop.InitStaticDataPro
 
 func (r *rieInvokeRequest) FunctionVersionID() string {
 	return r.functionVersionID
+}
+
+func (r *rieInvokeRequest) InternalInvocationID() string {
+	return r.internalInvocationID
 }

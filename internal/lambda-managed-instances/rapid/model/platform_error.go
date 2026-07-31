@@ -20,7 +20,8 @@ const (
 	ErrSandboxLogSocketsUnavailable ErrorType = "Sandbox.LogSocketsUnavailable"
 	ErrSandboxEventSetupFailure     ErrorType = "Sandbox.EventSetupFailure"
 
-	ErrSandboxShutdownFailed ErrorType = "Sandbox.ShutdownFailed"
+	ErrSandboxShutdownFailed  ErrorType = "Sandbox.ShutdownFailed"
+	ErrorResponseReplayFailed ErrorType = "Sandbox.ResponseReplayFailed"
 )
 
 type PlatformError struct {

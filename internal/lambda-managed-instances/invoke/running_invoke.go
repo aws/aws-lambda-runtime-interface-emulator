@@ -68,6 +68,8 @@ type runningInvokeImpl struct {
 	invokeRespSender InvokeResponseSender
 	runtimeNext      http.ResponseWriter
 
+	internalInvocationID string
+
 	responderFactoryFunc ResponderFactoryFunc
 	sendInvokeToRuntime  func(context.Context, interop.InitStaticDataProvider, interop.InvokeRequest, http.ResponseWriter, string) (int64, time.Duration, time.Duration, model.AppError)
 	createTracingData    func(traceId string, tracingMode intmodel.XrayTracingMode, segmentIDGenerator func() string) (downstreamTraceId string, tracingCtx *interop.TracingCtx)
@@ -98,6 +100,8 @@ func newRunningInvoke(
 
 func (r *runningInvokeImpl) RunInvokeAndSendResult(ctx context.Context, initData interop.InitStaticDataProvider, invokeReq interop.InvokeRequest, metrics interop.InvokeMetrics) model.AppError {
 	downstreamTraceId, tracingCtx := r.createTracingData(invokeReq.TraceId(), initData.XRayTracingMode(), xray.GenerateSegmentID)
+
+	r.internalInvocationID = invokeReq.InternalInvocationID()
 
 	metrics.TriggerStartRequest()
 	if err := metrics.SendInvokeStartEvent(tracingCtx); err != nil {
@@ -290,11 +294,28 @@ func (r *runningInvokeImpl) RuntimeResponse(ctx context.Context, runtimeRespReq 
 		return model.NewCustomerError(model.ErrorRuntimeInvokeResponseInProgress)
 	}
 
+	if echoedID := runtimeRespReq.InvocationID(); echoedID != "" && r.internalInvocationID != "" {
+		if echoedID != r.internalInvocationID {
+			logging.Warn(ctx, "Cross-wiring detected: invocation ID mismatch on response",
+				"expected", r.internalInvocationID, "received", echoedID)
+			r.responseState.CompareAndSwap(stateGotResponse, stateNoResponse)
+			return model.NewCustomerError(model.ErrorRuntimeInvokeTimeout)
+		}
+	}
+
 	r.runtimeResponseChan <- runtimeRespReq
 	return <-r.responseSentChan
 }
 
 func (r *runningInvokeImpl) RuntimeError(ctx context.Context, runtimeErrReq RuntimeErrorRequest) model.AppError {
+	if echoedID := runtimeErrReq.InvocationID(); echoedID != "" && r.internalInvocationID != "" {
+		if echoedID != r.internalInvocationID {
+			logging.Warn(ctx, "Cross-wiring detected: invocation ID mismatch on error",
+				"expected", r.internalInvocationID, "received", echoedID)
+			return model.NewCustomerError(model.ErrorRuntimeInvokeTimeout)
+		}
+	}
+
 	oldState := r.responseState.Swap(stateGotError)
 	if oldState == stateGotError {
 		logging.Warn(ctx, "Invalid invoke state : error in progress")

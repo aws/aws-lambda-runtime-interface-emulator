@@ -43,11 +43,12 @@ func getInitExecutionData(initRequest *internalModel.InitRequestMessage, runtime
 		LogGroupName:  initRequest.LogGroupName,
 		LogStreamName: initRequest.LogStreamName,
 		FunctionMetadata: model.FunctionMetadata{
-			AccountID:       initRequest.AccountID,
-			FunctionName:    initRequest.TaskName,
-			FunctionVersion: initRequest.FunctionVersion,
-			MemorySizeBytes: uint64(initRequest.MemorySizeBytes),
-			Handler:         initRequest.Handler,
+			AccountID:          initRequest.AccountID,
+			FunctionName:       initRequest.TaskName,
+			FunctionVersion:    initRequest.FunctionVersion,
+			MemorySizeBytes:    uint64(initRequest.MemorySizeBytes),
+			Handler:            initRequest.Handler,
+			RuntimeWorkerCount: initRequest.RuntimeWorkerCount,
 			RuntimeInfo: model.RuntimeInfo{
 				Arn:     initRequest.RuntimeArn,
 				Version: initRequest.RuntimeVersion,

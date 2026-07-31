@@ -35,6 +35,8 @@ type RuntimeResponseRequest interface {
 	BodyReader() io.Reader
 
 	TrailerError() ErrorForInvoker
+
+	InvocationID() string
 }
 
 type RuntimeErrorRequest interface {
@@ -47,6 +49,8 @@ type RuntimeErrorRequest interface {
 	ReturnCode() int
 	ErrorDetails() string
 	GetXrayErrorCause() json.RawMessage
+
+	InvocationID() string
 }
 
 type runningInvoke interface {
@@ -194,6 +198,12 @@ func (ir *InvokeRouter) GetRuntimePoolCounts() RuntimePoolCounts {
 
 func (ir *InvokeRouter) ReserveIdleRuntime(ctx context.Context, invokeID interop.InvokeID, timeout time.Duration) (interop.ReserveIdleRuntimeResponse, model.AppError) {
 	logging.Debug(ctx, "InvokeRouter: reserving idle runtime")
+
+	if _, exists := ir.runningInvokes.Get(invokeID); exists {
+		logging.Warn(ctx, "InvokeRouter: reservation collides with in-flight invoke")
+		return interop.ReserveIdleRuntimeFailureResponse{ErrorType: model.ErrorDuplicatedInvokeId},
+			model.NewClientError(ErrInvokeIdAlreadyExists, model.ErrorSeverityError, model.ErrorDuplicatedInvokeId)
+	}
 
 	err := ir.runtimePool.Reserve(invokeID, timeout, func() {
 		if ir.runtimePool.ExpireReservation(invokeID) {

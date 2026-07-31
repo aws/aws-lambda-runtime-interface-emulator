@@ -77,11 +77,18 @@ func (client *Client) Next(body io.Reader) *http.Response {
 }
 
 func (client *Client) Response(invokeID interop.InvokeID, payload io.Reader, contentType string, responseModeHeader string, trailers map[string]string) (*http.Response, error) {
+	return client.ResponseWithHeaders(invokeID, payload, contentType, responseModeHeader, trailers, nil)
+}
+
+func (client *Client) ResponseWithHeaders(invokeID interop.InvokeID, payload io.Reader, contentType string, responseModeHeader string, trailers map[string]string, extraHeaders map[string]string) (*http.Response, error) {
 	url := fmt.Sprintf("%s/runtime/invocation/%s/response", client.baseurl, invokeID)
 	headers := map[string]string{ContentTypeHeader: contentType}
 
 	if responseModeHeader != "" {
 		headers[LambdaResponseModeHeader] = responseModeHeader
+	}
+	for k, v := range extraHeaders {
+		headers[k] = v
 	}
 	return client.postBufferedResponse(url, payload, headers, trailers)
 }

@@ -6,6 +6,8 @@ package local
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
 	"syscall"
 	"testing"
 	"time"
@@ -225,4 +227,38 @@ func TestTerminateCheckStatus(t *testing.T) {
 	require.Nil(t, term.Exited())
 	require.NotNil(t, term.Signaled())
 	require.EqualValues(t, syscall.SIGTERM, *term.Signo)
+}
+
+func TestCheckOomKill_OomKilled(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "memory.events")
+	os.WriteFile(path, []byte("low 0\nhigh 0\nmax 96\noom 1\noom_kill 1\noom_group_kill 0\n"), 0644)
+	assert.True(t, checkOomKill(path))
+}
+
+func TestCheckOomKill_NoOom(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "memory.events")
+	os.WriteFile(path, []byte("low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\n"), 0644)
+	assert.False(t, checkOomKill(path))
+}
+
+func TestCheckOomKill_FileNotFound(t *testing.T) {
+	assert.False(t, checkOomKill("/nonexistent/memory.events"))
+}
+
+func TestCheckOomKill_MultipleOomKills(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "memory.events")
+	os.WriteFile(path, []byte("low 0\nhigh 0\nmax 50\noom 3\noom_kill 3\noom_group_kill 0\n"), 0644)
+	assert.True(t, checkOomKill(path))
+}
+
+func TestCheckOomKill_MalformedCount(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "memory.events")
+	os.WriteFile(path, []byte("low 0\nhigh 0\noom_kill abc\n"), 0644)
+	assert.False(t, checkOomKill(path))
+}
+
+func TestCheckOomKill_NoOomKillLine(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "memory.events")
+	os.WriteFile(path, []byte("low 0\nhigh 0\nmax 0\n"), 0644)
+	assert.False(t, checkOomKill(path))
 }

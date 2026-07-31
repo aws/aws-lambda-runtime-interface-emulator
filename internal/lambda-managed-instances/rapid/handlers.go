@@ -346,6 +346,7 @@ func doInitRuntime(
 		return customerErr
 	}
 
+	execCtx.initExecutionData.StaticData.RuntimeRelease = appctx.GetRuntimeRelease(execCtx.appCtx)
 	telemetry.SendInitRuntimeDoneLogEvent(execCtx.eventsAPI, execCtx.appCtx, phase, nil)
 
 	return nil
