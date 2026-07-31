@@ -66,6 +66,10 @@ func hijackRunningInvokeDeps(ri *runningInvokeImpl, mocks *runningInvokeMocks) {
 func createMocksAndInitRunningInvoke(t *testing.T) (*runningInvokeMocks, *runningInvokeImpl) {
 	mocks := newRunningInvokeMocks(t)
 
+	mocks.eaInvokeRequest.On("InternalInvocationID").Return("").Maybe()
+	mocks.runtimeRespReq.On("InvocationID").Return("").Maybe()
+	mocks.runtimeErrorReq.On("InvocationID").Return("").Maybe()
+
 	ri := newRunningInvoke(
 		mocks.runtimeNextRequest,
 		func(ctx context.Context, ir interop.InvokeRequest) InvokeResponseSender {

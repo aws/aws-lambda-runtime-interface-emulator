@@ -35,6 +35,8 @@ type RuntimeResponseRequest interface {
 	BodyReader() io.Reader
 
 	TrailerError() ErrorForInvoker
+
+	InvocationID() string
 }
 
 type RuntimeErrorRequest interface {
@@ -47,6 +49,8 @@ type RuntimeErrorRequest interface {
 	ReturnCode() int
 	ErrorDetails() string
 	GetXrayErrorCause() json.RawMessage
+
+	InvocationID() string
 }
 
 type runningInvoke interface {

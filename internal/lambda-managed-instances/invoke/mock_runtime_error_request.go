@@ -171,6 +171,23 @@ func (_m *MockRuntimeErrorRequest) ReturnCode() int {
 	return r0
 }
 
+func (_m *MockRuntimeErrorRequest) InvocationID() string {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for InvocationID")
+	}
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	return r0
+}
+
 func NewMockRuntimeErrorRequest(t interface {
 	mock.TestingT
 	Cleanup(func())

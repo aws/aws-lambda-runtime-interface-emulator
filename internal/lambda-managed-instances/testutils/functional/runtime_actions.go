@@ -157,13 +157,14 @@ type InvocationResponseAction struct {
 	ContentType        string
 	InvokeID           interop.InvokeID
 	ResponseModeHeader string
+	ResponseHeaders    map[string]string
 	ExpectedStatus     int
 	ExpectedBody       string
 	Trailers           map[string]string
 }
 
 func (a InvocationResponseAction) Execute(t *testing.T, client *Client) (*http.Response, error) {
-	return client.Response(a.InvokeID, a.Payload, a.ContentType, a.ResponseModeHeader, a.Trailers)
+	return client.ResponseWithHeaders(a.InvokeID, a.Payload, a.ContentType, a.ResponseModeHeader, a.Trailers, a.ResponseHeaders)
 }
 
 func (a InvocationResponseAction) ValidateStatus(t *testing.T, resp *http.Response) {
@@ -185,17 +186,28 @@ func (a InvocationResponseAction) String() string {
 }
 
 type InvocationResponseErrorAction struct {
-	Payload        string
-	ContentType    string
-	InvokeID       interop.InvokeID
-	ErrorType      string
-	ErrorCause     string
-	ExpectedStatus int
-	ExpectedBody   string
+	Payload         string
+	ContentType     string
+	InvokeID        interop.InvokeID
+	ErrorType       string
+	ErrorCause      string
+	ResponseHeaders map[string]string
+	ExpectedStatus  int
+	ExpectedBody    string
 }
 
 func (a InvocationResponseErrorAction) Execute(t *testing.T, client *Client) (*http.Response, error) {
-	return client.ResponseError(a.InvokeID, a.Payload, a.ContentType, a.ErrorType, a.ErrorCause)
+	headers := map[string]string{ContentTypeHeader: a.ContentType}
+	if len(a.ErrorType) > 0 {
+		headers[LambdaErrorTypeHeader] = a.ErrorType
+	}
+	if len(a.ErrorCause) > 0 {
+		headers[LambdaXRayErrorCauseHeader] = a.ErrorCause
+	}
+	for k, v := range a.ResponseHeaders {
+		headers[k] = v
+	}
+	return client.ResponseErrorWithHeaders(a.InvokeID, a.Payload, headers)
 }
 
 func (a InvocationResponseErrorAction) ValidateStatus(t *testing.T, resp *http.Response) {
