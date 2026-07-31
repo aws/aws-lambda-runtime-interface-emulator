@@ -62,6 +62,7 @@ func buildInvokeReqMocks(invokeReq *interop.MockInvokeRequest) {
 	invokeReq.On("ClientContext").Return("client-context-example")
 	invokeReq.On("CognitoId").Return("cognito_id_12345")
 	invokeReq.On("CognitoPoolId").Return("cognito_pool_id_6789")
+	invokeReq.On("InternalInvocationID").Return("")
 }
 
 func buildInitDataMocks(initData *interop.MockInitStaticDataProvider) {
@@ -147,6 +148,7 @@ func TestSendResponse_OmitsEmptyOptionalHeaders(t *testing.T) {
 	mocks.invokeReq.On("ClientContext").Return("")
 	mocks.invokeReq.On("CognitoId").Return("")
 	mocks.invokeReq.On("CognitoPoolId").Return("")
+	mocks.invokeReq.On("InternalInvocationID").Return("")
 	mocks.invokeReq.On("BodyReader").Return(mocks.reader)
 
 	recorder := httptest.NewRecorder()

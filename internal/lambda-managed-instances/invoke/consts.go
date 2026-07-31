@@ -9,6 +9,8 @@ const (
 	FunctionErrorBodyTrailer = "lambda-runtime-function-error-body"
 	ResponseModeHeader       = "invoke-response-mode"
 	TraceIdHeader            = "x-amzn-trace-id"
+
+	RuntimeInvocationIdHeader = "lambda-runtime-invocation-id"
 )
 
 type InvokeBodyResponseStatus string

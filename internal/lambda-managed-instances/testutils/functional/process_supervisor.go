@@ -40,9 +40,10 @@ type RuntimeEnv struct {
 }
 
 type RuntimeExecutionEnvironment struct {
-	Actions    []ExecutionEnvironmentAction
-	InvokeID   interop.InvokeID
-	RuntimeEnv *RuntimeEnv
+	Actions      []ExecutionEnvironmentAction
+	InvokeID     interop.InvokeID
+	InvocationID string
+	RuntimeEnv   *RuntimeEnv
 }
 
 func (r *RuntimeEnv) Exec(request *model.ExecRequest) (<-chan struct{}, error) {
@@ -134,6 +135,7 @@ func (r *RuntimeExecutionEnvironment) executeEnvActions(client *Client, t *testi
 
 			if resp != nil {
 				r.InvokeID = resp.Header.Get(invoke.RuntimeRequestIdHeader)
+				r.InvocationID = resp.Header.Get(invoke.RuntimeInvocationIdHeader)
 				a.ValidateStatus(t, resp)
 			}
 		case StdoutAction:
@@ -146,6 +148,9 @@ func (r *RuntimeExecutionEnvironment) executeEnvActions(client *Client, t *testi
 			if a.InvokeID == "" {
 				a.InvokeID = r.InvokeID
 			}
+			if a.ResponseHeaders == nil && r.InvocationID != "" {
+				a.ResponseHeaders = map[string]string{invoke.RuntimeInvocationIdHeader: r.InvocationID}
+			}
 			executeAndValidateAction(a, client, t)
 		case InvocationStreamingResponseAction:
 			if a.InvokeID == "" {
@@ -155,6 +160,9 @@ func (r *RuntimeExecutionEnvironment) executeEnvActions(client *Client, t *testi
 		case InvocationResponseErrorAction:
 			if a.InvokeID == "" {
 				a.InvokeID = r.InvokeID
+			}
+			if a.ResponseHeaders == nil && r.InvocationID != "" {
+				a.ResponseHeaders = map[string]string{invoke.RuntimeInvocationIdHeader: r.InvocationID}
 			}
 			executeAndValidateAction(a, client, t)
 		case ExitAction:
