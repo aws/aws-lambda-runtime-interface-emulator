@@ -29,7 +29,7 @@ import (
 
 type Sandbox interface {
 	Init(i *interop.Init, invokeTimeoutMs int64)
-	AwaitInitCompletion() time.Time
+	AwaitInitCompletion() (time.Time, bool)
 	Invoke(responseWriter http.ResponseWriter, invoke *interop.Invoke) error
 }
 
@@ -212,8 +212,12 @@ func InvokeHandler(w http.ResponseWriter, r *http.Request, sandbox Sandbox, bs i
 			w.WriteHeader(http.StatusGatewayTimeout)
 			return
 		case rapidcore.ErrInvokeTimeout:
-			initEnd := sandbox.AwaitInitCompletion()
-			printEndReports(invokePayload.ID, formatInitDuration(initStart, initEnd, timeoutDuration), memorySize, invokeStart, timeoutDuration)
+			initEnd, initSucceeded := sandbox.AwaitInitCompletion()
+			initDuration := ""
+			if initSucceeded {
+				initDuration = formatInitDuration(initStart, initEnd, timeoutDuration)
+			}
+			printEndReports(invokePayload.ID, initDuration, memorySize, invokeStart, timeoutDuration)
 
 			w.Write([]byte(fmt.Sprintf("Task timed out after %d.00 seconds", timeout)))
 			time.Sleep(100 * time.Millisecond)
@@ -222,8 +226,11 @@ func InvokeHandler(w http.ResponseWriter, r *http.Request, sandbox Sandbox, bs i
 		}
 	}
 
-	initEnd := sandbox.AwaitInitCompletion()
-	initDuration := formatInitDuration(initStart, initEnd, timeoutDuration)
+	initEnd, initSucceeded := sandbox.AwaitInitCompletion()
+	initDuration := ""
+	if initSucceeded {
+		initDuration = formatInitDuration(initStart, initEnd, timeoutDuration)
+	}
 	if !initStart.IsZero() && initEnd.After(invokeStart) {
 		invokeStart = initEnd
 	}

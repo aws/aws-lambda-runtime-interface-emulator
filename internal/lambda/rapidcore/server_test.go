@@ -151,8 +151,9 @@ func TestAwaitInitCompletionWaitsWithoutConsumingFailure(t *testing.T) {
 	srv.Init(&interop.Init{EnvironmentVariables: env.NewEnvironment()}, int64(time.Second/time.Millisecond))
 	initCompleted := make(chan struct{})
 	var completedAt time.Time
+	var initSucceeded bool
 	go func() {
-		completedAt = srv.AwaitInitCompletion()
+		completedAt, initSucceeded = srv.AwaitInitCompletion()
 		close(initCompleted)
 	}()
 
@@ -169,11 +170,14 @@ func TestAwaitInitCompletionWaitsWithoutConsumingFailure(t *testing.T) {
 		require.Fail(t, "timed out waiting for init completion")
 	}
 	require.False(t, completedAt.IsZero())
+	require.False(t, initSucceeded)
 	require.ErrorIs(t, srv.AwaitInitialized(), ErrInitDoneFailed)
 }
 
 func TestAwaitInitCompletionBeforeInitReturnsZeroTime(t *testing.T) {
-	require.True(t, NewServer().AwaitInitCompletion().IsZero())
+	completedAt, initSucceeded := NewServer().AwaitInitCompletion()
+	require.True(t, completedAt.IsZero())
+	require.False(t, initSucceeded)
 }
 
 func TestInitErrorBeforeReserve(t *testing.T) {

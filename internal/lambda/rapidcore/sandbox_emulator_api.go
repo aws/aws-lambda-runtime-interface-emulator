@@ -13,7 +13,7 @@ import (
 // LambdaInvokeAPI are the methods used by the Runtime Interface Emulator
 type LambdaInvokeAPI interface {
 	Init(i *interop.Init, invokeTimeoutMs int64)
-	AwaitInitCompletion() time.Time
+	AwaitInitCompletion() (time.Time, bool)
 	Invoke(responseWriter http.ResponseWriter, invoke *interop.Invoke) error
 }
 
@@ -49,7 +49,7 @@ func (l *EmulatorAPI) Init(i *interop.Init, timeoutMs int64) {
 	}, timeoutMs)
 }
 
-func (l *EmulatorAPI) AwaitInitCompletion() time.Time {
+func (l *EmulatorAPI) AwaitInitCompletion() (time.Time, bool) {
 	return l.server.AwaitInitCompletion()
 }
 
