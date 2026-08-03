@@ -79,13 +79,21 @@ func printEndReports(invokeId string, initDuration string, memorySize string, in
 		invokeId, invokeDuration, math.Ceil(invokeDuration), memorySize, memorySize)
 }
 
-func formatInitDuration(sandbox Sandbox, initStart time.Time, timeoutDuration time.Duration) string {
-	if initStart.IsZero() {
-		return ""
+func startInitOnce(sandbox Sandbox, functionVersion string, timeout int64, bs interop.Bootstrap) time.Time {
+	initMutex.Lock()
+	defer initMutex.Unlock()
+
+	if initDone {
+		return time.Time{}
 	}
 
-	initEnd := sandbox.AwaitInitCompletion()
-	if initEnd.IsZero() {
+	initStart := InitHandler(sandbox, functionVersion, timeout, bs)
+	initDone = true
+	return initStart
+}
+
+func formatInitDuration(initStart time.Time, initEnd time.Time, timeoutDuration time.Duration) string {
+	if initStart.IsZero() || initEnd.IsZero() {
 		return ""
 	}
 
@@ -121,14 +129,7 @@ func InvokeHandler(w http.ResponseWriter, r *http.Request, sandbox Sandbox, bs i
 	functionVersion := GetenvWithDefault("AWS_LAMBDA_FUNCTION_VERSION", "$LATEST")
 	memorySize := GetenvWithDefault("AWS_LAMBDA_FUNCTION_MEMORY_SIZE", "3008")
 
-	var initStart time.Time
-	initMutex.Lock()
-	if !initDone {
-		initStart = InitHandler(sandbox, functionVersion, timeout, bs)
-		// Set initDone so next invokes do not try to Init the function again
-		initDone = true
-	}
-	initMutex.Unlock()
+	initStart := startInitOnce(sandbox, functionVersion, timeout, bs)
 
 	invokeStart := time.Now()
 	invokeID := r.Header.Get("X-Amzn-RequestId")
@@ -211,7 +212,8 @@ func InvokeHandler(w http.ResponseWriter, r *http.Request, sandbox Sandbox, bs i
 			w.WriteHeader(http.StatusGatewayTimeout)
 			return
 		case rapidcore.ErrInvokeTimeout:
-			printEndReports(invokePayload.ID, formatInitDuration(sandbox, initStart, timeoutDuration), memorySize, invokeStart, timeoutDuration)
+			initEnd := sandbox.AwaitInitCompletion()
+			printEndReports(invokePayload.ID, formatInitDuration(initStart, initEnd, timeoutDuration), memorySize, invokeStart, timeoutDuration)
 
 			w.Write([]byte(fmt.Sprintf("Task timed out after %d.00 seconds", timeout)))
 			time.Sleep(100 * time.Millisecond)
@@ -220,7 +222,12 @@ func InvokeHandler(w http.ResponseWriter, r *http.Request, sandbox Sandbox, bs i
 		}
 	}
 
-	printEndReports(invokePayload.ID, formatInitDuration(sandbox, initStart, timeoutDuration), memorySize, invokeStart, timeoutDuration)
+	initEnd := sandbox.AwaitInitCompletion()
+	initDuration := formatInitDuration(initStart, initEnd, timeoutDuration)
+	if !initStart.IsZero() && initEnd.After(invokeStart) {
+		invokeStart = initEnd
+	}
+	printEndReports(invokePayload.ID, initDuration, memorySize, invokeStart, timeoutDuration)
 
 	if invokeResp.StatusCode != 0 {
 		w.WriteHeader(invokeResp.StatusCode)

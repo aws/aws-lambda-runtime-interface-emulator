@@ -39,6 +39,41 @@ func (s *delayedInitSandbox) Invoke(http.ResponseWriter, *interop.Invoke) error 
 	return nil
 }
 
+type panicInitSandbox struct {
+	delayedInitSandbox
+}
+
+func (s *panicInitSandbox) Init(*interop.Init, int64) {
+	panic("init failed")
+}
+
+func TestStartInitOnceReleasesLockAfterPanic(t *testing.T) {
+	initMutex.Lock()
+	initDone = false
+	initMutex.Unlock()
+	t.Cleanup(func() {
+		initMutex.Lock()
+		initDone = false
+		initMutex.Unlock()
+	})
+
+	func() {
+		defer func() { require.Equal(t, "init failed", recover()) }()
+		startInitOnce(&panicInitSandbox{}, "$LATEST", 1, nil)
+	}()
+
+	initStarted := make(chan struct{})
+	go func() {
+		startInitOnce(&delayedInitSandbox{}, "$LATEST", 1, nil)
+		close(initStarted)
+	}()
+	select {
+	case <-initStarted:
+	case <-time.After(time.Second):
+		require.Fail(t, "init mutex remained locked after panic")
+	}
+}
+
 func TestInvokeHandlerReportsRuntimeInitDuration(t *testing.T) {
 	initMutex.Lock()
 	initDone = false
@@ -70,4 +105,10 @@ func TestInvokeHandlerReportsRuntimeInitDuration(t *testing.T) {
 	durationMilliseconds, err := strconv.ParseFloat(matches[1], 64)
 	require.NoError(t, err)
 	require.GreaterOrEqual(t, durationMilliseconds, float64(40))
+
+	matches = regexp.MustCompile(`\tDuration: ([0-9.]+) ms`).FindStringSubmatch(string(output))
+	require.Len(t, matches, 2)
+	durationMilliseconds, err = strconv.ParseFloat(matches[1], 64)
+	require.NoError(t, err)
+	require.Less(t, durationMilliseconds, float64(40))
 }
