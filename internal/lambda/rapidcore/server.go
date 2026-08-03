@@ -75,7 +75,6 @@ type InvokeContext struct {
 type initCompletion struct {
 	done        chan struct{}
 	completedAt time.Time
-	succeeded   bool
 }
 
 type Server struct {
@@ -221,7 +220,6 @@ func (s *Server) Reserve(id string, traceID, lambdaSegmentID string) (*ReserveRe
 func (s *Server) awaitInitCompletion(initContext interop.InitContext, initFailures chan interop.InitFailure, completion *initCompletion) {
 	initSuccess, initFailure := initContext.Wait()
 	completion.completedAt = time.Now()
-	completion.succeeded = initFailure == nil
 	close(completion.done)
 	if initFailure != nil {
 		// In standalone, we don't have to block rapid start() goroutine until init failure is consumed
@@ -549,13 +547,13 @@ func (s *Server) Init(i *interop.Init, invokeTimeoutMs int64) error {
 	return nil
 }
 
-func (s *Server) AwaitInitCompletion() (time.Time, bool) {
+func (s *Server) AwaitInitCompletion() time.Time {
 	completion := s.getInitCompletion()
 	if completion == nil {
-		return time.Time{}, false
+		return time.Time{}
 	}
 	<-completion.done
-	return completion.completedAt, completion.succeeded
+	return completion.completedAt
 }
 
 func (s *Server) FastInvoke(w http.ResponseWriter, i *interop.Invoke, direct bool) error {
