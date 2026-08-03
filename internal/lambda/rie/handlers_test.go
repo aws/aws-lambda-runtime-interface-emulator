@@ -177,8 +177,8 @@ func TestInvokeHandlerSeparatesInitFromTimedOutInvocation(t *testing.T) {
 	request := httptest.NewRequest(http.MethodPost, "/2015-03-31/functions/function/invocations", nil)
 	response := httptest.NewRecorder()
 	sandbox := &delayedInitSandbox{
-		initDelay:   50 * time.Millisecond,
-		invokeDelay: 50 * time.Millisecond,
+		initDelay:   200 * time.Millisecond,
+		invokeDelay: 200 * time.Millisecond,
 		invokeErr:   rapidcore.ErrInvokeTimeout,
 	}
 
@@ -188,7 +188,9 @@ func TestInvokeHandlerSeparatesInitFromTimedOutInvocation(t *testing.T) {
 	os.Stdout = writer
 	t.Cleanup(func() { os.Stdout = originalStdout })
 
+	start := time.Now()
 	InvokeHandler(response, request, sandbox, nil)
+	elapsedMilliseconds := float64(time.Since(start)) / float64(time.Millisecond)
 	require.NoError(t, writer.Close())
 	output, err := io.ReadAll(reader)
 	require.NoError(t, err)
@@ -205,9 +207,8 @@ func TestInvokeHandlerSeparatesInitFromTimedOutInvocation(t *testing.T) {
 	require.Len(t, durationMatches, 2)
 	durationMilliseconds, err := strconv.ParseFloat(durationMatches[1], 64)
 	require.NoError(t, err)
-	require.GreaterOrEqual(t, durationMilliseconds, float64(40))
-	require.Less(t, durationMilliseconds, initDurationMilliseconds*1.5)
-	require.LessOrEqual(t, initDurationMilliseconds+durationMilliseconds, float64(1020))
+	require.GreaterOrEqual(t, durationMilliseconds, float64(190))
+	require.LessOrEqual(t, initDurationMilliseconds+durationMilliseconds, elapsedMilliseconds)
 }
 
 func TestInvokeHandlerReportsWarmTimeoutWithoutInitDuration(t *testing.T) {
