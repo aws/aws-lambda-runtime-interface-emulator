@@ -18,22 +18,36 @@ import (
 )
 
 type delayedInitSandbox struct {
-	delay time.Duration
+	delay           time.Duration
+	invokeCalled    bool
+	initCompletedAt time.Time
 }
 
 func (s *delayedInitSandbox) Init(*interop.Init, int64) {}
 
-func (s *delayedInitSandbox) AwaitInitCompletion() {
-	time.Sleep(s.delay)
+func (s *delayedInitSandbox) AwaitInitCompletion() time.Time {
+	if !s.invokeCalled {
+		panic("AwaitInitCompletion called before Invoke")
+	}
+	return s.initCompletedAt
 }
 
 func (s *delayedInitSandbox) Invoke(http.ResponseWriter, *interop.Invoke) error {
+	s.invokeCalled = true
+	time.Sleep(s.delay)
+	s.initCompletedAt = time.Now()
 	return nil
 }
 
 func TestInvokeHandlerReportsRuntimeInitDuration(t *testing.T) {
+	initMutex.Lock()
 	initDone = false
-	t.Cleanup(func() { initDone = false })
+	initMutex.Unlock()
+	t.Cleanup(func() {
+		initMutex.Lock()
+		initDone = false
+		initMutex.Unlock()
+	})
 
 	request := httptest.NewRequest(http.MethodPost, "/2015-03-31/functions/function/invocations", nil)
 	response := httptest.NewRecorder()

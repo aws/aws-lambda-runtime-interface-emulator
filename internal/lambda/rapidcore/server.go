@@ -72,6 +72,11 @@ type InvokeContext struct {
 	Direct      bool
 }
 
+type initCompletion struct {
+	done        chan struct{}
+	completedAt time.Time
+}
+
 type Server struct {
 	InternalStateGetter interop.InternalStateGetter
 
@@ -100,7 +105,7 @@ type Server struct {
 	initContext             interop.InitContext
 	invoker                 interop.InvokeContext
 	initFailures            chan interop.InitFailure
-	initCompleted           chan struct{}
+	initCompletion          *initCompletion
 	cachedInitErrorResponse *interop.ErrorInvokeResponse
 }
 
@@ -212,19 +217,20 @@ func (s *Server) Reserve(id string, traceID, lambdaSegmentID string) (*ReserveRe
 	return resp, err
 }
 
-func (s *Server) awaitInitCompletion() {
-	initSuccess, initFailure := s.initContext.Wait()
-	close(s.initCompleted)
+func (s *Server) awaitInitCompletion(initContext interop.InitContext, initFailures chan interop.InitFailure, completion *initCompletion) {
+	initSuccess, initFailure := initContext.Wait()
+	completion.completedAt = time.Now()
+	close(completion.done)
 	if initFailure != nil {
 		// In standalone, we don't have to block rapid start() goroutine until init failure is consumed
 		// because there is no channel back to the invoker until an invoke arrives via a Reserve()
 		initFailure.Ack <- struct{}{}
-		s.initFailures <- *initFailure
+		initFailures <- *initFailure
 	} else {
 		initSuccess.Ack <- struct{}{}
 	}
 	// always closing the channel makes this method idempotent
-	close(s.initFailures)
+	close(initFailures)
 }
 
 func (s *Server) setReplyStream(w http.ResponseWriter, direct bool) (string, error) {
@@ -502,10 +508,11 @@ func deadlineNsFromTimeoutMs(timeoutMs int64) int64 {
 	return mono + timeoutMs*1000*1000
 }
 
-func (s *Server) setInitFailuresChan() {
+func (s *Server) setInitFailuresChan() chan interop.InitFailure {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	s.initFailures = make(chan interop.InitFailure)
+	return s.initFailures
 }
 
 func (s *Server) getInitFailuresChan() chan interop.InitFailure {
@@ -514,21 +521,39 @@ func (s *Server) getInitFailuresChan() chan interop.InitFailure {
 	return s.initFailures
 }
 
+func (s *Server) setInitCompletion() *initCompletion {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.initCompletion = &initCompletion{done: make(chan struct{})}
+	return s.initCompletion
+}
+
+func (s *Server) getInitCompletion() *initCompletion {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	return s.initCompletion
+}
+
 func (s *Server) Init(i *interop.Init, invokeTimeoutMs int64) error {
 	s.SetInvokeTimeout(time.Duration(invokeTimeoutMs) * time.Millisecond)
 	s.setRapidPhase(phaseInitializing)
-	s.setInitFailuresChan()
-	s.initCompleted = make(chan struct{})
+	initFailures := s.setInitFailuresChan()
+	completion := s.setInitCompletion()
 	initCtx := s.sandboxContext.Init(i, invokeTimeoutMs)
 
 	s.initContext = initCtx
-	go s.awaitInitCompletion()
+	go s.awaitInitCompletion(initCtx, initFailures, completion)
 
 	return nil
 }
 
-func (s *Server) AwaitInitCompletion() {
-	<-s.initCompleted
+func (s *Server) AwaitInitCompletion() time.Time {
+	completion := s.getInitCompletion()
+	if completion == nil {
+		return time.Time{}
+	}
+	<-completion.done
+	return completion.completedAt
 }
 
 func (s *Server) FastInvoke(w http.ResponseWriter, i *interop.Invoke, direct bool) error {

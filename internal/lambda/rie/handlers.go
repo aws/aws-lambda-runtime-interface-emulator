@@ -14,6 +14,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/core/statejson"
@@ -28,7 +29,7 @@ import (
 
 type Sandbox interface {
 	Init(i *interop.Init, invokeTimeoutMs int64)
-	AwaitInitCompletion()
+	AwaitInitCompletion() time.Time
 	Invoke(responseWriter http.ResponseWriter, invoke *interop.Invoke) error
 }
 
@@ -45,7 +46,10 @@ type InteropServer interface {
 	Restore(restore *interop.Restore) error
 }
 
-var initDone bool
+var (
+	initDone  bool
+	initMutex sync.Mutex
+)
 
 func GetenvWithDefault(key string, defaultValue string) string {
 	envValue := os.Getenv(key)
@@ -75,6 +79,21 @@ func printEndReports(invokeId string, initDuration string, memorySize string, in
 		invokeId, invokeDuration, math.Ceil(invokeDuration), memorySize, memorySize)
 }
 
+func formatInitDuration(sandbox Sandbox, initStart time.Time, timeoutDuration time.Duration) string {
+	if initStart.IsZero() {
+		return ""
+	}
+
+	initEnd := sandbox.AwaitInitCompletion()
+	if initEnd.IsZero() {
+		return ""
+	}
+
+	initTimeMS := math.Min(float64(initEnd.Sub(initStart).Nanoseconds()),
+		float64(timeoutDuration.Nanoseconds())) / float64(time.Millisecond)
+	return fmt.Sprintf("Init Duration: %.2f ms\t", initTimeMS)
+}
+
 func InvokeHandler(w http.ResponseWriter, r *http.Request, sandbox Sandbox, bs interop.Bootstrap) {
 	log.Debugf("invoke: -> %s %s %v", r.Method, r.URL, r.Header)
 	bodyBytes, err := ioutil.ReadAll(r.Body)
@@ -91,7 +110,6 @@ func InvokeHandler(w http.ResponseWriter, r *http.Request, sandbox Sandbox, bs i
 		return
 	}
 
-	initDuration := ""
 	inv := GetenvWithDefault("AWS_LAMBDA_FUNCTION_TIMEOUT", "300")
 	timeoutDuration, _ := time.ParseDuration(inv + "s")
 	// Default
@@ -103,20 +121,14 @@ func InvokeHandler(w http.ResponseWriter, r *http.Request, sandbox Sandbox, bs i
 	functionVersion := GetenvWithDefault("AWS_LAMBDA_FUNCTION_VERSION", "$LATEST")
 	memorySize := GetenvWithDefault("AWS_LAMBDA_FUNCTION_MEMORY_SIZE", "3008")
 
+	var initStart time.Time
+	initMutex.Lock()
 	if !initDone {
-
-		initStart := InitHandler(sandbox, functionVersion, timeout, bs)
-		sandbox.AwaitInitCompletion()
-
-		// Calculate InitDuration
-		initTimeMS := math.Min(float64(time.Since(initStart).Nanoseconds()),
-			float64(timeoutDuration.Nanoseconds())) / float64(time.Millisecond)
-
-		initDuration = fmt.Sprintf("Init Duration: %.2f ms\t", initTimeMS)
-
+		initStart = InitHandler(sandbox, functionVersion, timeout, bs)
 		// Set initDone so next invokes do not try to Init the function again
 		initDone = true
 	}
+	initMutex.Unlock()
 
 	invokeStart := time.Now()
 	invokeID := r.Header.Get("X-Amzn-RequestId")
@@ -199,7 +211,7 @@ func InvokeHandler(w http.ResponseWriter, r *http.Request, sandbox Sandbox, bs i
 			w.WriteHeader(http.StatusGatewayTimeout)
 			return
 		case rapidcore.ErrInvokeTimeout:
-			printEndReports(invokePayload.ID, initDuration, memorySize, invokeStart, timeoutDuration)
+			printEndReports(invokePayload.ID, formatInitDuration(sandbox, initStart, timeoutDuration), memorySize, invokeStart, timeoutDuration)
 
 			w.Write([]byte(fmt.Sprintf("Task timed out after %d.00 seconds", timeout)))
 			time.Sleep(100 * time.Millisecond)
@@ -208,7 +220,7 @@ func InvokeHandler(w http.ResponseWriter, r *http.Request, sandbox Sandbox, bs i
 		}
 	}
 
-	printEndReports(invokePayload.ID, initDuration, memorySize, invokeStart, timeoutDuration)
+	printEndReports(invokePayload.ID, formatInitDuration(sandbox, initStart, timeoutDuration), memorySize, invokeStart, timeoutDuration)
 
 	if invokeResp.StatusCode != 0 {
 		w.WriteHeader(invokeResp.StatusCode)
