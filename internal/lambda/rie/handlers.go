@@ -101,7 +101,6 @@ func formatInitDuration(initStart time.Time, initEnd time.Time, timeoutDuration 
 		float64(timeoutDuration.Nanoseconds())) / float64(time.Millisecond)
 	return fmt.Sprintf("Init Duration: %.2f ms\t", initTimeMS)
 }
-
 func InvokeHandler(w http.ResponseWriter, r *http.Request, sandbox Sandbox, bs interop.Bootstrap) {
 	log.Debugf("invoke: -> %s %s %v", r.Method, r.URL, r.Header)
 	bodyBytes, err := ioutil.ReadAll(r.Body)
@@ -214,6 +213,9 @@ func InvokeHandler(w http.ResponseWriter, r *http.Request, sandbox Sandbox, bs i
 		case rapidcore.ErrInvokeTimeout:
 			initEnd := sandbox.AwaitInitCompletion()
 			initDuration := formatInitDuration(initStart, initEnd, timeoutDuration)
+			if !initStart.IsZero() && initEnd.After(invokeStart) {
+				invokeStart = initEnd
+			}
 			printEndReports(invokePayload.ID, initDuration, memorySize, invokeStart, timeoutDuration)
 
 			w.Write([]byte(fmt.Sprintf("Task timed out after %d.00 seconds", timeout)))

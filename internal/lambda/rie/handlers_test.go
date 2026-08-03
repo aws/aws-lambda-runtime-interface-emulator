@@ -19,7 +19,8 @@ import (
 )
 
 type delayedInitSandbox struct {
-	delay           time.Duration
+	initDelay       time.Duration
+	invokeDelay     time.Duration
 	invokeCalled    bool
 	initCompletedAt time.Time
 	invokeErr       error
@@ -36,8 +37,9 @@ func (s *delayedInitSandbox) AwaitInitCompletion() time.Time {
 
 func (s *delayedInitSandbox) Invoke(http.ResponseWriter, *interop.Invoke) error {
 	s.invokeCalled = true
-	time.Sleep(s.delay)
+	time.Sleep(s.initDelay)
 	s.initCompletedAt = time.Now()
+	time.Sleep(s.invokeDelay)
 	return s.invokeErr
 }
 
@@ -88,7 +90,7 @@ func TestInvokeHandlerReportsRuntimeInitDuration(t *testing.T) {
 
 	request := httptest.NewRequest(http.MethodPost, "/2015-03-31/functions/function/invocations", nil)
 	response := httptest.NewRecorder()
-	sandbox := &delayedInitSandbox{delay: 50 * time.Millisecond}
+	sandbox := &delayedInitSandbox{initDelay: 50 * time.Millisecond}
 
 	reader, writer, err := os.Pipe()
 	require.NoError(t, err)
@@ -129,7 +131,7 @@ func TestInvokeHandlerReportsInitDurationWhenInitTimesOut(t *testing.T) {
 	request := httptest.NewRequest(http.MethodPost, "/2015-03-31/functions/function/invocations", nil)
 	response := httptest.NewRecorder()
 	sandbox := &delayedInitSandbox{
-		delay:     10 * time.Millisecond,
+		initDelay: 50 * time.Millisecond,
 		invokeErr: rapidcore.ErrInvokeTimeout,
 	}
 
@@ -155,4 +157,94 @@ func TestInvokeHandlerReportsInitDurationWhenInitTimesOut(t *testing.T) {
 
 	matches = regexp.MustCompile(`\tDuration: ([0-9.]+) ms`).FindStringSubmatch(string(output))
 	require.Len(t, matches, 2)
+	durationMilliseconds, err := strconv.ParseFloat(matches[1], 64)
+	require.NoError(t, err)
+	require.Less(t, durationMilliseconds, float64(40))
+	require.LessOrEqual(t, initDurationMilliseconds+durationMilliseconds, float64(1020))
+}
+
+func TestInvokeHandlerSeparatesInitFromTimedOutInvocation(t *testing.T) {
+	initMutex.Lock()
+	initDone = false
+	initMutex.Unlock()
+	t.Cleanup(func() {
+		initMutex.Lock()
+		initDone = false
+		initMutex.Unlock()
+	})
+	t.Setenv("AWS_LAMBDA_FUNCTION_TIMEOUT", "1")
+
+	request := httptest.NewRequest(http.MethodPost, "/2015-03-31/functions/function/invocations", nil)
+	response := httptest.NewRecorder()
+	sandbox := &delayedInitSandbox{
+		initDelay:   50 * time.Millisecond,
+		invokeDelay: 50 * time.Millisecond,
+		invokeErr:   rapidcore.ErrInvokeTimeout,
+	}
+
+	reader, writer, err := os.Pipe()
+	require.NoError(t, err)
+	originalStdout := os.Stdout
+	os.Stdout = writer
+	t.Cleanup(func() { os.Stdout = originalStdout })
+
+	InvokeHandler(response, request, sandbox, nil)
+	require.NoError(t, writer.Close())
+	output, err := io.ReadAll(reader)
+	require.NoError(t, err)
+	require.NoError(t, reader.Close())
+
+	require.Equal(t, "Task timed out after 1.00 seconds", response.Body.String())
+	initMatches := regexp.MustCompile(`Init Duration: ([0-9.]+) ms`).FindStringSubmatch(string(output))
+	require.Len(t, initMatches, 2)
+	initDurationMilliseconds, err := strconv.ParseFloat(initMatches[1], 64)
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, initDurationMilliseconds, float64(40))
+
+	durationMatches := regexp.MustCompile(`\tDuration: ([0-9.]+) ms`).FindStringSubmatch(string(output))
+	require.Len(t, durationMatches, 2)
+	durationMilliseconds, err := strconv.ParseFloat(durationMatches[1], 64)
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, durationMilliseconds, float64(40))
+	require.Less(t, durationMilliseconds, float64(90))
+	require.LessOrEqual(t, initDurationMilliseconds+durationMilliseconds, float64(1020))
+}
+
+func TestInvokeHandlerReportsWarmTimeoutWithoutInitDuration(t *testing.T) {
+	initMutex.Lock()
+	initDone = true
+	initMutex.Unlock()
+	t.Cleanup(func() {
+		initMutex.Lock()
+		initDone = false
+		initMutex.Unlock()
+	})
+	t.Setenv("AWS_LAMBDA_FUNCTION_TIMEOUT", "1")
+
+	request := httptest.NewRequest(http.MethodPost, "/2015-03-31/functions/function/invocations", nil)
+	response := httptest.NewRecorder()
+	sandbox := &delayedInitSandbox{
+		invokeDelay: 50 * time.Millisecond,
+		invokeErr:   rapidcore.ErrInvokeTimeout,
+	}
+
+	reader, writer, err := os.Pipe()
+	require.NoError(t, err)
+	originalStdout := os.Stdout
+	os.Stdout = writer
+	t.Cleanup(func() { os.Stdout = originalStdout })
+
+	InvokeHandler(response, request, sandbox, nil)
+	require.NoError(t, writer.Close())
+	output, err := io.ReadAll(reader)
+	require.NoError(t, err)
+	require.NoError(t, reader.Close())
+
+	require.Equal(t, "Task timed out after 1.00 seconds", response.Body.String())
+	require.NotContains(t, string(output), "Init Duration:")
+	durationMatches := regexp.MustCompile(`\tDuration: ([0-9.]+) ms`).FindStringSubmatch(string(output))
+	require.Len(t, durationMatches, 2)
+	durationMilliseconds, err := strconv.ParseFloat(durationMatches[1], 64)
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, durationMilliseconds, float64(40))
 }
