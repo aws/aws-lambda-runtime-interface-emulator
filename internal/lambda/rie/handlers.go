@@ -28,6 +28,7 @@ import (
 
 type Sandbox interface {
 	Init(i *interop.Init, invokeTimeoutMs int64)
+	AwaitInitCompletion()
 	Invoke(responseWriter http.ResponseWriter, invoke *interop.Invoke) error
 }
 
@@ -104,10 +105,11 @@ func InvokeHandler(w http.ResponseWriter, r *http.Request, sandbox Sandbox, bs i
 
 	if !initDone {
 
-		initStart, initEnd := InitHandler(sandbox, functionVersion, timeout, bs)
+		initStart := InitHandler(sandbox, functionVersion, timeout, bs)
+		sandbox.AwaitInitCompletion()
 
 		// Calculate InitDuration
-		initTimeMS := math.Min(float64(initEnd.Sub(initStart).Nanoseconds()),
+		initTimeMS := math.Min(float64(time.Since(initStart).Nanoseconds()),
 			float64(timeoutDuration.Nanoseconds())) / float64(time.Millisecond)
 
 		initDuration = fmt.Sprintf("Init Duration: %.2f ms\t", initTimeMS)
@@ -214,7 +216,7 @@ func InvokeHandler(w http.ResponseWriter, r *http.Request, sandbox Sandbox, bs i
 	w.Write(invokeResp.Body)
 }
 
-func InitHandler(sandbox Sandbox, functionVersion string, timeout int64, bs interop.Bootstrap) (time.Time, time.Time) {
+func InitHandler(sandbox Sandbox, functionVersion string, timeout int64, bs interop.Bootstrap) time.Time {
 	additionalFunctionEnvironmentVariables := map[string]string{}
 
 	// Add default Env Vars if they were not defined. This is a required otherwise 1p Python2.7, Python3.6, and
@@ -252,6 +254,5 @@ func InitHandler(sandbox Sandbox, functionVersion string, timeout int64, bs inte
 		Bootstrap:                    bs,
 		EnvironmentVariables:         env.NewEnvironment(),
 	}, timeout*1000)
-	initEnd := time.Now()
-	return initStart, initEnd
+	return initStart
 }

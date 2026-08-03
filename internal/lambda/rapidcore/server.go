@@ -100,6 +100,7 @@ type Server struct {
 	initContext             interop.InitContext
 	invoker                 interop.InvokeContext
 	initFailures            chan interop.InitFailure
+	initCompleted           chan struct{}
 	cachedInitErrorResponse *interop.ErrorInvokeResponse
 }
 
@@ -213,6 +214,7 @@ func (s *Server) Reserve(id string, traceID, lambdaSegmentID string) (*ReserveRe
 
 func (s *Server) awaitInitCompletion() {
 	initSuccess, initFailure := s.initContext.Wait()
+	close(s.initCompleted)
 	if initFailure != nil {
 		// In standalone, we don't have to block rapid start() goroutine until init failure is consumed
 		// because there is no channel back to the invoker until an invoke arrives via a Reserve()
@@ -516,12 +518,17 @@ func (s *Server) Init(i *interop.Init, invokeTimeoutMs int64) error {
 	s.SetInvokeTimeout(time.Duration(invokeTimeoutMs) * time.Millisecond)
 	s.setRapidPhase(phaseInitializing)
 	s.setInitFailuresChan()
+	s.initCompleted = make(chan struct{})
 	initCtx := s.sandboxContext.Init(i, invokeTimeoutMs)
 
 	s.initContext = initCtx
 	go s.awaitInitCompletion()
 
 	return nil
+}
+
+func (s *Server) AwaitInitCompletion() {
+	<-s.initCompleted
 }
 
 func (s *Server) FastInvoke(w http.ResponseWriter, i *interop.Invoke, direct bool) error {
