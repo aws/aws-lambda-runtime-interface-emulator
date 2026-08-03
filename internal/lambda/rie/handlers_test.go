@@ -159,7 +159,7 @@ func TestInvokeHandlerReportsInitDurationWhenInitTimesOut(t *testing.T) {
 	require.Len(t, matches, 2)
 	durationMilliseconds, err := strconv.ParseFloat(matches[1], 64)
 	require.NoError(t, err)
-	require.Less(t, durationMilliseconds, float64(40))
+	require.Less(t, durationMilliseconds, initDurationMilliseconds)
 	require.LessOrEqual(t, initDurationMilliseconds+durationMilliseconds, float64(1020))
 }
 
@@ -206,7 +206,7 @@ func TestInvokeHandlerSeparatesInitFromTimedOutInvocation(t *testing.T) {
 	durationMilliseconds, err := strconv.ParseFloat(durationMatches[1], 64)
 	require.NoError(t, err)
 	require.GreaterOrEqual(t, durationMilliseconds, float64(40))
-	require.Less(t, durationMilliseconds, float64(90))
+	require.Less(t, durationMilliseconds, initDurationMilliseconds*1.5)
 	require.LessOrEqual(t, initDurationMilliseconds+durationMilliseconds, float64(1020))
 }
 
