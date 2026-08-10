@@ -143,6 +143,7 @@ func TestNewRieInvokeRequest(t *testing.T) {
 			if tt.want.invokeID == "" {
 				tt.want.invokeID = got.invokeID
 			}
+			tt.want.internalInvocationID = got.internalInvocationID
 
 			assert.Equal(t, tt.want, got)
 		})

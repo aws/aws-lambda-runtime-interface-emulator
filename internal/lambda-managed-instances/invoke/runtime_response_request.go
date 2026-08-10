@@ -31,6 +31,7 @@ type runtimeResponse struct {
 	contentType  string
 	invokeID     interop.InvokeID
 	responseMode string
+	invocationID string
 }
 
 func NewRuntimeResponse(ctx context.Context, request *http.Request, writer http.ResponseWriter, invokeID interop.InvokeID) runtimeResponse {
@@ -40,10 +41,11 @@ func NewRuntimeResponse(ctx context.Context, request *http.Request, writer http.
 		contentType = "application/octet-stream"
 	}
 	resp := runtimeResponse{
-		request:     request,
-		rc:          http.NewResponseController(writer),
-		contentType: contentType,
-		invokeID:    invokeID,
+		request:      request,
+		rc:           http.NewResponseController(writer),
+		contentType:  contentType,
+		invokeID:     invokeID,
+		invocationID: request.Header.Get(RuntimeInvocationIdHeader),
 	}
 
 	switch mode := request.Header.Get(RuntimeResponseModeHeader); mode {
@@ -85,6 +87,10 @@ func (r *runtimeResponse) Cancel() {
 
 func (r *runtimeResponse) ResponseMode() string {
 	return r.responseMode
+}
+
+func (r *runtimeResponse) InvocationID() string {
+	return r.invocationID
 }
 
 func (r *runtimeResponse) TrailerError() ErrorForInvoker {

@@ -42,6 +42,9 @@ func sendInvokeToRuntime(ctx context.Context, initData interop.InitStaticDataPro
 	if cogId := buildCognitoIdentifyHeader(invokeReq); cogId != "" {
 		runtimeReq.Header().Set(RuntimeCognitoIdentifyHeader, cogId)
 	}
+	if internalInvocationID := invokeReq.InternalInvocationID(); internalInvocationID != "" {
+		runtimeReq.Header().Set(RuntimeInvocationIdHeader, internalInvocationID)
+	}
 	runtimeReq.WriteHeader(http.StatusOK)
 
 	timedReader := &utils.TimedReader{

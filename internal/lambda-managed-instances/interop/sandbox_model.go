@@ -302,6 +302,8 @@ type InvokeRequest interface {
 
 	UpdateFromInitData(InitStaticDataProvider) model.AppError
 	FunctionVersionID() string
+
+	InternalInvocationID() string
 }
 
 type InitStaticDataProvider interface {
