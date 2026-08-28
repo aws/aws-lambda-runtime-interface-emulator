@@ -6,7 +6,7 @@ package testdata
 import (
 	"bytes"
 	"context"
-	"io/ioutil"
+	"io"
 	"time"
 
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/appctx"
@@ -32,7 +32,7 @@ type MockInteropServer struct {
 
 // SendResponse writes response to a shared memory.
 func (i *MockInteropServer) SendResponse(invokeID string, resp *interop.StreamableInvokeResponse) error {
-	bytes, err := ioutil.ReadAll(resp.Payload)
+	bytes, err := io.ReadAll(resp.Payload)
 	if err != nil {
 		return err
 	}
