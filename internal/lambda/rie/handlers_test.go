@@ -10,6 +10,7 @@ import (
 	"os"
 	"regexp"
 	"strconv"
+	"sync"
 	"testing"
 	"time"
 
@@ -227,6 +228,18 @@ func (s *hangingInitSandbox) AwaitInitCompletion() time.Time {
 	select {}
 }
 
+type writeNotifyRecorder struct {
+	*httptest.ResponseRecorder
+	wrote chan struct{}
+	once  sync.Once
+}
+
+func (r *writeNotifyRecorder) Write(p []byte) (int, error) {
+	n, err := r.ResponseRecorder.Write(p)
+	r.once.Do(func() { close(r.wrote) })
+	return n, err
+}
+
 func TestInvokeHandlerReportsWarmTimeoutWithoutInitDuration(t *testing.T) {
 	initMutex.Lock()
 	initDone = true
@@ -280,11 +293,14 @@ func TestInvokeHandlerOmitsInitDurationWhenCompletionHangs(t *testing.T) {
 	t.Setenv("AWS_LAMBDA_FUNCTION_TIMEOUT", "1")
 
 	originalGrace := initReportGracePeriod
-	initReportGracePeriod = 50 * time.Millisecond
+	initReportGracePeriod = 300 * time.Millisecond
 	t.Cleanup(func() { initReportGracePeriod = originalGrace })
 
 	request := httptest.NewRequest(http.MethodPost, "/2015-03-31/functions/function/invocations", nil)
-	response := httptest.NewRecorder()
+	response := &writeNotifyRecorder{
+		ResponseRecorder: httptest.NewRecorder(),
+		wrote:            make(chan struct{}),
+	}
 	sandbox := &hangingInitSandbox{
 		delayedInitSandbox: delayedInitSandbox{
 			initDelay: 20 * time.Millisecond,
@@ -305,6 +321,19 @@ func TestInvokeHandlerOmitsInitDurationWhenCompletionHangs(t *testing.T) {
 	}()
 
 	select {
+	case <-response.wrote:
+	case <-time.After(150 * time.Millisecond):
+		require.Fail(t, "timeout body was not written before init-completion wait")
+	}
+	require.Equal(t, "Task timed out after 1.00 seconds", response.Body.String())
+
+	select {
+	case <-done:
+		require.Fail(t, "handler returned before the init-completion grace period")
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	select {
 	case <-done:
 	case <-time.After(time.Second):
 		require.Fail(t, "handler hung waiting for init completion")
@@ -315,6 +344,5 @@ func TestInvokeHandlerOmitsInitDurationWhenCompletionHangs(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, reader.Close())
 
-	require.Equal(t, "Task timed out after 1.00 seconds", response.Body.String())
 	require.NotContains(t, string(output), "Init Duration:")
 }
