@@ -211,6 +211,22 @@ func TestInvokeHandlerSeparatesInitFromTimedOutInvocation(t *testing.T) {
 	require.LessOrEqual(t, initDurationMilliseconds+durationMilliseconds, elapsedMilliseconds)
 }
 
+type panicOnAwaitSandbox struct {
+	delayedInitSandbox
+}
+
+func (s *panicOnAwaitSandbox) AwaitInitCompletion() time.Time {
+	panic("AwaitInitCompletion should not be called on warm invokes")
+}
+
+type hangingInitSandbox struct {
+	delayedInitSandbox
+}
+
+func (s *hangingInitSandbox) AwaitInitCompletion() time.Time {
+	select {}
+}
+
 func TestInvokeHandlerReportsWarmTimeoutWithoutInitDuration(t *testing.T) {
 	initMutex.Lock()
 	initDone = true
@@ -224,9 +240,11 @@ func TestInvokeHandlerReportsWarmTimeoutWithoutInitDuration(t *testing.T) {
 
 	request := httptest.NewRequest(http.MethodPost, "/2015-03-31/functions/function/invocations", nil)
 	response := httptest.NewRecorder()
-	sandbox := &delayedInitSandbox{
-		invokeDelay: 50 * time.Millisecond,
-		invokeErr:   rapidcore.ErrInvokeTimeout,
+	sandbox := &panicOnAwaitSandbox{
+		delayedInitSandbox: delayedInitSandbox{
+			invokeDelay: 50 * time.Millisecond,
+			invokeErr:   rapidcore.ErrInvokeTimeout,
+		},
 	}
 
 	reader, writer, err := os.Pipe()
@@ -248,4 +266,55 @@ func TestInvokeHandlerReportsWarmTimeoutWithoutInitDuration(t *testing.T) {
 	durationMilliseconds, err := strconv.ParseFloat(durationMatches[1], 64)
 	require.NoError(t, err)
 	require.GreaterOrEqual(t, durationMilliseconds, float64(40))
+}
+
+func TestInvokeHandlerOmitsInitDurationWhenCompletionHangs(t *testing.T) {
+	initMutex.Lock()
+	initDone = false
+	initMutex.Unlock()
+	t.Cleanup(func() {
+		initMutex.Lock()
+		initDone = false
+		initMutex.Unlock()
+	})
+	t.Setenv("AWS_LAMBDA_FUNCTION_TIMEOUT", "1")
+
+	originalGrace := initReportGracePeriod
+	initReportGracePeriod = 50 * time.Millisecond
+	t.Cleanup(func() { initReportGracePeriod = originalGrace })
+
+	request := httptest.NewRequest(http.MethodPost, "/2015-03-31/functions/function/invocations", nil)
+	response := httptest.NewRecorder()
+	sandbox := &hangingInitSandbox{
+		delayedInitSandbox: delayedInitSandbox{
+			initDelay: 20 * time.Millisecond,
+			invokeErr: rapidcore.ErrInvokeTimeout,
+		},
+	}
+
+	reader, writer, err := os.Pipe()
+	require.NoError(t, err)
+	originalStdout := os.Stdout
+	os.Stdout = writer
+	t.Cleanup(func() { os.Stdout = originalStdout })
+
+	done := make(chan struct{})
+	go func() {
+		InvokeHandler(response, request, sandbox, nil)
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		require.Fail(t, "handler hung waiting for init completion")
+	}
+
+	require.NoError(t, writer.Close())
+	output, err := io.ReadAll(reader)
+	require.NoError(t, err)
+	require.NoError(t, reader.Close())
+
+	require.Equal(t, "Task timed out after 1.00 seconds", response.Body.String())
+	require.NotContains(t, string(output), "Init Duration:")
 }

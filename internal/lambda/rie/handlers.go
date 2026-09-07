@@ -102,10 +102,39 @@ func formatInitDuration(initStart time.Time, initEnd time.Time, timeoutDuration 
 	return fmt.Sprintf("Init Duration: %.2f ms\t", initTimeMS)
 }
 
+// initReportGracePeriod bounds the post-invoke wait for init completion.
+// Rapid's reset path is capped at 2s; this is slightly larger so a normal
+// timeout-during-init still records Init Duration, while a stuck init omits
+// that field instead of hanging the HTTP handler.
+var initReportGracePeriod = 2500 * time.Millisecond
+
+func awaitInitCompletionWithin(sandbox Sandbox, timeout time.Duration) time.Time {
+	result := make(chan time.Time, 1)
+	go func() {
+		result <- sandbox.AwaitInitCompletion()
+	}()
+
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+
+	select {
+	case initEnd := <-result:
+		return initEnd
+	case <-timer.C:
+		log.Warn("Timed out waiting for init completion; omitting Init Duration from REPORT")
+		return time.Time{}
+	}
+}
+
 func printInvokeReport(sandbox Sandbox, invokeID string, initStart time.Time, invokeStart time.Time, memorySize string, timeoutDuration time.Duration) {
-	initEnd := sandbox.AwaitInitCompletion()
+	if initStart.IsZero() {
+		printEndReports(invokeID, "", memorySize, invokeStart, timeoutDuration)
+		return
+	}
+
+	initEnd := awaitInitCompletionWithin(sandbox, initReportGracePeriod)
 	initDuration := formatInitDuration(initStart, initEnd, timeoutDuration)
-	if !initStart.IsZero() && initEnd.After(invokeStart) {
+	if initEnd.After(invokeStart) {
 		invokeStart = initEnd
 	}
 	printEndReports(invokeID, initDuration, memorySize, invokeStart, timeoutDuration)
