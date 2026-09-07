@@ -61,9 +61,13 @@ func GetenvWithDefault(key string, defaultValue string) string {
 	return envValue
 }
 
-func printEndReports(invokeId string, initDuration string, memorySize string, invokeStart time.Time, timeoutDuration time.Duration) {
+func printEndReports(invokeId string, initDuration string, memorySize string, invokeStart time.Time, invokeEnd time.Time, timeoutDuration time.Duration) {
 	// Calcuation invoke duration
-	invokeDuration := math.Min(float64(time.Now().Sub(invokeStart).Nanoseconds()),
+	elapsed := invokeEnd.Sub(invokeStart)
+	if elapsed < 0 {
+		elapsed = 0
+	}
+	invokeDuration := math.Min(float64(elapsed.Nanoseconds()),
 		float64(timeoutDuration.Nanoseconds())) / float64(time.Millisecond)
 
 	fmt.Println("END RequestId: " + invokeId)
@@ -127,8 +131,9 @@ func awaitInitCompletionWithin(sandbox Sandbox, timeout time.Duration) time.Time
 }
 
 func printInvokeReport(sandbox Sandbox, invokeID string, initStart time.Time, invokeStart time.Time, memorySize string, timeoutDuration time.Duration) {
+	invokeEnd := time.Now()
 	if initStart.IsZero() {
-		printEndReports(invokeID, "", memorySize, invokeStart, timeoutDuration)
+		printEndReports(invokeID, "", memorySize, invokeStart, invokeEnd, timeoutDuration)
 		return
 	}
 
@@ -137,7 +142,7 @@ func printInvokeReport(sandbox Sandbox, invokeID string, initStart time.Time, in
 	if initEnd.After(invokeStart) {
 		invokeStart = initEnd
 	}
-	printEndReports(invokeID, initDuration, memorySize, invokeStart, timeoutDuration)
+	printEndReports(invokeID, initDuration, memorySize, invokeStart, invokeEnd, timeoutDuration)
 }
 
 func InvokeHandler(w http.ResponseWriter, r *http.Request, sandbox Sandbox, bs interop.Bootstrap) {
@@ -251,6 +256,9 @@ func InvokeHandler(w http.ResponseWriter, r *http.Request, sandbox Sandbox, bs i
 			return
 		case rapidcore.ErrInvokeTimeout:
 			w.Write([]byte(fmt.Sprintf("Task timed out after %d.00 seconds", timeout)))
+			if flusher, ok := w.(http.Flusher); ok {
+				flusher.Flush()
+			}
 			printInvokeReport(sandbox, invokePayload.ID, initStart, invokeStart, memorySize, timeoutDuration)
 			time.Sleep(100 * time.Millisecond)
 			//initDone = false

@@ -234,10 +234,9 @@ type writeNotifyRecorder struct {
 	once  sync.Once
 }
 
-func (r *writeNotifyRecorder) Write(p []byte) (int, error) {
-	n, err := r.ResponseRecorder.Write(p)
+func (r *writeNotifyRecorder) Flush() {
+	r.ResponseRecorder.Flush()
 	r.once.Do(func() { close(r.wrote) })
-	return n, err
 }
 
 func TestInvokeHandlerReportsWarmTimeoutWithoutInitDuration(t *testing.T) {
@@ -323,7 +322,7 @@ func TestInvokeHandlerOmitsInitDurationWhenCompletionHangs(t *testing.T) {
 	select {
 	case <-response.wrote:
 	case <-time.After(150 * time.Millisecond):
-		require.Fail(t, "timeout body was not written before init-completion wait")
+		require.Fail(t, "timeout body was not flushed before init-completion wait")
 	}
 	require.Equal(t, "Task timed out after 1.00 seconds", response.Body.String())
 
@@ -345,4 +344,9 @@ func TestInvokeHandlerOmitsInitDurationWhenCompletionHangs(t *testing.T) {
 	require.NoError(t, reader.Close())
 
 	require.NotContains(t, string(output), "Init Duration:")
+	durationMatches := regexp.MustCompile(`\tDuration: ([0-9.]+) ms`).FindStringSubmatch(string(output))
+	require.Len(t, durationMatches, 2)
+	durationMilliseconds, err := strconv.ParseFloat(durationMatches[1], 64)
+	require.NoError(t, err)
+	require.Less(t, durationMilliseconds, float64(150))
 }
