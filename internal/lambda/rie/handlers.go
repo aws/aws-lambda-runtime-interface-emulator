@@ -14,6 +14,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/core/statejson"
@@ -28,6 +29,7 @@ import (
 
 type Sandbox interface {
 	Init(i *interop.Init, invokeTimeoutMs int64)
+	AwaitInitCompletion() time.Time
 	Invoke(responseWriter http.ResponseWriter, invoke *interop.Invoke) error
 }
 
@@ -44,7 +46,10 @@ type InteropServer interface {
 	Restore(restore *interop.Restore) error
 }
 
-var initDone bool
+var (
+	initDone  bool
+	initMutex sync.Mutex
+)
 
 func GetenvWithDefault(key string, defaultValue string) string {
 	envValue := os.Getenv(key)
@@ -56,9 +61,13 @@ func GetenvWithDefault(key string, defaultValue string) string {
 	return envValue
 }
 
-func printEndReports(invokeId string, initDuration string, memorySize string, invokeStart time.Time, timeoutDuration time.Duration) {
+func printEndReports(invokeId string, initDuration string, memorySize string, invokeStart time.Time, invokeEnd time.Time, timeoutDuration time.Duration) {
 	// Calcuation invoke duration
-	invokeDuration := math.Min(float64(time.Now().Sub(invokeStart).Nanoseconds()),
+	elapsed := invokeEnd.Sub(invokeStart)
+	if elapsed < 0 {
+		elapsed = 0
+	}
+	invokeDuration := math.Min(float64(elapsed.Nanoseconds()),
 		float64(timeoutDuration.Nanoseconds())) / float64(time.Millisecond)
 
 	fmt.Println("END RequestId: " + invokeId)
@@ -72,6 +81,68 @@ func printEndReports(invokeId string, initDuration string, memorySize string, in
 			"Memory Size: %s MB\t"+
 			"Max Memory Used: %s MB\t\n",
 		invokeId, invokeDuration, math.Ceil(invokeDuration), memorySize, memorySize)
+}
+
+func startInitOnce(sandbox Sandbox, functionVersion string, timeout int64, bs interop.Bootstrap) time.Time {
+	initMutex.Lock()
+	defer initMutex.Unlock()
+
+	if initDone {
+		return time.Time{}
+	}
+
+	initStart := InitHandler(sandbox, functionVersion, timeout, bs)
+	initDone = true
+	return initStart
+}
+
+func formatInitDuration(initStart time.Time, initEnd time.Time, timeoutDuration time.Duration) string {
+	if initStart.IsZero() || initEnd.IsZero() {
+		return ""
+	}
+
+	initTimeMS := math.Min(float64(initEnd.Sub(initStart).Nanoseconds()),
+		float64(timeoutDuration.Nanoseconds())) / float64(time.Millisecond)
+	return fmt.Sprintf("Init Duration: %.2f ms\t", initTimeMS)
+}
+
+// initReportGracePeriod bounds the post-invoke wait for init completion.
+// Rapid's reset path is capped at 2s; this is slightly larger so a normal
+// timeout-during-init still records Init Duration, while a stuck init omits
+// that field instead of hanging the HTTP handler.
+var initReportGracePeriod = 2500 * time.Millisecond
+
+func awaitInitCompletionWithin(sandbox Sandbox, timeout time.Duration) time.Time {
+	result := make(chan time.Time, 1)
+	go func() {
+		result <- sandbox.AwaitInitCompletion()
+	}()
+
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+
+	select {
+	case initEnd := <-result:
+		return initEnd
+	case <-timer.C:
+		log.Warn("Timed out waiting for init completion; omitting Init Duration from REPORT")
+		return time.Time{}
+	}
+}
+
+func printInvokeReport(sandbox Sandbox, invokeID string, initStart time.Time, invokeStart time.Time, memorySize string, timeoutDuration time.Duration) {
+	invokeEnd := time.Now()
+	if initStart.IsZero() {
+		printEndReports(invokeID, "", memorySize, invokeStart, invokeEnd, timeoutDuration)
+		return
+	}
+
+	initEnd := awaitInitCompletionWithin(sandbox, initReportGracePeriod)
+	initDuration := formatInitDuration(initStart, initEnd, timeoutDuration)
+	if initEnd.After(invokeStart) {
+		invokeStart = initEnd
+	}
+	printEndReports(invokeID, initDuration, memorySize, invokeStart, invokeEnd, timeoutDuration)
 }
 
 func InvokeHandler(w http.ResponseWriter, r *http.Request, sandbox Sandbox, bs interop.Bootstrap) {
@@ -90,7 +161,6 @@ func InvokeHandler(w http.ResponseWriter, r *http.Request, sandbox Sandbox, bs i
 		return
 	}
 
-	initDuration := ""
 	inv := GetenvWithDefault("AWS_LAMBDA_FUNCTION_TIMEOUT", "300")
 	timeoutDuration, _ := time.ParseDuration(inv + "s")
 	// Default
@@ -102,19 +172,7 @@ func InvokeHandler(w http.ResponseWriter, r *http.Request, sandbox Sandbox, bs i
 	functionVersion := GetenvWithDefault("AWS_LAMBDA_FUNCTION_VERSION", "$LATEST")
 	memorySize := GetenvWithDefault("AWS_LAMBDA_FUNCTION_MEMORY_SIZE", "3008")
 
-	if !initDone {
-
-		initStart, initEnd := InitHandler(sandbox, functionVersion, timeout, bs)
-
-		// Calculate InitDuration
-		initTimeMS := math.Min(float64(initEnd.Sub(initStart).Nanoseconds()),
-			float64(timeoutDuration.Nanoseconds())) / float64(time.Millisecond)
-
-		initDuration = fmt.Sprintf("Init Duration: %.2f ms\t", initTimeMS)
-
-		// Set initDone so next invokes do not try to Init the function again
-		initDone = true
-	}
+	initStart := startInitOnce(sandbox, functionVersion, timeout, bs)
 
 	invokeStart := time.Now()
 	invokeID := r.Header.Get("X-Amzn-RequestId")
@@ -197,16 +255,18 @@ func InvokeHandler(w http.ResponseWriter, r *http.Request, sandbox Sandbox, bs i
 			w.WriteHeader(http.StatusGatewayTimeout)
 			return
 		case rapidcore.ErrInvokeTimeout:
-			printEndReports(invokePayload.ID, initDuration, memorySize, invokeStart, timeoutDuration)
-
 			w.Write([]byte(fmt.Sprintf("Task timed out after %d.00 seconds", timeout)))
+			if flusher, ok := w.(http.Flusher); ok {
+				flusher.Flush()
+			}
+			printInvokeReport(sandbox, invokePayload.ID, initStart, invokeStart, memorySize, timeoutDuration)
 			time.Sleep(100 * time.Millisecond)
 			//initDone = false
 			return
 		}
 	}
 
-	printEndReports(invokePayload.ID, initDuration, memorySize, invokeStart, timeoutDuration)
+	printInvokeReport(sandbox, invokePayload.ID, initStart, invokeStart, memorySize, timeoutDuration)
 
 	if invokeResp.StatusCode != 0 {
 		w.WriteHeader(invokeResp.StatusCode)
@@ -214,7 +274,7 @@ func InvokeHandler(w http.ResponseWriter, r *http.Request, sandbox Sandbox, bs i
 	w.Write(invokeResp.Body)
 }
 
-func InitHandler(sandbox Sandbox, functionVersion string, timeout int64, bs interop.Bootstrap) (time.Time, time.Time) {
+func InitHandler(sandbox Sandbox, functionVersion string, timeout int64, bs interop.Bootstrap) time.Time {
 	additionalFunctionEnvironmentVariables := map[string]string{}
 
 	// Add default Env Vars if they were not defined. This is a required otherwise 1p Python2.7, Python3.6, and
@@ -252,6 +312,5 @@ func InitHandler(sandbox Sandbox, functionVersion string, timeout int64, bs inte
 		Bootstrap:                    bs,
 		EnvironmentVariables:         env.NewEnvironment(),
 	}, timeout*1000)
-	initEnd := time.Now()
-	return initStart, initEnd
+	return initStart
 }
