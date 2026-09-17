@@ -6,10 +6,17 @@ documentation, we greatly value feedback and contributions from our community.
 Please read through this document before submitting any issues or pull requests to ensure we have all the necessary
 information to effectively respond to your bug report or contribution.
 
+**Please note:** this repository is generated from an internal AWS source of truth, which means we are unable to merge
+pull requests into it directly. We very much still want your input -- see
+[How we handle contributions](#how-we-handle-contributions) for what happens to an issue or pull request you open, and
+how you get credit for a change we adopt.
+
 
 ## Reporting Bugs/Feature Requests
 
-We welcome you to use the GitHub issue tracker to report bugs or suggest features.
+We welcome you to use the GitHub issue tracker to report bugs or suggest features. Issues are the most effective way to
+reach us: a feature request that describes your use case can be picked up and implemented, whereas a pull request cannot
+be merged as-is.
 
 When filing an issue, please check existing open, or recently closed, issues to make sure somebody else hasn't already
 reported the issue. Please try to include as much information as you can. Details like these are incredibly useful:
@@ -20,25 +27,34 @@ reported the issue. Please try to include as much information as you can. Detail
 * Anything unusual about your environment or deployment
 
 
-## Contributing via Pull Requests
-This repository contains the source code and examples for the Runtime Interface Emulator. We will accept pull requests on documentation, examples, bug fixes and the Dockerfiles. We will also accept pull requests, issues and feedback on improvements to the Runtime Interface Emulator. However, our priority will be to maintain fidelity with AWS Lambda’s Runtime Interface on the cloud. 
+## How we handle contributions
 
-Contributions via pull requests are much appreciated. Before sending us a pull request, please ensure that:
+This repository contains the source code and examples for the Runtime Interface Emulator. The code here is generated from
+an internal AWS repository, which is the source of truth, and changes flow outward from there. Because of that we cannot
+merge a pull request into this repository, even one we agree with.
 
-1. You are working against the latest source on the *main* branch.
-2. You check existing open, and recently merged, pull requests to make sure someone else hasn't addressed the problem already.
-3. You open an issue to discuss any significant work - we would hate for your time to be wasted.
+That does not mean we don't want it. Here is what each kind of contribution gets you:
 
-To send us a pull request, please:
+* **Feature requests and bug reports are welcome, and are the most useful thing you can send us.** Open an issue
+  describing the behaviour you want and the use case behind it. Our priority is maintaining fidelity with AWS Lambda's
+  Runtime Interface in the cloud, so a clear use case is what lets us weigh a change against that.
+* **Pull requests are welcome as a reference.** We read them, and a working patch is often the clearest way to explain a
+  proposal. It will not be merged directly. If we adopt your solution, we make the corresponding change in the internal
+  repository, and it reaches this repository through the next sync.
+* **If we adopt your change, we credit you in the release notes** for the version that ships it.
 
-1. Fork the repository.
-2. Modify the source; please focus on the specific change you are contributing. If you also reformat all the code, it will be hard for us to focus on your change.
-3. Ensure local tests pass through `make integ-tests-and-compile`
-4. Commit to your fork using clear commit messages.
-5. Send us a pull request, answering any default questions in the pull request interface.
+So that we can act on a pull request, please:
+
+1. Open an issue first to discuss any significant work -- we would hate for your time to be wasted on something we
+   cannot take.
+2. Work against the latest source on the *main* branch.
+3. Check existing open, and recently closed, pull requests and issues to make sure someone else hasn't raised it already.
+4. Focus on the specific change you are proposing. If you also reformat all the code, it will be hard for us to see what
+   you are actually suggesting.
+5. Ensure local tests pass through `make integ-tests-and-compile`.
 6. Pay attention to any automated CI failures reported in the pull request, and stay involved in the conversation.
 
-GitHub provides additional document on [forking a repository](https://help.github.com/articles/fork-a-repo/) and
+GitHub provides additional documentation on [forking a repository](https://help.github.com/articles/fork-a-repo/) and
 [creating a pull request](https://help.github.com/articles/creating-a-pull-request/).
 
 
@@ -58,4 +74,5 @@ If you discover a potential security issue in this project we ask that you notif
 
 ## Licensing
 
-See the [LICENSE](LICENSE) file for our project's licensing. We will ask you to confirm the licensing of your contribution.
+See the [LICENSE](LICENSE) file for our project's licensing. We will ask you to confirm the licensing of your
+contribution, including for a pull request we adopt rather than merge.
