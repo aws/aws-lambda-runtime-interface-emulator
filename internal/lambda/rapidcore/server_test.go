@@ -12,10 +12,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/core/statejson"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/interop"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/rapidcore/env"
+	"github.com/stretchr/testify/require"
 )
 
 func waitForChanWithTimeout(channel <-chan error, timeout time.Duration) error {
@@ -131,6 +131,49 @@ func TestInitSuccess(t *testing.T) {
 
 	_, err := srv.Reserve("", "", "")
 	require.NoError(t, err)
+}
+
+func TestAwaitInitCompletionWaitsWithoutConsumingFailure(t *testing.T) {
+	srv := NewServer()
+	srv.SetInternalStateGetter(func() statejson.InternalStateDescription { return statejson.InternalStateDescription{} })
+
+	releaseRuntimeInit := make(chan struct{})
+	initHandler := func(successResp chan<- interop.InitSuccess, failureResp chan<- interop.InitFailure) {
+		<-releaseRuntimeInit
+		sendInitFailureResponse(failureResp, interop.InitFailure{})
+	}
+	srv.SetSandboxContext(&SandboxContext{&mockRapidCtx{
+		initHandler,
+		func() (interop.InvokeSuccess, *interop.InvokeFailure) { return interop.InvokeSuccess{}, nil },
+		func() (interop.ResetSuccess, *interop.ResetFailure) { return interop.ResetSuccess{}, nil },
+	}, "handler", "runtimeAPIhost:999", "test-token"})
+
+	srv.Init(&interop.Init{EnvironmentVariables: env.NewEnvironment()}, int64(time.Second/time.Millisecond))
+	initCompleted := make(chan struct{})
+	var completedAt time.Time
+	go func() {
+		completedAt = srv.AwaitInitCompletion()
+		close(initCompleted)
+	}()
+
+	select {
+	case <-initCompleted:
+		require.Fail(t, "init completion returned before runtime initialization finished")
+	case <-time.After(10 * time.Millisecond):
+	}
+
+	close(releaseRuntimeInit)
+	select {
+	case <-initCompleted:
+	case <-time.After(time.Second):
+		require.Fail(t, "timed out waiting for init completion")
+	}
+	require.False(t, completedAt.IsZero())
+	require.ErrorIs(t, srv.AwaitInitialized(), ErrInitDoneFailed)
+}
+
+func TestAwaitInitCompletionBeforeInitReturnsZeroTime(t *testing.T) {
+	require.True(t, NewServer().AwaitInitCompletion().IsZero())
 }
 
 func TestInitErrorBeforeReserve(t *testing.T) {

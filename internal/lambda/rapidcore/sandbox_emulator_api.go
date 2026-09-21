@@ -7,11 +7,13 @@ import (
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/interop"
 
 	"net/http"
+	"time"
 )
 
 // LambdaInvokeAPI are the methods used by the Runtime Interface Emulator
 type LambdaInvokeAPI interface {
 	Init(i *interop.Init, invokeTimeoutMs int64)
+	AwaitInitCompletion() time.Time
 	Invoke(responseWriter http.ResponseWriter, invoke *interop.Invoke) error
 }
 
@@ -45,6 +47,10 @@ func (l *EmulatorAPI) Init(i *interop.Init, timeoutMs int64) {
 		Bootstrap:                    i.Bootstrap,
 		EnvironmentVariables:         i.EnvironmentVariables,
 	}, timeoutMs)
+}
+
+func (l *EmulatorAPI) AwaitInitCompletion() time.Time {
+	return l.server.AwaitInitCompletion()
 }
 
 // Invoke method is only used by the Runtime interface emulator
