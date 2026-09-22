@@ -6,6 +6,7 @@ package test
 import (
 	"io"
 	"net/http"
+	"net/http/httptrace"
 	"os"
 	"strings"
 	"sync"
@@ -210,12 +211,31 @@ func TestRie_InvokeWaitingForInitError(t *testing.T) {
 	server, rieHandler, _, err := internal.Run(supv, args, mockFileUtil, sigCh)
 	require.NoError(t, err)
 
-	var wg sync.WaitGroup
-	wg.Add(1)
+	req, err := http.NewRequest(http.MethodPost, "http://"+server.Addr.String()+"/2015-03-31/functions/function/invocations", strings.NewReader("{}"))
+	require.NoError(t, err)
+	req.Header.Set("Content-Type", "application/json")
+
+	// Closed once the invoke request has been written out, so that the test never has to
+	// guess how long the invoke goroutine takes to get scheduled.
+	requestSent := make(chan struct{})
+	var requestSentOnce sync.Once
+	req = req.WithContext(httptrace.WithClientTrace(req.Context(), &httptrace.ClientTrace{
+		WroteRequest: func(httptrace.WroteRequestInfo) {
+			requestSentOnce.Do(func() { close(requestSent) })
+		},
+	}))
+
+	invokeDone := make(chan struct{})
 	go func() {
-		resp, err := http.Post("http://"+server.Addr.String()+"/2015-03-31/functions/function/invocations", "application/json", strings.NewReader("{}"))
-		require.NoError(t, err)
-		defer func() { require.NoError(t, resp.Body.Close()) }()
+		// This is not the test goroutine, so it must only use assert: a failed require would
+		// end the goroutine via runtime.Goexit and leave the test blocked on invokeDone.
+		defer close(invokeDone)
+
+		resp, err := http.DefaultClient.Do(req)
+		if !assert.NoError(t, err) {
+			return
+		}
+		defer func() { assert.NoError(t, resp.Body.Close()) }()
 
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 
@@ -228,22 +248,37 @@ func TestRie_InvokeWaitingForInitError(t *testing.T) {
 		}
 
 		body, err := io.ReadAll(resp.Body)
-		require.NoError(t, err)
+		if !assert.NoError(t, err) {
+			return
+		}
 		assert.JSONEq(t, `{"errorType":"Runtime.ExitError"}`, string(body))
-
-		wg.Done()
 	}()
 
-	time.Sleep(200 * time.Millisecond)
+	// The invoke request is what triggers initialization here, so waiting for it to be sent
+	// before touching the handler keeps the invoke in flight while init runs and fails.
+	waitForClose(t, requestSent, "invoke request was never sent")
+	waitForClose(t, server.Done(), "server did not shut down after the init error")
+
 	initErr := rieHandler.Init()
 	require.Error(t, initErr)
 
-	<-server.Done()
 	serverErr := server.Err()
 	assert.Error(t, serverErr)
 	assert.Equal(t, initErr, serverErr)
 
-	wg.Wait()
+	waitForClose(t, invokeDone, "invoke request did not complete")
+}
+
+// waitForClose blocks until ch is closed and fails the test instead of letting the whole
+// package hit the go test timeout when it never is.
+func waitForClose(t *testing.T, ch <-chan struct{}, msg string) {
+	t.Helper()
+
+	select {
+	case <-ch:
+	case <-time.After(30 * time.Second):
+		t.Fatal(msg)
+	}
 }
 
 func TestRie_InvokeFatalError(t *testing.T) {
@@ -475,11 +510,18 @@ func TestRIE_TelemetryAPI(t *testing.T) {
 				},
 			}
 
+			const expectedLogLines = 6
+
 			for _, mock := range []*functional.InMemoryEventsApi{httpEventsApi, tcpEventsApi} {
+				// Log lines are relayed to subscribers asynchronously and are not guaranteed to
+				// have all been delivered by the time the server reports itself shut down.
+				require.Eventually(t, func() bool { return len(mock.LogLines()) == expectedLogLines },
+					10*time.Second, 10*time.Millisecond,
+					"expected %d log lines to be delivered over the Telemetry API", expectedLogLines)
+
 				mock.CheckSimpleInitExpectations(initStartTime, initFinishTime, expectedInitEvents, initPayload)
 				mock.CheckSimpleExtensionExpectations(expectedExtensionEvents)
 				mock.CheckSimpleInvokeExpectations(invokeStartTime, invokeFinishTime, invokeID, expectedInvokeEvents, initPayload)
-				assert.Len(t, mock.LogLines(), 6)
 			}
 		})
 	}
