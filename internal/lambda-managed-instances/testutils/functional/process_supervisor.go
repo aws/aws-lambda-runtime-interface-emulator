@@ -148,6 +148,7 @@ func (r *RuntimeExecutionEnvironment) executeEnvActions(client *Client, t *testi
 			if a.InvokeID == "" {
 				a.InvokeID = r.InvokeID
 			}
+
 			if a.ResponseHeaders == nil && r.InvocationID != "" {
 				a.ResponseHeaders = map[string]string{invoke.RuntimeInvocationIdHeader: r.InvocationID}
 			}
@@ -161,6 +162,7 @@ func (r *RuntimeExecutionEnvironment) executeEnvActions(client *Client, t *testi
 			if a.InvokeID == "" {
 				a.InvokeID = r.InvokeID
 			}
+
 			if a.ResponseHeaders == nil && r.InvocationID != "" {
 				a.ResponseHeaders = map[string]string{invoke.RuntimeInvocationIdHeader: r.InvocationID}
 			}

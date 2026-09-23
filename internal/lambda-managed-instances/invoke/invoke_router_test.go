@@ -62,7 +62,7 @@ func hijackInvokeRouterDeps(router *InvokeRouter, mocks *invokeRouterMocks) {
 
 func createMocksAndInitRouter() (*invokeRouterMocks, *InvokeRouter) {
 	mocks := newInvokeRouterMocks()
-	router := NewInvokeRouter(testInvokeRouterMaxIdleRuntime, &telemetry.NoOpEventsAPI{}, nil, mocks.timeoutCache)
+	router := NewInvokeRouter(testInvokeRouterMaxIdleRuntime, &telemetry.NoOpEventsAPI{}, mocks.timeoutCache)
 	hijackInvokeRouterDeps(router, &mocks)
 
 	return &mocks, router
@@ -96,7 +96,7 @@ func TestInvokeSuccess(t *testing.T) {
 	mocks.invokeMetrics.On("UpdateConcurrencyMetrics", 0, 1)
 
 	mocks.eaInvokeRequest.On("InvokeID").Return("123456")
-	mocks.runnningInvoke.On("RunInvokeAndSendResult", mock.Anything, &mocks.staticData, &mocks.eaInvokeRequest, mock.Anything).Run(func(args mock.Arguments) {
+	mocks.runnningInvoke.On("RunInvokeAndSendResult", mock.Anything, &mocks.staticData, &mocks.eaInvokeRequest, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 
 		close(syncChan)
 
@@ -112,7 +112,7 @@ func TestInvokeSuccess(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		err, wasResponseSent := router.Invoke(mocks.ctx, &mocks.staticData, &mocks.eaInvokeRequest, &mocks.invokeMetrics)
+		err, wasResponseSent := router.Invoke(mocks.ctx, &mocks.staticData, &mocks.eaInvokeRequest, &mocks.invokeMetrics, nil)
 		assert.NoError(t, err)
 		assert.True(t, wasResponseSent)
 	}()
@@ -138,7 +138,7 @@ func TestInvokeFailure_NoIdleRuntime(t *testing.T) {
 
 	mocks.eaInvokeRequest.On("InvokeID").Return("123456")
 
-	err, wasResponseSent := router.Invoke(mocks.ctx, &mocks.staticData, &mocks.eaInvokeRequest, &mocks.invokeMetrics)
+	err, wasResponseSent := router.Invoke(mocks.ctx, &mocks.staticData, &mocks.eaInvokeRequest, &mocks.invokeMetrics, nil)
 	assert.Error(t, err)
 	assert.False(t, wasResponseSent)
 	assert.Equal(t, model.ErrorRuntimeUnavailable, err.ErrorType())
@@ -165,7 +165,7 @@ func TestInvokeFailure_DublicatedInvokeId(t *testing.T) {
 	mocks.invokeMetrics.On("SetReservationUsed", mock.AnythingOfType("bool")).Maybe()
 
 	mocks.eaInvokeRequest.On("InvokeID").Return("123456")
-	mocks.runnningInvoke.On("RunInvokeAndSendResult", mock.Anything, &mocks.staticData, &mocks.eaInvokeRequest, mock.Anything).Return(nil).WaitUntil(respChannel).Once()
+	mocks.runnningInvoke.On("RunInvokeAndSendResult", mock.Anything, &mocks.staticData, &mocks.eaInvokeRequest, mock.Anything, mock.Anything).Return(nil).WaitUntil(respChannel).Once()
 
 	wg := new(sync.WaitGroup)
 	ch := make(chan model.AppError, 2)
@@ -174,7 +174,7 @@ func TestInvokeFailure_DublicatedInvokeId(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		err, wasResponseSent := router.Invoke(mocks.ctx, &mocks.staticData, &mocks.eaInvokeRequest, &mocks.invokeMetrics)
+		err, wasResponseSent := router.Invoke(mocks.ctx, &mocks.staticData, &mocks.eaInvokeRequest, &mocks.invokeMetrics, nil)
 		if wasResponseSent {
 			wasResponseSentCnt.Add(1)
 		}
@@ -184,7 +184,7 @@ func TestInvokeFailure_DublicatedInvokeId(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		err, wasResponseSent := router.Invoke(mocks.ctx, &mocks.staticData, &mocks.eaInvokeRequest, &mocks.invokeMetrics)
+		err, wasResponseSent := router.Invoke(mocks.ctx, &mocks.staticData, &mocks.eaInvokeRequest, &mocks.invokeMetrics, nil)
 		if wasResponseSent {
 			wasResponseSentCnt.Add(1)
 		}
@@ -400,6 +400,7 @@ func TestReserveIdleRuntime_DuplicateInvokeID(t *testing.T) {
 }
 
 func TestReserveIdleRuntime_DuplicateAgainstRunningInvoke(t *testing.T) {
+
 	t.Parallel()
 
 	mocks, router := createMocksAndInitRouter()
@@ -457,9 +458,9 @@ func TestReserveIdleRuntime_InvokeConsumesReservation(t *testing.T) {
 	mocks.invokeMetrics.On("UpdateConcurrencyMetrics", mock.AnythingOfType("int"), mock.AnythingOfType("int"))
 	mocks.invokeMetrics.On("SetReservationUsed", true)
 	mocks.eaInvokeRequest.On("InvokeID").Return("reserve-then-invoke")
-	mocks.runnningInvoke.On("RunInvokeAndSendResult", mock.Anything, &mocks.staticData, &mocks.eaInvokeRequest, mock.Anything).Return(nil)
+	mocks.runnningInvoke.On("RunInvokeAndSendResult", mock.Anything, &mocks.staticData, &mocks.eaInvokeRequest, mock.Anything, mock.Anything).Return(nil)
 
-	invokeErr, wasResponseSent := router.Invoke(mocks.ctx, &mocks.staticData, &mocks.eaInvokeRequest, &mocks.invokeMetrics)
+	invokeErr, wasResponseSent := router.Invoke(mocks.ctx, &mocks.staticData, &mocks.eaInvokeRequest, &mocks.invokeMetrics, nil)
 	assert.NoError(t, invokeErr)
 	assert.True(t, wasResponseSent)
 
@@ -479,9 +480,9 @@ func TestReserveIdleRuntime_InvokeWithoutReservation(t *testing.T) {
 	mocks.invokeMetrics.On("UpdateConcurrencyMetrics", mock.AnythingOfType("int"), mock.AnythingOfType("int"))
 	mocks.invokeMetrics.On("SetReservationUsed", false)
 	mocks.eaInvokeRequest.On("InvokeID").Return("no-reservation-invoke")
-	mocks.runnningInvoke.On("RunInvokeAndSendResult", mock.Anything, &mocks.staticData, &mocks.eaInvokeRequest, mock.Anything).Return(nil)
+	mocks.runnningInvoke.On("RunInvokeAndSendResult", mock.Anything, &mocks.staticData, &mocks.eaInvokeRequest, mock.Anything, mock.Anything).Return(nil)
 
-	invokeErr, wasResponseSent := router.Invoke(mocks.ctx, &mocks.staticData, &mocks.eaInvokeRequest, &mocks.invokeMetrics)
+	invokeErr, wasResponseSent := router.Invoke(mocks.ctx, &mocks.staticData, &mocks.eaInvokeRequest, &mocks.invokeMetrics, nil)
 	assert.NoError(t, invokeErr)
 	assert.True(t, wasResponseSent)
 }

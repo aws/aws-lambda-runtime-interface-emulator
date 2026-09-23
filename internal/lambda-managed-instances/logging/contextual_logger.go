@@ -50,6 +50,10 @@ func WithInvokeID(ctx context.Context, invokeID interop.InvokeID) context.Contex
 	return WithFields(ctx, interop.RequestIdProperty, invokeID)
 }
 
+func WithReconnectID(ctx context.Context, reconnectID string) context.Context {
+	return WithFields(ctx, "reconnectId", reconnectID)
+}
+
 func Debug(ctx context.Context, msg string, args ...any) {
 	FromContext(ctx).Debug(msg, args...)
 }

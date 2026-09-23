@@ -120,6 +120,25 @@ func (_m *MockRuntimeErrorRequest) GetXrayErrorCause() json.RawMessage {
 	return r0
 }
 
+func (_m *MockRuntimeErrorRequest) InvocationID() *string {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for InvocationID")
+	}
+
+	var r0 *string
+	if rf, ok := ret.Get(0).(func() *string); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*string)
+		}
+	}
+
+	return r0
+}
+
 func (_m *MockRuntimeErrorRequest) InvokeID() string {
 	ret := _m.Called()
 
@@ -166,23 +185,6 @@ func (_m *MockRuntimeErrorRequest) ReturnCode() int {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(int)
-	}
-
-	return r0
-}
-
-func (_m *MockRuntimeErrorRequest) InvocationID() string {
-	ret := _m.Called()
-
-	if len(ret) == 0 {
-		panic("no return value specified for InvocationID")
-	}
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
 	}
 
 	return r0

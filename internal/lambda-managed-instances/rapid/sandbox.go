@@ -6,6 +6,7 @@ package rapid
 import (
 	"context"
 	"log/slog"
+	"net/http"
 	"net/netip"
 
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lmds"
@@ -18,6 +19,7 @@ import (
 	rapimodel "github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda-managed-instances/rapi/model"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda-managed-instances/rapi/rendering"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda-managed-instances/rapid/model"
+	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda-managed-instances/servicelogs"
 	supvmodel "github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda-managed-instances/supervisor/model"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda-managed-instances/telemetry"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda-managed-instances/utils"
@@ -32,8 +34,9 @@ type Dependencies struct {
 	EventsAPI                interop.EventsAPI
 	Supervisor               supvmodel.ProcessSupervisor
 	FileUtils                utils.FileUtil
-	InvokeRouter             *invoke.InvokeRouter
-	MetadataService          *lmds.Service
+
+	InvokeRouter    *invoke.LongInvokerRouter
+	MetadataService *lmds.Service
 
 	RuntimeAPIAddrPort netip.AddrPort
 }
@@ -45,7 +48,7 @@ func Start(ctx context.Context, deps Dependencies) (interop.RapidContext, error)
 	registrationService := core.NewRegistrationService(initFlow)
 	renderingService := rendering.NewRenderingService()
 
-	server, err := rapi.NewServer(deps.RuntimeAPIAddrPort, appCtx, registrationService, renderingService, deps.TelemetrySubscriptionAPI, deps.InvokeRouter, deps.MetadataService)
+	server, err := rapi.NewServer(deps.RuntimeAPIAddrPort, appCtx, registrationService, renderingService, deps.TelemetrySubscriptionAPI, deps.InvokeRouter.InnerRouter(), deps.MetadataService)
 	if err != nil {
 		return nil, err
 	}
@@ -61,8 +64,9 @@ func Start(ctx context.Context, deps Dependencies) (interop.RapidContext, error)
 		renderingService:    renderingService,
 		shutdownContext:     newShutdownContext(),
 		fileUtils:           deps.FileUtils,
-		invokeRouter:        deps.InvokeRouter,
-		processTermChan:     make(chan model.AppError),
+
+		invokeRouter:    deps.InvokeRouter,
+		processTermChan: make(chan model.AppError),
 
 		telemetrySubscriptionAPI: deps.TelemetrySubscriptionAPI,
 		logsEgressAPI:            deps.LogsEgressAPI,
@@ -90,16 +94,23 @@ func (r *rapidContext) HandleInit(ctx context.Context, initData interop.InitExec
 	return handleInit(ctx, r)
 }
 
-func (r *rapidContext) HandleInvoke(ctx context.Context, invokeReq interop.InvokeRequest, metrics interop.InvokeMetrics) (err model.AppError, wasResponseSent bool) {
+func (r *rapidContext) HandleInvoke(ctx context.Context, invokeReq interop.InvokeRequest, metrics interop.InvokeMetrics, responseWriter http.ResponseWriter) (err model.AppError, wasResponseSent bool, invokePending bool) {
 	if err := invokeReq.UpdateFromInitData(&r.initExecutionData); err != nil {
-		return err, false
+		return err, false, false
 	}
 	metrics.AttachDependencies(&r.initExecutionData, r.eventsAPI)
-	return r.invokeRouter.Invoke(ctx, &r.initExecutionData, invokeReq, metrics)
+	return r.invokeRouter.Invoke(ctx, &r.initExecutionData, invokeReq, metrics, responseWriter)
+}
+
+func (r *rapidContext) HandleReconnect(ctx context.Context, invokeID interop.InvokeID, responseWriter http.ResponseWriter, metrics interop.ReconnectMetrics) interop.ReconnectResult {
+	return r.invokeRouter.Reconnect(ctx, invokeID, responseWriter, metrics)
 }
 
 func (r *rapidContext) HandleShutdown(shutdownCause model.AppError, metrics interop.ShutdownMetrics) model.AppError {
 	metrics.SetAgentCount(len(r.registrationService.GetInternalAgents()), len(r.registrationService.GetExternalAgents()))
+
+	metrics.AddMetric(servicelogs.Counter(interop.RuntimeNextCountMetric, float64(r.invokeRouter.GetActiveRuntimeCount())))
+	metrics.AddMetric(servicelogs.Counter(interop.RuntimeWorkerCountMetric, float64(r.initExecutionData.FunctionMetadata.RuntimeWorkerCount)))
 
 	r.invokeRouter.AbortRunningInvokes(metrics, shutdownCause)
 
@@ -139,4 +150,11 @@ func (r *rapidContext) HandleShutdown(shutdownCause model.AppError, metrics inte
 
 func (r *rapidContext) RuntimeAPIAddrPort() netip.AddrPort {
 	return r.server.AddrPort()
+}
+
+type InvokeRouter interface {
+	Invoke(ctx context.Context, initData interop.InitStaticDataProvider, invokeReq interop.InvokeRequest, metrics interop.InvokeMetrics, responseWriter http.ResponseWriter) (err model.AppError, wasResponseSent bool, invokePending bool)
+	Reconnect(ctx context.Context, invokeID interop.InvokeID, responseWriter http.ResponseWriter, metrics interop.ReconnectMetrics) interop.ReconnectResult
+	AbortRunningInvokes(metrics interop.ShutdownMetrics, err model.AppError)
+	GetActiveRuntimeCount() int
 }

@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"os"
 	"time"
 
@@ -47,10 +48,10 @@ func Run(supv supvmodel.ProcessSupervisor, args []string, fileUtil utils.FileUti
 	telemetryAPIRelay := telemetry.NewRelay()
 	eventsAPI := telemetry.NewEventsAPI(telemetryAPIRelay)
 
-	responderFactoryFunc := func(_ context.Context, invokeReq interop.InvokeRequest) invoke.InvokeResponseSender {
-		return rieinvoke.NewResponder(invokeReq)
-	}
-	invokeRouter := invoke.NewInvokeRouter(rapid.RuntimePoolSize, eventsAPI, responderFactoryFunc, timeout.NewRecentCache())
+	invokeRouter := invoke.NewInvokeRouter(rapid.RuntimePoolSize, eventsAPI, timeout.NewRecentCache())
+	longPollRouter := invoke.NewLongInvokerRouter(invokeRouter, func(_ context.Context, invokeReq interop.InvokeRequest, responseWriter http.ResponseWriter) invoke.InvokeResponseSender {
+		return rieinvoke.NewResponder(invokeReq, responseWriter)
+	})
 
 	metadataToken := uuid.NewString()
 	deps := rapid.Dependencies{
@@ -60,7 +61,7 @@ func Run(supv supvmodel.ProcessSupervisor, args []string, fileUtil utils.FileUti
 		Supervisor:               supv,
 		RuntimeAPIAddrPort:       runtimeAPIAddr,
 		FileUtils:                fileUtil,
-		InvokeRouter:             invokeRouter,
+		InvokeRouter:             longPollRouter,
 		MetadataService:          lmds.NewService(metadataToken),
 	}
 

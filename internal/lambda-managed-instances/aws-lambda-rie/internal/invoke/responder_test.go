@@ -25,7 +25,6 @@ func TestResponder_CompleteSuccessFlow(t *testing.T) {
 	mockRuntimeReq := invoke.NewMockRuntimeResponseRequest(t)
 	mockInitData := interop.NewMockInitStaticDataProvider(t)
 
-	mockInvokeReq.On("ResponseWriter").Return(recorder)
 	mockInvokeReq.On("MaxPayloadSize").Return(int64(1024))
 
 	responseBody := "test response body"
@@ -34,7 +33,7 @@ func TestResponder_CompleteSuccessFlow(t *testing.T) {
 	mockRuntimeReq.On("ResponseMode").Return("buffered")
 	mockRuntimeReq.On("TrailerError").Return(nil)
 
-	responder := NewResponder(mockInvokeReq)
+	responder := NewResponder(mockInvokeReq, recorder)
 	responder.SendRuntimeResponseHeaders(mockInitData, "", "")
 	result := responder.SendRuntimeResponseBody(context.Background(), mockRuntimeReq, 0)
 	assert.NoError(t, result.Err)
@@ -55,12 +54,10 @@ func TestResponder_SendErrorFlow(t *testing.T) {
 	mockInvokeReq := interop.NewMockInvokeRequest(t)
 	mockInitData := interop.NewMockInitStaticDataProvider(t)
 
-	mockInvokeReq.On("ResponseWriter").Return(recorder)
-
 	baseErr := io.ErrUnexpectedEOF
 	appError := model.NewCustomerError("Function.TestError", model.WithCause(baseErr), model.WithErrorMessage("test error"))
 
-	responder := NewResponder(mockInvokeReq)
+	responder := NewResponder(mockInvokeReq, recorder)
 	responder.SendError(appError, mockInitData)
 
 	assert.Equal(t, "Function.TestError", recorder.Header().Get("Error-Type"))
@@ -76,9 +73,7 @@ func TestResponder_RuntimeInvocationErrorFlow(t *testing.T) {
 	mockInvokeReq := interop.NewMockInvokeRequest(t)
 	mockInitData := interop.NewMockInitStaticDataProvider(t)
 
-	mockInvokeReq.On("ResponseWriter").Return(recorder)
-
-	responder := NewResponder(mockInvokeReq)
+	responder := NewResponder(mockInvokeReq, recorder)
 	responder.SendRuntimeResponseHeaders(mockInitData, "", "")
 	responder.SendErrorTrailers(model.NewCustomerError("Runtime.TestError", model.WithErrorMessage("trailer error")), "")
 
@@ -96,13 +91,12 @@ func TestResponder_ErrorInTheMiddleOfResponse(t *testing.T) {
 	mockRuntimeReq := invoke.NewMockRuntimeResponseRequest(t)
 	mockInitData := interop.NewMockInitStaticDataProvider(t)
 
-	mockInvokeReq.On("ResponseWriter").Return(recorder)
 	mockInvokeReq.On("MaxPayloadSize").Return(int64(1024))
 
 	responseBody := "test response body"
 	mockRuntimeReq.On("BodyReader").Return(strings.NewReader(responseBody))
 
-	responder := NewResponder(mockInvokeReq)
+	responder := NewResponder(mockInvokeReq, recorder)
 	responder.SendRuntimeResponseHeaders(mockInitData, "", "")
 	result := responder.SendRuntimeResponseBody(context.Background(), mockRuntimeReq, 0)
 	assert.NoError(t, result.Err)
@@ -123,7 +117,6 @@ func TestResponder_RuntimeResponseTrailerError(t *testing.T) {
 	mockRuntimeReq := invoke.NewMockRuntimeResponseRequest(t)
 	mockInitData := interop.NewMockInitStaticDataProvider(t)
 
-	mockInvokeReq.On("ResponseWriter").Return(recorder)
 	mockInvokeReq.On("MaxPayloadSize").Return(int64(1024))
 
 	errorType := model.ErrorType("Function.TrailerError")
@@ -138,7 +131,7 @@ func TestResponder_RuntimeResponseTrailerError(t *testing.T) {
 	mockRuntimeReq.On("BodyReader").Return(strings.NewReader(responseBody))
 	mockRuntimeReq.On("TrailerError").Return(trailerError)
 
-	responder := NewResponder(mockInvokeReq)
+	responder := NewResponder(mockInvokeReq, recorder)
 	responder.SendRuntimeResponseHeaders(mockInitData, "", "")
 	result := responder.SendRuntimeResponseBody(context.Background(), mockRuntimeReq, 0)
 	assert.NoError(t, result.Err)
@@ -188,10 +181,9 @@ func TestResponder_SendRuntimeResponseBody(t *testing.T) {
 			mockInvokeReq := interop.NewMockInvokeRequest(t)
 			mockRuntimeReq := invoke.NewMockRuntimeResponseRequest(t)
 
-			mockInvokeReq.On("ResponseWriter").Return(recorder)
 			tt.setupMocks(mockInvokeReq, mockRuntimeReq)
 
-			responder := NewResponder(mockInvokeReq)
+			responder := NewResponder(mockInvokeReq, recorder)
 			result := responder.SendRuntimeResponseBody(context.Background(), mockRuntimeReq, 0)
 
 			if tt.expectError {
