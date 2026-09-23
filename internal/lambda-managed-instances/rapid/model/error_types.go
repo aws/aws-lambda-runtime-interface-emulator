@@ -116,7 +116,7 @@ func (e *appError) ReturnCode() int {
 }
 
 func GetValidRuntimeOrFunctionErrorType(errorType string) ErrorType {
-	match, _ := regexp.MatchString("(Runtime|Function)\\.[A-Z][a-zA-Z]+", errorType)
+	match, _ := regexp.MatchString("^(Runtime|Function)\\.[A-Z][a-zA-Z]+$", errorType)
 	if match {
 		return ErrorType(errorType)
 	}
@@ -129,7 +129,7 @@ func GetValidRuntimeOrFunctionErrorType(errorType string) ErrorType {
 }
 
 func GetValidExtensionErrorType(errorType string, defaultErrorType ErrorType) ErrorType {
-	match, _ := regexp.MatchString("Extension\\.[A-Z][a-zA-Z]+", errorType)
+	match, _ := regexp.MatchString("^Extension\\.[A-Z][a-zA-Z]+$", errorType)
 	if match {
 		return ErrorType(errorType)
 	}

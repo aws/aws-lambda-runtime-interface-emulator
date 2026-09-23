@@ -201,6 +201,23 @@ func (_m *MockInitStaticDataProvider) MemorySizeMB() uint64 {
 	return r0
 }
 
+func (_m *MockInitStaticDataProvider) RuntimeRelease() string {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for RuntimeRelease")
+	}
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	return r0
+}
+
 func (_m *MockInitStaticDataProvider) RuntimeVersion() string {
 	ret := _m.Called()
 

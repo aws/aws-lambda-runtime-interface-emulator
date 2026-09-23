@@ -239,7 +239,7 @@ func kill(p process, name string, deadline time.Time) error {
 		slog.Info("Sending SIGKILL to process", "name", name, "pid", p.pid)
 	}
 
-	if (time.Since(deadline)) > 0 {
+	if time.Since(deadline) > 0 {
 		return fmt.Errorf("invalid timeout while killing %s", name)
 	}
 

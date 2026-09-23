@@ -5,21 +5,14 @@ package interop
 
 import (
 	io "io"
-	http "net/http"
-
-	mock "github.com/stretchr/testify/mock"
-
 	time "time"
 
+	mock "github.com/stretchr/testify/mock"
 	model "github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda-managed-instances/rapid/model"
 )
 
 type MockInvokeRequest struct {
 	mock.Mock
-}
-
-func (_m *MockInvokeRequest) AddResponseHeader(_a0 string, _a1 string) {
-	_m.Called(_a0, _a1)
 }
 
 func (_m *MockInvokeRequest) BodyReader() io.Reader {
@@ -177,6 +170,25 @@ func (_m *MockInvokeRequest) InvokeID() string {
 	return r0
 }
 
+func (_m *MockInvokeRequest) LongPollingConfig() *LongPollingConfig {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for LongPollingConfig")
+	}
+
+	var r0 *LongPollingConfig
+	if rf, ok := ret.Get(0).(func() *LongPollingConfig); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*LongPollingConfig)
+		}
+	}
+
+	return r0
+}
+
 func (_m *MockInvokeRequest) MaxPayloadSize() int64 {
 	ret := _m.Called()
 
@@ -189,6 +201,40 @@ func (_m *MockInvokeRequest) MaxPayloadSize() int64 {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(int64)
+	}
+
+	return r0
+}
+
+func (_m *MockInvokeRequest) ResolvedFunctionTimeoutMs() int64 {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for ResolvedFunctionTimeoutMs")
+	}
+
+	var r0 int64
+	if rf, ok := ret.Get(0).(func() int64); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(int64)
+	}
+
+	return r0
+}
+
+func (_m *MockInvokeRequest) ResolvedInvokeTimeout() time.Duration {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for ResolvedInvokeTimeout")
+	}
+
+	var r0 time.Duration
+	if rf, ok := ret.Get(0).(func() time.Duration); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Duration)
 	}
 
 	return r0
@@ -245,29 +291,6 @@ func (_m *MockInvokeRequest) ResponseMode() string {
 	return r0
 }
 
-func (_m *MockInvokeRequest) ResponseWriter() http.ResponseWriter {
-	ret := _m.Called()
-
-	if len(ret) == 0 {
-		panic("no return value specified for ResponseWriter")
-	}
-
-	var r0 http.ResponseWriter
-	if rf, ok := ret.Get(0).(func() http.ResponseWriter); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(http.ResponseWriter)
-		}
-	}
-
-	return r0
-}
-
-func (_m *MockInvokeRequest) SetResponseHeader(_a0 string, _a1 string) {
-	_m.Called(_a0, _a1)
-}
-
 func (_m *MockInvokeRequest) TraceId() string {
 	ret := _m.Called()
 
@@ -302,10 +325,6 @@ func (_m *MockInvokeRequest) UpdateFromInitData(_a0 InitStaticDataProvider) mode
 	}
 
 	return r0
-}
-
-func (_m *MockInvokeRequest) WriteResponseHeaders(_a0 int) {
-	_m.Called(_a0)
 }
 
 func NewMockInvokeRequest(t interface {

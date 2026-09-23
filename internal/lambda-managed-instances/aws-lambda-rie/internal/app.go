@@ -69,7 +69,7 @@ func (h *HTTPHandler) invoke(w http.ResponseWriter, r *http.Request) {
 
 	metrics := invoke.NewInvokeMetrics(nil, &noOpCounter{})
 	metrics.AttachInvokeRequest(invokeReq)
-	if err, responseSent := h.app.Invoke(ctx, invokeReq, metrics); err != nil {
+	if err, responseSent, _ := h.app.Invoke(ctx, invokeReq, metrics, w); err != nil {
 		logging.Err(ctx, "invoke failed", err)
 		if !responseSent {
 			h.respondWithError(w, err)
@@ -93,7 +93,7 @@ func (h *HTTPHandler) respondWithError(w http.ResponseWriter, err rapidmodel.App
 
 type raptorApp interface {
 	Init(ctx context.Context, req *intmodel.InitRequestMessage, metrics interop.InitMetrics) rapidmodel.AppError
-	Invoke(ctx context.Context, msg interop.InvokeRequest, metrics interop.InvokeMetrics) (err rapidmodel.AppError, responseSent bool)
+	Invoke(ctx context.Context, msg interop.InvokeRequest, metrics interop.InvokeMetrics, responseWriter http.ResponseWriter) (err rapidmodel.AppError, responseSent bool, invokePending bool)
 }
 
 type noOpCounter struct{}

@@ -5,6 +5,7 @@ package internal
 
 import (
 	context "context"
+	http "net/http"
 
 	mock "github.com/stretchr/testify/mock"
 	interop "github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda-managed-instances/interop"
@@ -37,8 +38,8 @@ func (_m *mockRaptorApp) Init(ctx context.Context, req *model.InitRequestMessage
 	return r0
 }
 
-func (_m *mockRaptorApp) Invoke(ctx context.Context, msg interop.InvokeRequest, metrics interop.InvokeMetrics) (rapidmodel.AppError, bool) {
-	ret := _m.Called(ctx, msg, metrics)
+func (_m *mockRaptorApp) Invoke(ctx context.Context, msg interop.InvokeRequest, metrics interop.InvokeMetrics, responseWriter http.ResponseWriter) (rapidmodel.AppError, bool, bool) {
+	ret := _m.Called(ctx, msg, metrics, responseWriter)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Invoke")
@@ -46,24 +47,31 @@ func (_m *mockRaptorApp) Invoke(ctx context.Context, msg interop.InvokeRequest, 
 
 	var r0 rapidmodel.AppError
 	var r1 bool
-	if rf, ok := ret.Get(0).(func(context.Context, interop.InvokeRequest, interop.InvokeMetrics) (rapidmodel.AppError, bool)); ok {
-		return rf(ctx, msg, metrics)
+	var r2 bool
+	if rf, ok := ret.Get(0).(func(context.Context, interop.InvokeRequest, interop.InvokeMetrics, http.ResponseWriter) (rapidmodel.AppError, bool, bool)); ok {
+		return rf(ctx, msg, metrics, responseWriter)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, interop.InvokeRequest, interop.InvokeMetrics) rapidmodel.AppError); ok {
-		r0 = rf(ctx, msg, metrics)
+	if rf, ok := ret.Get(0).(func(context.Context, interop.InvokeRequest, interop.InvokeMetrics, http.ResponseWriter) rapidmodel.AppError); ok {
+		r0 = rf(ctx, msg, metrics, responseWriter)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(rapidmodel.AppError)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, interop.InvokeRequest, interop.InvokeMetrics) bool); ok {
-		r1 = rf(ctx, msg, metrics)
+	if rf, ok := ret.Get(1).(func(context.Context, interop.InvokeRequest, interop.InvokeMetrics, http.ResponseWriter) bool); ok {
+		r1 = rf(ctx, msg, metrics, responseWriter)
 	} else {
 		r1 = ret.Get(1).(bool)
 	}
 
-	return r0, r1
+	if rf, ok := ret.Get(2).(func(context.Context, interop.InvokeRequest, interop.InvokeMetrics, http.ResponseWriter) bool); ok {
+		r2 = rf(ctx, msg, metrics, responseWriter)
+	} else {
+		r2 = ret.Get(2).(bool)
+	}
+
+	return r0, r1, r2
 }
 
 func newMockRaptorApp(t interface {

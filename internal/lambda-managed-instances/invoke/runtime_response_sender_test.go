@@ -46,6 +46,7 @@ func createMocksAndRuntimeResponder() *runtimeResponseSenderMocks {
 	}
 
 	mocks.initData.On("FunctionTimeout").Return(time.Duration(0)).Maybe()
+	mocks.invokeReq.On("InternalInvocationID").Return("").Maybe()
 
 	return &mocks
 }
@@ -62,7 +63,6 @@ func buildInvokeReqMocks(invokeReq *interop.MockInvokeRequest) {
 	invokeReq.On("ClientContext").Return("client-context-example")
 	invokeReq.On("CognitoId").Return("cognito_id_12345")
 	invokeReq.On("CognitoPoolId").Return("cognito_pool_id_6789")
-	invokeReq.On("InternalInvocationID").Return("")
 }
 
 func buildInitDataMocks(initData *interop.MockInitStaticDataProvider) {
@@ -98,6 +98,7 @@ func TestSendResponseFailure_Timeout(t *testing.T) {
 		PayloadSize:    100,
 		WaitBeforeRead: time.Second,
 	})
+	mocks.invokeReq.On("ResolvedInvokeTimeout").Return(time.Second)
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond)
 	defer cancel()
@@ -122,6 +123,7 @@ func TestSendResponseFailure_CtxCancelled(t *testing.T) {
 		PayloadSize:    100,
 		WaitBeforeRead: time.Second,
 	})
+	mocks.invokeReq.On("ResolvedInvokeTimeout").Return(time.Second)
 
 	ctx, cancel := context.WithCancelCause(context.Background())
 	cancel(model.NewCustomerError(model.ErrorReasonExtensionExecFailed))
@@ -148,7 +150,6 @@ func TestSendResponse_OmitsEmptyOptionalHeaders(t *testing.T) {
 	mocks.invokeReq.On("ClientContext").Return("")
 	mocks.invokeReq.On("CognitoId").Return("")
 	mocks.invokeReq.On("CognitoPoolId").Return("")
-	mocks.invokeReq.On("InternalInvocationID").Return("")
 	mocks.invokeReq.On("BodyReader").Return(mocks.reader)
 
 	recorder := httptest.NewRecorder()
@@ -158,9 +159,13 @@ func TestSendResponse_OmitsEmptyOptionalHeaders(t *testing.T) {
 	assert.NoError(t, err)
 
 	headers := recorder.Header()
-	assert.Empty(t, headers.Get(RuntimeTraceIdHeader))
-	assert.Empty(t, headers.Get(RuntimeClientContextHeader))
-	assert.Empty(t, headers.Get(RuntimeCognitoIdentifyHeader))
+
+	_, traceExists := headers[http.CanonicalHeaderKey(RuntimeTraceIdHeader)]
+	assert.False(t, traceExists, "Trace-Id header should be absent when empty")
+	_, clientCtxExists := headers[http.CanonicalHeaderKey(RuntimeClientContextHeader)]
+	assert.False(t, clientCtxExists, "Client-Context header should be absent when empty")
+	_, cognitoExists := headers[http.CanonicalHeaderKey(RuntimeCognitoIdentifyHeader)]
+	assert.False(t, cognitoExists, "Cognito-Identity header should be absent when empty")
 
 	assert.NotEmpty(t, headers.Get(RuntimeRequestIdHeader))
 	assert.NotEmpty(t, headers.Get(RuntimeDeadlineHeader))

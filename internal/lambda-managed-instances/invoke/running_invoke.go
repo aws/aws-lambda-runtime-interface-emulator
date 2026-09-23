@@ -45,7 +45,7 @@ type InvokeResponseSender interface {
 	ErrorPayloadSizeBytes() int
 }
 
-type ResponderFactoryFunc func(context.Context, interop.InvokeRequest) InvokeResponseSender
+type ResponderFactoryFunc func(context.Context, interop.InvokeRequest, http.ResponseWriter) InvokeResponseSender
 
 type SendResponseBodyResult struct {
 	Metrics interop.InvokeResponseMetrics
@@ -70,14 +70,12 @@ type runningInvokeImpl struct {
 
 	internalInvocationID string
 
-	responderFactoryFunc ResponderFactoryFunc
-	sendInvokeToRuntime  func(context.Context, interop.InitStaticDataProvider, interop.InvokeRequest, http.ResponseWriter, string) (int64, time.Duration, time.Duration, model.AppError)
-	createTracingData    func(traceId string, tracingMode intmodel.XrayTracingMode, segmentIDGenerator func() string) (downstreamTraceId string, tracingCtx *interop.TracingCtx)
+	sendInvokeToRuntime func(context.Context, interop.InitStaticDataProvider, interop.InvokeRequest, http.ResponseWriter, string) (int64, time.Duration, time.Duration, model.AppError)
+	createTracingData   func(traceId string, tracingMode intmodel.XrayTracingMode, segmentIDGenerator func() string) (downstreamTraceId string, tracingCtx *interop.TracingCtx)
 }
 
 func newRunningInvoke(
 	runtimeNext http.ResponseWriter,
-	responderFactoryFunc ResponderFactoryFunc,
 	timeoutCache timeoutCache,
 ) runningInvokeImpl {
 	ctx, cancel := context.WithCancelCause(context.Background())
@@ -92,13 +90,12 @@ func newRunningInvoke(
 		runtimeErrorChan:     make(chan RuntimeErrorRequest, 1),
 		runtimeNext:          runtimeNext,
 
-		responderFactoryFunc: responderFactoryFunc,
-		sendInvokeToRuntime:  sendInvokeToRuntime,
-		createTracingData:    xray.CreateTracingData,
+		sendInvokeToRuntime: sendInvokeToRuntime,
+		createTracingData:   xray.CreateTracingData,
 	}
 }
 
-func (r *runningInvokeImpl) RunInvokeAndSendResult(ctx context.Context, initData interop.InitStaticDataProvider, invokeReq interop.InvokeRequest, metrics interop.InvokeMetrics) model.AppError {
+func (r *runningInvokeImpl) RunInvokeAndSendResult(ctx context.Context, initData interop.InitStaticDataProvider, invokeReq interop.InvokeRequest, metrics interop.InvokeMetrics, sender InvokeResponseSender) model.AppError {
 	downstreamTraceId, tracingCtx := r.createTracingData(invokeReq.TraceId(), initData.XRayTracingMode(), xray.GenerateSegmentID)
 
 	r.internalInvocationID = invokeReq.InternalInvocationID()
@@ -108,9 +105,9 @@ func (r *runningInvokeImpl) RunInvokeAndSendResult(ctx context.Context, initData
 		logging.Error(ctx, "Failed to send InvokeStartEvent", "err", err)
 	}
 
-	r.invokeRespSender = r.responderFactoryFunc(ctx, invokeReq)
+	r.invokeRespSender = sender
 
-	ctx, cancel := r.getInvokeCtx(ctx, initData.FunctionTimeout())
+	ctx, cancel := r.getInvokeCtx(ctx, invokeReq.ResolvedInvokeTimeout())
 	defer cancel()
 
 	logging.Debug(ctx, "Sending Invoke to Runtime")
@@ -147,7 +144,7 @@ func (r *runningInvokeImpl) RunInvokeAndSendResult(ctx context.Context, initData
 			r.invokeRespSender.SendError(err, initData)
 			break
 		}
-		runtimeAnswerSent, invokeResponseMetrics, err, xrayErrorCause = r.sendRuntimeResponse(ctx, initData, runtimeResp)
+		runtimeAnswerSent, invokeResponseMetrics, err, xrayErrorCause = r.sendRuntimeResponse(ctx, initData, runtimeResp, invokeReq.ResolvedInvokeTimeout())
 	case runtimeErr := <-r.runtimeErrorChan:
 		metrics.TriggerGetResponse()
 		err = runtimeErr.GetError()
@@ -158,7 +155,7 @@ func (r *runningInvokeImpl) RunInvokeAndSendResult(ctx context.Context, initData
 	case <-ctx.Done():
 
 		r.responseState.Store(stateGotError)
-		err = BuildInvokeAppError(context.Cause(ctx), initData.FunctionTimeout())
+		err = BuildInvokeAppError(context.Cause(ctx), invokeReq.ResolvedInvokeTimeout())
 		logging.Info(ctx, "Received ctx cancellation", "err", err)
 
 		if err.ErrorType() == model.ErrorSandboxTimedout {
@@ -198,7 +195,7 @@ func (r *runningInvokeImpl) getInvokeCtx(ctx context.Context, timeout time.Durat
 	}
 }
 
-func (r *runningInvokeImpl) sendRuntimeResponse(ctx context.Context, initData interop.InitStaticDataProvider, runtimeResp RuntimeResponseRequest) (bool, *interop.InvokeResponseMetrics, model.AppError, json.RawMessage) {
+func (r *runningInvokeImpl) sendRuntimeResponse(ctx context.Context, initData interop.InitStaticDataProvider, runtimeResp RuntimeResponseRequest, resolvedTimeout time.Duration) (bool, *interop.InvokeResponseMetrics, model.AppError, json.RawMessage) {
 	logging.Debug(ctx, "Sending Runtime response headers")
 	r.invokeRespSender.SendRuntimeResponseHeaders(initData, runtimeResp.ContentType(), runtimeResp.ResponseMode())
 
@@ -208,11 +205,10 @@ func (r *runningInvokeImpl) sendRuntimeResponse(ctx context.Context, initData in
 	sendBodyRes := make(chan SendResponseBodyResult)
 	logging.Debug(ctx, "Sending Runtime response body")
 	go func() {
-		sendBodyRes <- r.invokeRespSender.SendRuntimeResponseBody(childCtx, runtimeResp, initData.FunctionTimeout())
+		sendBodyRes <- r.invokeRespSender.SendRuntimeResponseBody(childCtx, runtimeResp, resolvedTimeout)
 	}()
 
 	select {
-
 	case res := <-sendBodyRes:
 		if res.Err != nil {
 			logging.Err(ctx, "Failed sending body", res.Err)
@@ -294,10 +290,10 @@ func (r *runningInvokeImpl) RuntimeResponse(ctx context.Context, runtimeRespReq 
 		return model.NewCustomerError(model.ErrorRuntimeInvokeResponseInProgress)
 	}
 
-	if echoedID := runtimeRespReq.InvocationID(); echoedID != "" && r.internalInvocationID != "" {
-		if echoedID != r.internalInvocationID {
+	if echoedID := runtimeRespReq.InvocationID(); echoedID != nil && r.internalInvocationID != "" {
+		if *echoedID != r.internalInvocationID {
 			logging.Warn(ctx, "Cross-wiring detected: invocation ID mismatch on response",
-				"expected", r.internalInvocationID, "received", echoedID)
+				"expected", r.internalInvocationID, "received", *echoedID)
 			r.responseState.CompareAndSwap(stateGotResponse, stateNoResponse)
 			return model.NewCustomerError(model.ErrorRuntimeInvokeTimeout)
 		}
@@ -308,10 +304,11 @@ func (r *runningInvokeImpl) RuntimeResponse(ctx context.Context, runtimeRespReq 
 }
 
 func (r *runningInvokeImpl) RuntimeError(ctx context.Context, runtimeErrReq RuntimeErrorRequest) model.AppError {
-	if echoedID := runtimeErrReq.InvocationID(); echoedID != "" && r.internalInvocationID != "" {
-		if echoedID != r.internalInvocationID {
+
+	if echoedID := runtimeErrReq.InvocationID(); echoedID != nil && r.internalInvocationID != "" {
+		if *echoedID != r.internalInvocationID {
 			logging.Warn(ctx, "Cross-wiring detected: invocation ID mismatch on error",
-				"expected", r.internalInvocationID, "received", echoedID)
+				"expected", r.internalInvocationID, "received", *echoedID)
 			return model.NewCustomerError(model.ErrorRuntimeInvokeTimeout)
 		}
 	}

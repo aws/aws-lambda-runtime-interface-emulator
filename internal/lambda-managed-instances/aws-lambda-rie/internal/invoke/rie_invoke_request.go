@@ -42,7 +42,8 @@ type rieInvokeRequest struct {
 	responseMode               string
 	internalInvocationID       string
 
-	functionVersionID string
+	functionVersionID     string
+	resolvedInvokeTimeout time.Duration
 }
 
 func NewRieInvokeRequest(request *http.Request, writer http.ResponseWriter) (*rieInvokeRequest, model.AppError) {
@@ -149,22 +150,6 @@ func (r *rieInvokeRequest) BodyReader() io.Reader {
 	return r.request.Body
 }
 
-func (r *rieInvokeRequest) ResponseWriter() http.ResponseWriter {
-	return r.writer
-}
-
-func (r *rieInvokeRequest) SetResponseHeader(key string, val string) {
-	r.writer.Header().Set(key, val)
-}
-
-func (r *rieInvokeRequest) AddResponseHeader(key string, val string) {
-	r.writer.Header().Add(key, val)
-}
-
-func (r *rieInvokeRequest) WriteResponseHeaders(status int) {
-	r.writer.WriteHeader(status)
-}
-
 func (r *rieInvokeRequest) ResponseMode() string {
 	return r.responseMode
 }
@@ -174,7 +159,8 @@ func (r *rieInvokeRequest) UpdateFromInitData(initData interop.InitStaticDataPro
 		return model.NewClientError(errors.New("sandbox is not initialized"), model.ErrorSeverityError, model.ErrorInitIncomplete)
 	}
 
-	r.deadline = time.Now().Add(time.Duration(initData.FunctionTimeout()) * time.Millisecond)
+	r.resolvedInvokeTimeout = initData.FunctionTimeout()
+	r.deadline = time.Now().Add(r.resolvedInvokeTimeout)
 
 	if r.functionVersionID != initData.FunctionVersionID() {
 		return model.NewClientError(nil, model.ErrorSeverityInvalid, model.ErrorInvalidFunctionVersion)
@@ -187,6 +173,14 @@ func (r *rieInvokeRequest) FunctionVersionID() string {
 	return r.functionVersionID
 }
 
-func (r *rieInvokeRequest) InternalInvocationID() string {
-	return r.internalInvocationID
+func (r *rieInvokeRequest) ResolvedFunctionTimeoutMs() int64 {
+	return 0
 }
+
+func (r *rieInvokeRequest) ResolvedInvokeTimeout() time.Duration {
+	return r.resolvedInvokeTimeout
+}
+
+func (r *rieInvokeRequest) LongPollingConfig() *interop.LongPollingConfig { return nil }
+
+func (r *rieInvokeRequest) InternalInvocationID() string { return r.internalInvocationID }

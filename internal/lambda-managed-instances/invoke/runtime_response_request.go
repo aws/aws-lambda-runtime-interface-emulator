@@ -31,7 +31,7 @@ type runtimeResponse struct {
 	contentType  string
 	invokeID     interop.InvokeID
 	responseMode string
-	invocationID string
+	invocationID *string
 }
 
 func NewRuntimeResponse(ctx context.Context, request *http.Request, writer http.ResponseWriter, invokeID interop.InvokeID) runtimeResponse {
@@ -45,7 +45,7 @@ func NewRuntimeResponse(ctx context.Context, request *http.Request, writer http.
 		rc:           http.NewResponseController(writer),
 		contentType:  contentType,
 		invokeID:     invokeID,
-		invocationID: request.Header.Get(RuntimeInvocationIdHeader),
+		invocationID: invocationIDFromRequest(request),
 	}
 
 	switch mode := request.Header.Get(RuntimeResponseModeHeader); mode {
@@ -89,7 +89,7 @@ func (r *runtimeResponse) ResponseMode() string {
 	return r.responseMode
 }
 
-func (r *runtimeResponse) InvocationID() string {
+func (r *runtimeResponse) InvocationID() *string {
 	return r.invocationID
 }
 
@@ -134,4 +134,15 @@ func (t trailerError) ErrorType() model.ErrorType {
 
 func (t trailerError) ErrorDetails() string {
 	return t.details
+}
+
+func invocationIDFromRequest(request *http.Request) *string {
+	if values, ok := request.Header[http.CanonicalHeaderKey(RuntimeInvocationIdHeader)]; ok {
+		v := ""
+		if len(values) > 0 {
+			v = values[0]
+		}
+		return &v
+	}
+	return nil
 }

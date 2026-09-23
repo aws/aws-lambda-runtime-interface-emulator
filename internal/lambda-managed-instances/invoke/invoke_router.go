@@ -34,9 +34,11 @@ type RuntimeResponseRequest interface {
 
 	BodyReader() io.Reader
 
+	Cancel()
+
 	TrailerError() ErrorForInvoker
 
-	InvocationID() string
+	InvocationID() *string
 }
 
 type RuntimeErrorRequest interface {
@@ -50,11 +52,11 @@ type RuntimeErrorRequest interface {
 	ErrorDetails() string
 	GetXrayErrorCause() json.RawMessage
 
-	InvocationID() string
+	InvocationID() *string
 }
 
 type runningInvoke interface {
-	RunInvokeAndSendResult(context.Context, interop.InitStaticDataProvider, interop.InvokeRequest, interop.InvokeMetrics) model.AppError
+	RunInvokeAndSendResult(context.Context, interop.InitStaticDataProvider, interop.InvokeRequest, interop.InvokeMetrics, InvokeResponseSender) model.AppError
 	RuntimeNextWait(context.Context) model.AppError
 	RuntimeResponse(context.Context, RuntimeResponseRequest) model.AppError
 	RuntimeError(context.Context, RuntimeErrorRequest) model.AppError
@@ -83,7 +85,6 @@ type InvokeRouter struct {
 func NewInvokeRouter(
 	runtimePoolSize int,
 	telemetryEventsApi interop.EventsAPI,
-	responderFactoryFunc ResponderFactoryFunc,
 	timeoutCache timeoutCache,
 ) *InvokeRouter {
 	return &InvokeRouter{
@@ -92,13 +93,13 @@ func NewInvokeRouter(
 		eventsApi:      telemetryEventsApi,
 		timeoutCache:   timeoutCache,
 		createRunningInvoke: func(runtimeNext http.ResponseWriter) runningInvoke {
-			r := newRunningInvoke(runtimeNext, responderFactoryFunc, timeoutCache)
+			r := newRunningInvoke(runtimeNext, timeoutCache)
 			return &r
 		},
 	}
 }
 
-func (ir *InvokeRouter) Invoke(ctx context.Context, initData interop.InitStaticDataProvider, invokeReq interop.InvokeRequest, metrics interop.InvokeMetrics) (err model.AppError, wasResponseSent bool) {
+func (ir *InvokeRouter) Invoke(ctx context.Context, initData interop.InitStaticDataProvider, invokeReq interop.InvokeRequest, metrics interop.InvokeMetrics, sender InvokeResponseSender) (err model.AppError, wasResponseSent bool) {
 	logging.Debug(ctx, "InvokeRouter: received Invoke")
 	ir.wg.Add(1)
 	defer ir.wg.Done()
@@ -124,7 +125,7 @@ func (ir *InvokeRouter) Invoke(ctx context.Context, initData interop.InitStaticD
 
 	ir.runningInvokes.Set(invokeReq.InvokeID(), idleRuntime)
 
-	return idleRuntime.RunInvokeAndSendResult(ctx, initData, invokeReq, metrics), true
+	return idleRuntime.RunInvokeAndSendResult(ctx, initData, invokeReq, metrics, sender), true
 }
 
 func (ir *InvokeRouter) RuntimeNext(ctx context.Context, runtimeReq http.ResponseWriter) (model.RuntimeNextWaiter, model.AppError) {

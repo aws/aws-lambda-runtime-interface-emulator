@@ -88,6 +88,8 @@ func createInvokeEventsMocks(t *testing.T) *invokeMetricsMocks {
 
 	mocks.invokeReq.On("InvokeID").Return(eventInvokeId)
 	mocks.invokeReq.On("ResponseMode").Return("Streaming").Maybe()
+	mocks.invokeReq.On("LongPollingConfig").Return((*interop.LongPollingConfig)(nil)).Maybe()
+	mocks.invokeReq.On("ResolvedFunctionTimeoutMs").Return(int64(0)).Maybe()
 
 	return &mocks
 }
@@ -375,6 +377,7 @@ func Test_invokeMetrics_ServiceLogs(t *testing.T) {
 			},
 			expectedDims: []servicelogs.Dimension{
 				{Name: "RequestMode", Value: "Streaming"},
+				{Name: "InvokeMode", Value: "Invoke"},
 			},
 			expectedMetrics: []servicelogs.Metric{
 				{Type: servicelogs.TimerType, Key: "TotalDuration", Value: 1000000},
@@ -404,6 +407,7 @@ func Test_invokeMetrics_ServiceLogs(t *testing.T) {
 			},
 			expectedDims: []servicelogs.Dimension{
 				{Name: "RequestMode", Value: "Streaming"},
+				{Name: "InvokeMode", Value: "Invoke"},
 			},
 			expectedMetrics: []servicelogs.Metric{
 				{Type: servicelogs.TimerType, Key: "TotalDuration", Value: 1000000},
@@ -433,6 +437,7 @@ func Test_invokeMetrics_ServiceLogs(t *testing.T) {
 			},
 			expectedDims: []servicelogs.Dimension{
 				{Name: "RequestMode", Value: "Streaming"},
+				{Name: "InvokeMode", Value: "Invoke"},
 			},
 			expectedMetrics: []servicelogs.Metric{
 				{Type: servicelogs.TimerType, Key: "TotalDuration", Value: 1000000},
@@ -468,6 +473,7 @@ func Test_invokeMetrics_ServiceLogs(t *testing.T) {
 			},
 			expectedDims: []servicelogs.Dimension{
 				{Name: "RequestMode", Value: "Streaming"},
+				{Name: "InvokeMode", Value: "Invoke"},
 			},
 			expectedMetrics: []servicelogs.Metric{
 				{Type: servicelogs.TimerType, Key: "TotalDuration", Value: 4000000},
@@ -509,6 +515,7 @@ func Test_invokeMetrics_ServiceLogs(t *testing.T) {
 			},
 			expectedDims: []servicelogs.Dimension{
 				{Name: "RequestMode", Value: "Streaming"},
+				{Name: "InvokeMode", Value: "Invoke"},
 				{Name: "ResponseMode", Value: "Streaming"},
 			},
 			expectedMetrics: []servicelogs.Metric{
@@ -558,6 +565,7 @@ func Test_invokeMetrics_ServiceLogs(t *testing.T) {
 			},
 			expectedDims: []servicelogs.Dimension{
 				{Name: "RequestMode", Value: "Streaming"},
+				{Name: "InvokeMode", Value: "Invoke"},
 				{Name: "ResponseMode", Value: "Streaming"},
 			},
 			expectedMetrics: []servicelogs.Metric{
@@ -607,6 +615,7 @@ func Test_invokeMetrics_ServiceLogs(t *testing.T) {
 			},
 			expectedDims: []servicelogs.Dimension{
 				{Name: "RequestMode", Value: "Streaming"},
+				{Name: "InvokeMode", Value: "Invoke"},
 				{Name: "ResponseMode", Value: "streaming"},
 			},
 			expectedMetrics: []servicelogs.Metric{
@@ -673,6 +682,8 @@ func Test_invokeMetrics_ServiceLogs(t *testing.T) {
 			mocks.invokeReq.On("InvokeID").Return("invoke-id").Maybe()
 			mocks.invokeReq.On("ResponseMode").Return("Streaming").Maybe().Maybe()
 			mocks.invokeReq.On("TraceId").Return("Root=12345;Parent=67890;Sampled=1;Lineage=22222").Maybe()
+			mocks.invokeReq.On("ResolvedFunctionTimeoutMs").Return(int64(0)).Maybe()
+			mocks.invokeReq.On("LongPollingConfig").Return((*interop.LongPollingConfig)(nil)).Maybe()
 
 			mocks.initData.On("XRayTracingMode").Return(intmodel.XRayTracingModePassThrough).Maybe()
 			mocks.initData.On("MemorySizeMB").Return(uint64(128)).Maybe()

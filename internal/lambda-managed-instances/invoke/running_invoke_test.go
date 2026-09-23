@@ -66,15 +66,10 @@ func hijackRunningInvokeDeps(ri *runningInvokeImpl, mocks *runningInvokeMocks) {
 func createMocksAndInitRunningInvoke(t *testing.T) (*runningInvokeMocks, *runningInvokeImpl) {
 	mocks := newRunningInvokeMocks(t)
 
-	mocks.eaInvokeRequest.On("InternalInvocationID").Return("").Maybe()
-	mocks.runtimeRespReq.On("InvocationID").Return("").Maybe()
-	mocks.runtimeErrorReq.On("InvocationID").Return("").Maybe()
+	mocks.eaInvokeRequest.On("InternalInvocationID").Return("")
 
 	ri := newRunningInvoke(
 		mocks.runtimeNextRequest,
-		func(ctx context.Context, ir interop.InvokeRequest) InvokeResponseSender {
-			return &mocks.eaInvokeResponder
-		},
 		mocks.timeoutCache,
 	)
 	hijackRunningInvokeDeps(&ri, &mocks)
@@ -120,12 +115,13 @@ func TestRunInvokeAndSendResultSuccess_RuntimeResponse(t *testing.T) {
 
 	mocks, runInvoke := createMocksAndInitRunningInvoke(t)
 
-	mocks.staticData.On("FunctionTimeout").Return(time.Second)
 	mocks.staticData.On("XRayTracingMode").Return(intmodel.XRayTracingModePassThrough)
 
 	mocks.eaInvokeRequest.On("TraceId").Return("Root=root1;Parent=parent1;Sampled=1;Lineage=foo:1|bar:65535")
+	mocks.eaInvokeRequest.On("ResolvedInvokeTimeout").Return(time.Second)
 
 	mocks.runtimeRespReq.On("ParsingError").Return(nil)
+	mocks.runtimeRespReq.On("InvocationID").Return((*string)(nil))
 	mocks.runtimeRespReq.On("ContentType").Return("")
 	mocks.runtimeRespReq.On("ResponseMode").Return("")
 	mocks.runtimeRespReq.On("TrailerError").Return(nil)
@@ -145,7 +141,7 @@ func TestRunInvokeAndSendResultSuccess_RuntimeResponse(t *testing.T) {
 		assert.NoError(t, err)
 	}()
 
-	err := runInvoke.RunInvokeAndSendResult(mocks.ctx, &mocks.staticData, &mocks.eaInvokeRequest, &mocks.metrics)
+	err := runInvoke.RunInvokeAndSendResult(mocks.ctx, &mocks.staticData, &mocks.eaInvokeRequest, &mocks.metrics, &mocks.eaInvokeResponder)
 	assert.NoError(t, err)
 
 	wg.Wait()
@@ -158,12 +154,13 @@ func TestRunInvokeAndSendResultSuccess_RuntimeError(t *testing.T) {
 	mocks, runInvoke := createMocksAndInitRunningInvoke(t)
 	err := model.NewCustomerError(model.ErrorFunctionUnknown)
 
-	mocks.staticData.On("FunctionTimeout").Return(time.Second)
 	mocks.staticData.On("XRayTracingMode").Return(intmodel.XRayTracingModePassThrough)
 
 	mocks.eaInvokeRequest.On("TraceId").Return("Root=root1;Parent=parent1;Sampled=1;Lineage=foo:1|bar:65535")
+	mocks.eaInvokeRequest.On("ResolvedInvokeTimeout").Return(time.Second)
 	mocks.errorPayloadSizeBytes = 100
 
+	mocks.runtimeErrorReq.On("InvocationID").Return((*string)(nil))
 	mocks.runtimeErrorReq.On("GetError").Return(err)
 	mocks.runtimeErrorReq.On("GetXrayErrorCause").Return(json.RawMessage(nil))
 	mocks.eaInvokeResponder.On("SendRuntimeResponseHeaders", &mocks.staticData, mock.Anything, mock.Anything).Return().Once()
@@ -182,7 +179,7 @@ func TestRunInvokeAndSendResultSuccess_RuntimeError(t *testing.T) {
 		assert.NoError(t, err)
 	}()
 
-	invokeErr := runInvoke.RunInvokeAndSendResult(mocks.ctx, &mocks.staticData, &mocks.eaInvokeRequest, &mocks.metrics)
+	invokeErr := runInvoke.RunInvokeAndSendResult(mocks.ctx, &mocks.staticData, &mocks.eaInvokeRequest, &mocks.metrics, &mocks.eaInvokeResponder)
 	assert.Error(t, invokeErr)
 
 	wg.Wait()
@@ -197,15 +194,16 @@ func TestRunInvokeAndSendResultSuccess_RuntimeTrailerError(t *testing.T) {
 	trailerErrorType := model.ErrorType("Function.Unknown")
 	expectedTrailerErr := model.NewCustomerError(trailerErrorType)
 
-	mocks.staticData.On("FunctionTimeout").Return(time.Second)
 	mocks.staticData.On("XRayTracingMode").Return(intmodel.XRayTracingModePassThrough)
 
 	mocks.eaInvokeRequest.On("TraceId").Return("Root=root1;Parent=parent1;Sampled=1;Lineage=foo:1|bar:65535")
+	mocks.eaInvokeRequest.On("ResolvedInvokeTimeout").Return(time.Second)
 
 	mocks.runtimeRespReq.On("ParsingError").Return(nil)
+	mocks.runtimeRespReq.On("InvocationID").Return((*string)(nil))
 	mocks.runtimeRespReq.On("ContentType").Return("")
 	mocks.runtimeRespReq.On("ResponseMode").Return("")
-	mocks.runtimeRespReq.On("TrailerError").Return(expectedTrailerErr, NewMockErrorForInvoker(t))
+	mocks.runtimeRespReq.On("TrailerError").Return(expectedTrailerErr)
 
 	mocks.eaInvokeResponder.On("SendRuntimeResponseHeaders", &mocks.staticData, mock.Anything, mock.Anything).Return()
 	mocks.eaInvokeResponder.On("SendRuntimeResponseBody", mock.Anything, &mocks.runtimeRespReq, mock.Anything).Return(SendResponseBodyResult{})
@@ -224,7 +222,7 @@ func TestRunInvokeAndSendResultSuccess_RuntimeTrailerError(t *testing.T) {
 		assert.Equal(t, trailerErrorType, err.ErrorType())
 	}()
 
-	err := runInvoke.RunInvokeAndSendResult(mocks.ctx, &mocks.staticData, &mocks.eaInvokeRequest, &mocks.metrics)
+	err := runInvoke.RunInvokeAndSendResult(mocks.ctx, &mocks.staticData, &mocks.eaInvokeRequest, &mocks.metrics, &mocks.eaInvokeResponder)
 	assert.Error(t, err)
 	assert.Equal(t, trailerErrorType, err.ErrorType())
 
@@ -242,11 +240,11 @@ func TestRuntimeErrorFailure_SendInvokeToRuntime_Error(t *testing.T) {
 		return 0, 0, 0, err
 	}
 
-	mocks.staticData.On("FunctionTimeout").Return(time.Second)
 	mocks.staticData.On("XRayTracingMode").Return(intmodel.XRayTracingModePassThrough)
 
 	mocks.eaInvokeRequest.On("TraceId").Return("Root=root1;Parent=parent1;Sampled=1;Lineage=foo:1|bar:65535")
-	mocks.eaInvokeResponder.On("SendError", err, &mocks.staticData, mock.Anything).Return()
+	mocks.eaInvokeRequest.On("ResolvedInvokeTimeout").Return(time.Second)
+	mocks.eaInvokeResponder.On("SendError", err, &mocks.staticData).Return()
 	mocks.eaInvokeResponder.On("ErrorPayloadSizeBytes").Return(mocks.errorPayloadSizeBytes)
 
 	mocks.metrics.On("TriggerStartRequest")
@@ -254,7 +252,7 @@ func TestRuntimeErrorFailure_SendInvokeToRuntime_Error(t *testing.T) {
 	mocks.metrics.On("TriggerSentResponse", false, err, mock.Anything, 0).Return()
 	mocks.metrics.On("SendInvokeFinishedEvent", mock.AnythingOfType("*interop.TracingCtx"), mock.AnythingOfType("json.RawMessage")).Return(nil)
 
-	invokeErr := runInvoke.RunInvokeAndSendResult(mocks.ctx, &mocks.staticData, &mocks.eaInvokeRequest, &mocks.metrics)
+	invokeErr := runInvoke.RunInvokeAndSendResult(mocks.ctx, &mocks.staticData, &mocks.eaInvokeRequest, &mocks.metrics, &mocks.eaInvokeResponder)
 	assert.Error(t, invokeErr)
 
 	checkRunningInvokeMockExpectations(t, mocks)
@@ -274,11 +272,11 @@ func TestRuntimeErrorFailure_SendInvokeToRuntime_Timeout(t *testing.T) {
 		return 0, 0, 0, err
 	}
 
-	mocks.staticData.On("FunctionTimeout").Return(time.Second)
 	mocks.staticData.On("XRayTracingMode").Return(intmodel.XRayTracingModePassThrough)
 
 	mocks.eaInvokeRequest.On("TraceId").Return("Root=root1;Parent=parent1;Sampled=1;Lineage=foo:1|bar:65535")
-	mocks.eaInvokeResponder.On("SendError", err, &mocks.staticData, mock.Anything).Return()
+	mocks.eaInvokeRequest.On("ResolvedInvokeTimeout").Return(time.Second)
+	mocks.eaInvokeResponder.On("SendError", err, &mocks.staticData).Return()
 	mocks.eaInvokeResponder.On("ErrorPayloadSizeBytes").Return(mocks.errorPayloadSizeBytes)
 
 	mocks.metrics.On("TriggerStartRequest")
@@ -286,7 +284,7 @@ func TestRuntimeErrorFailure_SendInvokeToRuntime_Timeout(t *testing.T) {
 	mocks.metrics.On("TriggerSentResponse", false, err, mock.Anything, 0).Return()
 	mocks.metrics.On("SendInvokeFinishedEvent", mock.AnythingOfType("*interop.TracingCtx"), mock.AnythingOfType("json.RawMessage")).Return(nil)
 
-	invokeErr := runInvoke.RunInvokeAndSendResult(mocks.ctx, &mocks.staticData, &mocks.eaInvokeRequest, &mocks.metrics)
+	invokeErr := runInvoke.RunInvokeAndSendResult(mocks.ctx, &mocks.staticData, &mocks.eaInvokeRequest, &mocks.metrics, &mocks.eaInvokeResponder)
 	assert.Error(t, invokeErr)
 
 	checkRunningInvokeMockExpectations(t, mocks)
@@ -301,15 +299,15 @@ func TestRunInvokeAndSendResultFailure_Timeout(t *testing.T) {
 	mocks.timeoutCache.On("Register", invokeID)
 	mocks.eaInvokeRequest.On("InvokeID").Return(invokeID)
 
-	mocks.staticData.On("FunctionTimeout").Return(time.Millisecond)
 	mocks.staticData.On("XRayTracingMode").Return(intmodel.XRayTracingModePassThrough)
 
 	mocks.eaInvokeRequest.On("TraceId").Return("Root=root1;Parent=parent1;Sampled=1;Lineage=foo:1|bar:65535")
-	mocks.eaInvokeResponder.On("SendError", mock.Anything, &mocks.staticData, mock.Anything).Return()
+	mocks.eaInvokeRequest.On("ResolvedInvokeTimeout").Return(time.Millisecond)
+	mocks.eaInvokeResponder.On("SendError", mock.Anything, &mocks.staticData).Return()
 	mocks.eaInvokeResponder.On("ErrorPayloadSizeBytes").Return(mocks.errorPayloadSizeBytes)
 	mockMetricsUnfinished(mocks, mock.Anything)
 
-	invokeErr := runInvoke.RunInvokeAndSendResult(mocks.ctx, &mocks.staticData, &mocks.eaInvokeRequest, &mocks.metrics)
+	invokeErr := runInvoke.RunInvokeAndSendResult(mocks.ctx, &mocks.staticData, &mocks.eaInvokeRequest, &mocks.metrics, &mocks.eaInvokeResponder)
 	assert.Error(t, invokeErr)
 
 	checkRunningInvokeMockExpectations(t, mocks)
@@ -321,12 +319,13 @@ func TestRunInvokeAndSendResultFailure_TimeoutWhileResponse(t *testing.T) {
 	mocks, runInvoke := createMocksAndInitRunningInvoke(t)
 	timeoutErr := model.NewCustomerError(model.ErrorSandboxTimedout)
 
-	mocks.staticData.On("FunctionTimeout").Return(time.Second)
 	mocks.staticData.On("XRayTracingMode").Return(intmodel.XRayTracingModePassThrough)
 
 	mocks.eaInvokeRequest.On("TraceId").Return("Root=root1;Parent=parent1;Sampled=1;Lineage=foo:1|bar:65535")
+	mocks.eaInvokeRequest.On("ResolvedInvokeTimeout").Return(time.Second)
 
 	mocks.runtimeRespReq.On("ParsingError").Return(nil)
+	mocks.runtimeRespReq.On("InvocationID").Return((*string)(nil))
 	mocks.runtimeRespReq.On("ContentType").Return("")
 	mocks.runtimeRespReq.On("ResponseMode").Return("")
 
@@ -345,7 +344,7 @@ func TestRunInvokeAndSendResultFailure_TimeoutWhileResponse(t *testing.T) {
 		assert.Error(t, err)
 	}()
 
-	err := runInvoke.RunInvokeAndSendResult(mocks.ctx, &mocks.staticData, &mocks.eaInvokeRequest, &mocks.metrics)
+	err := runInvoke.RunInvokeAndSendResult(mocks.ctx, &mocks.staticData, &mocks.eaInvokeRequest, &mocks.metrics, &mocks.eaInvokeResponder)
 	assert.Error(t, err)
 
 	wg.Wait()
@@ -359,11 +358,11 @@ func TestRunInvokeAndSendResultFailure_ContextCancelled(t *testing.T) {
 	mocks, runInvoke := createMocksAndInitRunningInvoke(t)
 	err := model.NewPlatformError(nil, "test fatal error")
 
-	mocks.staticData.On("FunctionTimeout").Return(time.Second)
 	mocks.staticData.On("XRayTracingMode").Return(intmodel.XRayTracingModePassThrough)
 
 	mocks.eaInvokeRequest.On("TraceId").Return("Root=root1;Parent=parent1;Sampled=1;Lineage=foo:1|bar:65535")
-	mocks.eaInvokeResponder.On("SendError", err, &mocks.staticData, mock.Anything).Return(nil)
+	mocks.eaInvokeRequest.On("ResolvedInvokeTimeout").Return(time.Second)
+	mocks.eaInvokeResponder.On("SendError", err, &mocks.staticData).Return(nil)
 	mocks.eaInvokeResponder.On("ErrorPayloadSizeBytes").Return(mocks.errorPayloadSizeBytes)
 	mockMetricsUnfinished(mocks, mock.Anything)
 
@@ -375,7 +374,7 @@ func TestRunInvokeAndSendResultFailure_ContextCancelled(t *testing.T) {
 	}()
 
 	close(ch)
-	invokeErr := runInvoke.RunInvokeAndSendResult(mocks.ctx, &mocks.staticData, &mocks.eaInvokeRequest, &mocks.metrics)
+	invokeErr := runInvoke.RunInvokeAndSendResult(mocks.ctx, &mocks.staticData, &mocks.eaInvokeRequest, &mocks.metrics, &mocks.eaInvokeResponder)
 	assert.Error(t, invokeErr)
 
 	checkRunningInvokeMockExpectations(t, mocks)
@@ -387,12 +386,13 @@ func TestRuntimeResponseFailure_ResponseWhileResponse(t *testing.T) {
 	mocks, runInvoke := createMocksAndInitRunningInvoke(t)
 	syncChan := make(chan time.Time)
 
-	mocks.staticData.On("FunctionTimeout").Return(5 * time.Second)
 	mocks.staticData.On("XRayTracingMode").Return(intmodel.XRayTracingModePassThrough)
 
 	mocks.eaInvokeRequest.On("TraceId").Return("Root=root1;Parent=parent1;Sampled=1;Lineage=foo:1|bar:65535")
+	mocks.eaInvokeRequest.On("ResolvedInvokeTimeout").Return(5 * time.Second)
 
 	mocks.runtimeRespReq.On("ParsingError").Return(nil)
+	mocks.runtimeRespReq.On("InvocationID").Return((*string)(nil))
 	mocks.runtimeRespReq.On("ContentType").Return("")
 	mocks.runtimeRespReq.On("ResponseMode").Return("")
 	mocks.runtimeRespReq.On("TrailerError").Return(nil)
@@ -421,7 +421,7 @@ func TestRuntimeResponseFailure_ResponseWhileResponse(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		err := runInvoke.RunInvokeAndSendResult(mocks.ctx, &mocks.staticData, &mocks.eaInvokeRequest, &mocks.metrics)
+		err := runInvoke.RunInvokeAndSendResult(mocks.ctx, &mocks.staticData, &mocks.eaInvokeRequest, &mocks.metrics, &mocks.eaInvokeResponder)
 		assert.NoError(t, err)
 	}()
 
@@ -444,13 +444,14 @@ func TestRuntimeErrorFailure_ErrorWhileError(t *testing.T) {
 
 	err := model.NewCustomerError(model.ErrorFunctionUnknown)
 
-	mocks.staticData.On("FunctionTimeout").Return(time.Second)
 	mocks.staticData.On("XRayTracingMode").Return(intmodel.XRayTracingModePassThrough)
 
 	mocks.eaInvokeRequest.On("TraceId").Return("Root=root1;Parent=parent1;Sampled=1;Lineage=foo:1|bar:65535")
+	mocks.eaInvokeRequest.On("ResolvedInvokeTimeout").Return(time.Second)
 
 	mocks.errorPayloadSizeBytes = 100
 
+	mocks.runtimeErrorReq.On("InvocationID").Return((*string)(nil))
 	mocks.runtimeErrorReq.On("GetError").Return(err)
 	mocks.runtimeErrorReq.On("GetXrayErrorCause").Return(json.RawMessage(nil))
 
@@ -465,7 +466,7 @@ func TestRuntimeErrorFailure_ErrorWhileError(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		err := runInvoke.RunInvokeAndSendResult(mocks.ctx, &mocks.staticData, &mocks.eaInvokeRequest, &mocks.metrics)
+		err := runInvoke.RunInvokeAndSendResult(mocks.ctx, &mocks.staticData, &mocks.eaInvokeRequest, &mocks.metrics, &mocks.eaInvokeResponder)
 		assert.Error(t, err)
 		assert.Equal(t, model.ErrorFunctionUnknown, err.ErrorType())
 	}()
@@ -479,4 +480,57 @@ func TestRuntimeErrorFailure_ErrorWhileError(t *testing.T) {
 	customerErr := runInvoke.RuntimeError(mocks.ctx, &mocks.runtimeErrorReq)
 	assert.Error(t, customerErr)
 	assert.Equal(t, model.ErrorRuntimeInvokeErrorInProgress, customerErr.ErrorType())
+}
+
+func TestRunInvokeAndSendResult_ResolvedTimeoutOverridesCausesTimeout(t *testing.T) {
+	t.Parallel()
+
+	mocks, runInvoke := createMocksAndInitRunningInvoke(t)
+
+	invokeID := "invoke-resolved-timeout"
+	mocks.timeoutCache.On("Register", invokeID)
+	mocks.eaInvokeRequest.On("InvokeID").Return(invokeID)
+
+	mocks.staticData.On("XRayTracingMode").Return(intmodel.XRayTracingModePassThrough)
+
+	mocks.eaInvokeRequest.On("TraceId").Return("Root=root1;Parent=parent1;Sampled=1;Lineage=foo:1|bar:65535")
+	mocks.eaInvokeRequest.On("ResolvedInvokeTimeout").Return(time.Millisecond)
+
+	mocks.eaInvokeResponder.On("SendError", mock.Anything, &mocks.staticData).Return()
+	mocks.eaInvokeResponder.On("ErrorPayloadSizeBytes").Return(mocks.errorPayloadSizeBytes)
+	mockMetricsUnfinished(mocks, mock.Anything)
+
+	start := time.Now()
+	invokeErr := runInvoke.RunInvokeAndSendResult(mocks.ctx, &mocks.staticData, &mocks.eaInvokeRequest, &mocks.metrics, &mocks.eaInvokeResponder)
+	elapsed := time.Since(start)
+
+	assert.Error(t, invokeErr)
+
+	assert.Less(t, elapsed, 5*time.Second)
+
+	checkRunningInvokeMockExpectations(t, mocks)
+}
+
+func TestRunInvokeAndSendResult_ResolvedTimeoutZeroFallsBackToFunctionTimeout(t *testing.T) {
+	t.Parallel()
+
+	mocks, runInvoke := createMocksAndInitRunningInvoke(t)
+
+	invokeID := "invoke-fallback-timeout"
+	mocks.timeoutCache.On("Register", invokeID)
+	mocks.eaInvokeRequest.On("InvokeID").Return(invokeID)
+
+	mocks.staticData.On("XRayTracingMode").Return(intmodel.XRayTracingModePassThrough)
+
+	mocks.eaInvokeRequest.On("TraceId").Return("Root=root1;Parent=parent1;Sampled=1;Lineage=foo:1|bar:65535")
+	mocks.eaInvokeRequest.On("ResolvedInvokeTimeout").Return(time.Millisecond)
+
+	mocks.eaInvokeResponder.On("SendError", mock.Anything, &mocks.staticData).Return()
+	mocks.eaInvokeResponder.On("ErrorPayloadSizeBytes").Return(mocks.errorPayloadSizeBytes)
+	mockMetricsUnfinished(mocks, mock.Anything)
+
+	invokeErr := runInvoke.RunInvokeAndSendResult(mocks.ctx, &mocks.staticData, &mocks.eaInvokeRequest, &mocks.metrics, &mocks.eaInvokeResponder)
+	assert.Error(t, invokeErr)
+
+	checkRunningInvokeMockExpectations(t, mocks)
 }

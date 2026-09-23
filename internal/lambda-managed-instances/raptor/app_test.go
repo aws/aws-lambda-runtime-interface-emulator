@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda-managed-instances/interop"
+	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda-managed-instances/invoke"
 	internalModel "github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda-managed-instances/model"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda-managed-instances/rapid/model"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda-managed-instances/raptor/internal"
@@ -201,12 +202,75 @@ func TestAppInvokeStateValidation(t *testing.T) {
 				require.NoError(t, app.state.SetState(state))
 			}
 
-			err, wasResponseSent := app.Invoke(context.Background(), invokeMsg, invokeMetrics)
+			err, wasResponseSent, invokePending := app.Invoke(context.Background(), invokeMsg, invokeMetrics, nil)
 
 			assert.False(t, wasResponseSent)
+			assert.False(t, invokePending)
 			assert.ErrorAs(t, err, &interop.ClientError{})
 			assert.Equal(t, tc.wantErrorType, err.ErrorType())
 			assert.Equal(t, tc.wantError, err.Unwrap())
+		})
+	}
+}
+
+func TestAppReconnectStateValidation(t *testing.T) {
+	testCases := []struct {
+		name          string
+		states        []internal.Status
+		expectError   bool
+		wantErrorType model.ErrorType
+	}{
+		{
+			name:          "Idle_rejects",
+			states:        []internal.Status{},
+			expectError:   true,
+			wantErrorType: model.ErrorInitIncomplete,
+		},
+		{
+			name:          "Initializing_rejects",
+			states:        []internal.Status{internal.Initializing},
+			expectError:   true,
+			wantErrorType: model.ErrorInitIncomplete,
+		},
+		{
+			name:        "Initialized_allows",
+			states:      []internal.Status{internal.Initializing, internal.Initialized},
+			expectError: false,
+		},
+		{
+			name:        "ShuttingDown_allows",
+			states:      []internal.Status{internal.ShuttingDown},
+			expectError: false,
+		},
+		{
+			name:          "Shutdown_rejects",
+			states:        []internal.Status{internal.ShuttingDown, internal.Shutdown},
+			expectError:   true,
+			wantErrorType: model.ErrorEnvironmentUnhealthy,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			mockRapidCtx, app, _, _, _, _ := setupAppTest(t)
+
+			for _, state := range tc.states {
+				require.NoError(t, app.state.SetState(state))
+			}
+
+			if !tc.expectError {
+				mockRapidCtx.On("HandleReconnect", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+					Return(interop.ReconnectResult{})
+			}
+
+			res := app.Reconnect(context.Background(), "test-invoke", nil, invoke.NoopReconnectMetrics())
+
+			if tc.expectError {
+				assert.ErrorAs(t, res.Err, &interop.ClientError{})
+				assert.Equal(t, tc.wantErrorType, res.Err.ErrorType())
+			} else {
+				assert.NoError(t, res.Err)
+			}
 		})
 	}
 }

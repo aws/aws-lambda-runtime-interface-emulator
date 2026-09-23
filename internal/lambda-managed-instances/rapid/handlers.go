@@ -16,7 +16,6 @@ import (
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda-managed-instances/appctx"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda-managed-instances/core"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda-managed-instances/interop"
-	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda-managed-instances/invoke"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda-managed-instances/logging"
 	internalmodel "github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda-managed-instances/model"
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda-managed-instances/rapi"
@@ -52,7 +51,7 @@ type rapidContext struct {
 	telemetrySubscriptionAPI telemetry.SubscriptionAPI
 	logsEgressAPI            telemetry.StdLogsEgressAPI
 	eventsAPI                interop.EventsAPI
-	invokeRouter             *invoke.InvokeRouter
+	invokeRouter             InvokeRouter
 	initMetrics              interop.InitMetrics
 
 	shutdownContext            *shutdownContext

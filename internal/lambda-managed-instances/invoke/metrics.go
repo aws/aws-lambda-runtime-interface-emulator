@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"strconv"
 	"time"
 
 	"github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda-managed-instances/interop"
@@ -27,6 +28,22 @@ const (
 
 	RequestResponseModeDimension = "RequestMode"
 	ResponseModeDimension        = "ResponseMode"
+	InvokeModeDimension          = "InvokeMode"
+	ResponseDeliveryDimension    = "ResponseDelivery"
+
+	PendingAgeMetric = "PendingAge"
+)
+
+type InvokeMode string
+
+const (
+	InvokeModeLong   InvokeMode = "LongInvoke"
+	InvokeModeNormal InvokeMode = "Invoke"
+)
+
+const (
+	ResponseDeliverySent = "Sent"
+	ResponseDeliveryLost = "Lost"
 
 	RequestSendDurationMetric = "RequestSendDuration"
 
@@ -73,6 +90,13 @@ type invokeMetrics struct {
 	timeSentResponse time.Time
 	timeInvokeDone   time.Time
 
+	responseWaitTime time.Duration
+
+	responseDeliveryLost bool
+	responseDeliverySent bool
+
+	invokeMode string
+
 	responseMetrics *interop.InvokeResponseMetrics
 
 	requestPayloadBytes         int64
@@ -108,8 +132,25 @@ func (e *invokeMetrics) AttachDependencies(initData interop.InitStaticDataProvid
 	e.telemetryEventsAPI = telemetryEventsAPI
 }
 
-func (e *invokeMetrics) TriggerGetRequest() {
+func (e *invokeMetrics) TriggerGetRequest() time.Time {
 	e.timeGetRequest = e.getCurrentTime()
+	return e.timeGetRequest
+}
+
+func (e *invokeMetrics) SetResponseWaitTime(d time.Duration) {
+	e.responseWaitTime = d
+}
+
+func (e *invokeMetrics) SetResponseDeliveryLost() {
+	e.responseDeliveryLost = true
+}
+
+func (e *invokeMetrics) SetResponseDeliverySent() {
+	e.responseDeliverySent = true
+}
+
+func (e *invokeMetrics) SetInvokeMode(mode string) {
+	e.invokeMode = mode
 }
 
 func (e *invokeMetrics) UpdateConcurrencyMetrics(inflightInvokes, idleRuntimesCount int) {
@@ -275,6 +316,13 @@ func (e *invokeMetrics) buildProperties() []servicelogs.Property {
 				Value: e.invokeReq.InvokeID(),
 			},
 		)
+
+		if resolvedMs := e.invokeReq.ResolvedFunctionTimeoutMs(); resolvedMs > 0 {
+			props = append(props, servicelogs.Property{
+				Name:  InvokeTimeoutProperty,
+				Value: strconv.Itoa(int(time.Duration(resolvedMs) * time.Millisecond / time.Second)),
+			})
+		}
 	}
 
 	return props
@@ -290,12 +338,33 @@ func (e *invokeMetrics) buildDimensions() []servicelogs.Dimension {
 				Value: e.invokeReq.ResponseMode(),
 			},
 		)
+
+		invokeMode := InvokeModeNormal
+		if e.invokeMode != "" {
+			invokeMode = InvokeMode(e.invokeMode)
+		}
+		dim = append(dim, servicelogs.Dimension{
+			Name:  InvokeModeDimension,
+			Value: string(invokeMode),
+		})
 	}
 
 	if e.responseMetrics != nil {
 		dim = append(dim, servicelogs.Dimension{
 			Name:  ResponseModeDimension,
 			Value: string(e.responseMetrics.FunctionResponseMode),
+		})
+	}
+
+	if e.responseDeliverySent {
+		dim = append(dim, servicelogs.Dimension{
+			Name:  ResponseDeliveryDimension,
+			Value: ResponseDeliverySent,
+		})
+	} else if e.responseDeliveryLost {
+		dim = append(dim, servicelogs.Dimension{
+			Name:  ResponseDeliveryDimension,
+			Value: ResponseDeliveryLost,
 		})
 	}
 
@@ -308,13 +377,17 @@ func (e *invokeMetrics) buildMetrics() []servicelogs.Metric {
 	if !e.timeSentResponse.IsZero() {
 		runDuration = e.timeSentResponse.Sub(e.timeStartRequest)
 	}
-	platformOverhead := totalDuration - runDuration
+	platformOverhead := totalDuration - runDuration - e.responseWaitTime
 
 	metrics := []servicelogs.Metric{
 		servicelogs.Timer(interop.TotalDurationMetric, totalDuration),
 		servicelogs.Timer(interop.PlatformOverheadDurationMetric, platformOverhead),
 		servicelogs.Counter(InflightRequestCountMetric, float64(e.inflightInvokes)),
 		servicelogs.Counter(IdleRuntimesCountMetric, float64(e.idleRuntimesCount)),
+	}
+
+	if e.responseWaitTime > 0 {
+		metrics = append(metrics, servicelogs.Timer(PendingAgeMetric, e.responseWaitTime))
 	}
 
 	if e.wasReserved {
