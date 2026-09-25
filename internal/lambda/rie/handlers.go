@@ -8,7 +8,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"math"
 	"net/http"
 	"os"
@@ -76,7 +76,7 @@ func printEndReports(invokeId string, initDuration string, memorySize string, in
 
 func InvokeHandler(w http.ResponseWriter, r *http.Request, sandbox Sandbox, bs interop.Bootstrap) {
 	log.Debugf("invoke: -> %s %s %v", r.Method, r.URL, r.Header)
-	bodyBytes, err := ioutil.ReadAll(r.Body)
+	bodyBytes, err := io.ReadAll(r.Body)
 	if err != nil {
 		log.Errorf("Failed to read invoke body: %s", err)
 		w.WriteHeader(500)
