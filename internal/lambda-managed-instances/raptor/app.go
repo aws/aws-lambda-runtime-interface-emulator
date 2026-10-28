@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"net/netip"
 	"sync"
 	"sync/atomic"
@@ -51,7 +52,7 @@ func StartApp(deps rapid.Dependencies, telemetryFDSocketPath, metadataToken stri
 
 	app := &App{
 		rapidCtx:              rapidCtx,
-		invokeRouter:          deps.InvokeRouter,
+		invokeRouter:          deps.InvokeRouter.InnerRouter(),
 		state:                 internal.NewStateGuard(),
 		doneCh:                make(chan struct{}),
 		shutdownStartedCh:     make(chan struct{}),
@@ -106,11 +107,11 @@ func (a *App) Init(ctx context.Context, init *internalModel.InitRequestMessage, 
 	return nil
 }
 
-func (a *App) Invoke(ctx context.Context, invokeMsg interop.InvokeRequest, metrics interop.InvokeMetrics) (err model.AppError, wasResponseSent bool) {
+func (a *App) Invoke(ctx context.Context, invokeMsg interop.InvokeRequest, metrics interop.InvokeMetrics, responseWriter http.ResponseWriter) (err model.AppError, wasResponseSent bool, invokePending bool) {
 	currState := a.state.GetState()
 	switch currState {
 	case internal.Initialized:
-		return a.rapidCtx.HandleInvoke(ctx, invokeMsg, metrics)
+		return a.rapidCtx.HandleInvoke(ctx, invokeMsg, metrics, responseWriter)
 	case internal.Idle, internal.Initializing:
 		logging.Error(ctx, "Sandbox not Initialized", "state", currState)
 		return interop.ClientError{
@@ -119,7 +120,7 @@ func (a *App) Invoke(ctx context.Context, invokeMsg interop.InvokeRequest, metri
 				model.ErrorSeverityError,
 				model.ErrorInitIncomplete,
 			),
-		}, false
+		}, false, false
 	case internal.ShuttingDown, internal.Shutdown:
 		logging.Error(ctx, "Invoke while Sandbox shutting down")
 		return interop.ClientError{
@@ -128,7 +129,28 @@ func (a *App) Invoke(ctx context.Context, invokeMsg interop.InvokeRequest, metri
 				model.ErrorSeverityFatal,
 				model.ErrorEnvironmentUnhealthy,
 			),
-		}, false
+		}, false, false
+	default:
+		panic(fmt.Sprintf("unknown current state: %d", currState))
+	}
+}
+
+func (a *App) Reconnect(ctx context.Context, invokeID interop.InvokeID, responseWriter http.ResponseWriter, reconnectMetrics interop.ReconnectMetrics) interop.ReconnectResult {
+	currState := a.state.GetState()
+	switch currState {
+	case internal.Initialized, internal.ShuttingDown:
+
+		return a.rapidCtx.HandleReconnect(ctx, invokeID, responseWriter, reconnectMetrics)
+	case internal.Idle, internal.Initializing:
+		logging.Error(ctx, "Reconnect: sandbox not initialized", "state", currState)
+		return interop.ReconnectResult{Outcome: interop.ReconnectOutcomeError, Err: interop.ClientError{
+			ClientError: model.NewClientError(ErrNotInitialized, model.ErrorSeverityError, model.ErrorInitIncomplete),
+		}}
+	case internal.Shutdown:
+		logging.Error(ctx, "Reconnect: sandbox already shut down", "state", currState)
+		return interop.ReconnectResult{Outcome: interop.ReconnectOutcomeError, Err: interop.ClientError{
+			ClientError: model.NewClientError(ErrorEnvironmentUnhealthy, model.ErrorSeverityError, model.ErrorEnvironmentUnhealthy),
+		}}
 	default:
 		panic(fmt.Sprintf("unknown current state: %d", currState))
 	}

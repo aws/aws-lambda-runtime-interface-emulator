@@ -5,10 +5,13 @@ package interop
 
 import (
 	context "context"
-	netip "net/netip"
+	http "net/http"
 
 	mock "github.com/stretchr/testify/mock"
+
 	model "github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda-managed-instances/rapid/model"
+
+	netip "net/netip"
 )
 
 type MockRapidContext struct {
@@ -34,8 +37,8 @@ func (_m *MockRapidContext) HandleInit(ctx context.Context, initData InitExecuti
 	return r0
 }
 
-func (_m *MockRapidContext) HandleInvoke(ctx context.Context, invokeRequest InvokeRequest, invokeMetrics InvokeMetrics) (model.AppError, bool) {
-	ret := _m.Called(ctx, invokeRequest, invokeMetrics)
+func (_m *MockRapidContext) HandleInvoke(ctx context.Context, invokeRequest InvokeRequest, invokeMetrics InvokeMetrics, responseWriter http.ResponseWriter) (model.AppError, bool, bool) {
+	ret := _m.Called(ctx, invokeRequest, invokeMetrics, responseWriter)
 
 	if len(ret) == 0 {
 		panic("no return value specified for HandleInvoke")
@@ -43,24 +46,48 @@ func (_m *MockRapidContext) HandleInvoke(ctx context.Context, invokeRequest Invo
 
 	var r0 model.AppError
 	var r1 bool
-	if rf, ok := ret.Get(0).(func(context.Context, InvokeRequest, InvokeMetrics) (model.AppError, bool)); ok {
-		return rf(ctx, invokeRequest, invokeMetrics)
+	var r2 bool
+	if rf, ok := ret.Get(0).(func(context.Context, InvokeRequest, InvokeMetrics, http.ResponseWriter) (model.AppError, bool, bool)); ok {
+		return rf(ctx, invokeRequest, invokeMetrics, responseWriter)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, InvokeRequest, InvokeMetrics) model.AppError); ok {
-		r0 = rf(ctx, invokeRequest, invokeMetrics)
+	if rf, ok := ret.Get(0).(func(context.Context, InvokeRequest, InvokeMetrics, http.ResponseWriter) model.AppError); ok {
+		r0 = rf(ctx, invokeRequest, invokeMetrics, responseWriter)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(model.AppError)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, InvokeRequest, InvokeMetrics) bool); ok {
-		r1 = rf(ctx, invokeRequest, invokeMetrics)
+	if rf, ok := ret.Get(1).(func(context.Context, InvokeRequest, InvokeMetrics, http.ResponseWriter) bool); ok {
+		r1 = rf(ctx, invokeRequest, invokeMetrics, responseWriter)
 	} else {
 		r1 = ret.Get(1).(bool)
 	}
 
-	return r0, r1
+	if rf, ok := ret.Get(2).(func(context.Context, InvokeRequest, InvokeMetrics, http.ResponseWriter) bool); ok {
+		r2 = rf(ctx, invokeRequest, invokeMetrics, responseWriter)
+	} else {
+		r2 = ret.Get(2).(bool)
+	}
+
+	return r0, r1, r2
+}
+
+func (_m *MockRapidContext) HandleReconnect(ctx context.Context, invokeID string, responseWriter http.ResponseWriter, metrics ReconnectMetrics) ReconnectResult {
+	ret := _m.Called(ctx, invokeID, responseWriter, metrics)
+
+	if len(ret) == 0 {
+		panic("no return value specified for HandleReconnect")
+	}
+
+	var r0 ReconnectResult
+	if rf, ok := ret.Get(0).(func(context.Context, string, http.ResponseWriter, ReconnectMetrics) ReconnectResult); ok {
+		r0 = rf(ctx, invokeID, responseWriter, metrics)
+	} else {
+		r0 = ret.Get(0).(ReconnectResult)
+	}
+
+	return r0
 }
 
 func (_m *MockRapidContext) HandleShutdown(shutdownCause model.AppError, metrics ShutdownMetrics) model.AppError {

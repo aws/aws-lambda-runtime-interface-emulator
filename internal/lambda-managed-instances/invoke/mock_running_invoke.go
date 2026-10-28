@@ -20,16 +20,16 @@ func (_m *mockRunningInvoke) CancelAsync(_a0 model.AppError) {
 	_m.Called(_a0)
 }
 
-func (_m *mockRunningInvoke) RunInvokeAndSendResult(_a0 context.Context, _a1 interop.InitStaticDataProvider, _a2 interop.InvokeRequest, _a3 interop.InvokeMetrics) model.AppError {
-	ret := _m.Called(_a0, _a1, _a2, _a3)
+func (_m *mockRunningInvoke) RunInvokeAndSendResult(_a0 context.Context, _a1 interop.InitStaticDataProvider, _a2 interop.InvokeRequest, _a3 interop.InvokeMetrics, _a4 InvokeResponseSender) model.AppError {
+	ret := _m.Called(_a0, _a1, _a2, _a3, _a4)
 
 	if len(ret) == 0 {
 		panic("no return value specified for RunInvokeAndSendResult")
 	}
 
 	var r0 model.AppError
-	if rf, ok := ret.Get(0).(func(context.Context, interop.InitStaticDataProvider, interop.InvokeRequest, interop.InvokeMetrics) model.AppError); ok {
-		r0 = rf(_a0, _a1, _a2, _a3)
+	if rf, ok := ret.Get(0).(func(context.Context, interop.InitStaticDataProvider, interop.InvokeRequest, interop.InvokeMetrics, InvokeResponseSender) model.AppError); ok {
+		r0 = rf(_a0, _a1, _a2, _a3, _a4)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(model.AppError)

@@ -239,6 +239,10 @@ func (i *InitExecutionData) RuntimeVersion() string {
 	return i.StaticData.RuntimeVersion
 }
 
+func (i *InitExecutionData) RuntimeRelease() string {
+	return i.StaticData.RuntimeRelease
+}
+
 func (i *InitExecutionData) AvailabilityZoneId() string {
 	return i.StaticData.AvailabilityZoneId
 }
@@ -263,11 +267,53 @@ type TelemetrySubscriptionConfig struct {
 	APIAddr    netip.AddrPort
 }
 
+type ReconnectOutcome string
+
+const (
+	ReconnectOutcomeCompleted  ReconnectOutcome = "completed"
+	ReconnectOutcomePendingHit ReconnectOutcome = "pending_hit"
+	ReconnectOutcomeTimeout    ReconnectOutcome = "timeout"
+	ReconnectOutcomeNotFound   ReconnectOutcome = "not_found"
+	ReconnectOutcomeDisplaced  ReconnectOutcome = "displaced"
+	ReconnectOutcomeError      ReconnectOutcome = "error"
+)
+
+type ReconnectResult struct {
+	InvokeMetrics InvokeMetrics
+
+	FunctionDoneTime time.Time
+	Outcome          ReconnectOutcome
+	Err              model.AppError
+	WasResponseSent  bool
+}
+
+func (r *ReconnectResult) FinalizeInvokeMetrics() (totalMs time.Duration, runMs *time.Duration, initData InitStaticDataProvider, ok bool) {
+	if r.InvokeMetrics == nil || !r.WasResponseSent {
+		return 0, nil, nil, false
+	}
+	if !r.FunctionDoneTime.IsZero() {
+		r.InvokeMetrics.SetResponseWaitTime(time.Since(r.FunctionDoneTime))
+	}
+	r.InvokeMetrics.SetResponseDeliverySent()
+	totalMs, runMs, initData = r.InvokeMetrics.TriggerInvokeDone()
+	return totalMs, runMs, initData, true
+}
+
+type ReconnectMetrics interface {
+	TriggerConnectionGap(lastDisconnectTime *time.Time)
+	TriggerPollStart()
+	TriggerPollEnd()
+	TriggerResponseReplayStart()
+	TriggerResponseReplayDone(size int)
+	SetFunctionDoneTime(t time.Time)
+}
+
 type RapidContext interface {
 	HandleInit(ctx context.Context, initData InitExecutionData, initMetrics InitMetrics) (err model.AppError)
 
 	HandleShutdown(shutdownCause model.AppError, metrics ShutdownMetrics) model.AppError
-	HandleInvoke(ctx context.Context, invokeRequest InvokeRequest, invokeMetrics InvokeMetrics) (err model.AppError, wasResponseSent bool)
+	HandleInvoke(ctx context.Context, invokeRequest InvokeRequest, invokeMetrics InvokeMetrics, responseWriter http.ResponseWriter) (err model.AppError, wasResponseSent bool, invokePending bool)
+	HandleReconnect(ctx context.Context, invokeID InvokeID, responseWriter http.ResponseWriter, metrics ReconnectMetrics) ReconnectResult
 	RuntimeAPIAddrPort() netip.AddrPort
 
 	ProcessTerminationNotifier() <-chan model.AppError
@@ -294,16 +340,19 @@ type InvokeRequest interface {
 	ResponseMode() string
 
 	BodyReader() io.Reader
-	ResponseWriter() http.ResponseWriter
-
-	SetResponseHeader(string, string)
-	AddResponseHeader(string, string)
-	WriteResponseHeaders(int)
 
 	UpdateFromInitData(InitStaticDataProvider) model.AppError
 	FunctionVersionID() string
+	ResolvedFunctionTimeoutMs() int64
+	ResolvedInvokeTimeout() time.Duration
+	LongPollingConfig() *LongPollingConfig
 
 	InternalInvocationID() string
+}
+
+type LongPollingConfig struct {
+	ConnectionHoldTimeoutMs int64
+	ResponseHoldTimeoutMs   int64
 }
 
 type InitStaticDataProvider interface {
@@ -319,11 +368,12 @@ type InitStaticDataProvider interface {
 	ArtefactType() intmodel.ArtefactType
 	AmiId() string
 	RuntimeVersion() string
+	RuntimeRelease() string
 	AvailabilityZoneId() string
 }
 
 type InvokeMetrics interface {
-	TriggerGetRequest()
+	TriggerGetRequest() time.Time
 	AttachInvokeRequest(InvokeRequest)
 	AttachDependencies(InitStaticDataProvider, EventsAPI)
 	UpdateConcurrencyMetrics(inflightInvokes, idleRuntimesCount int)
@@ -335,6 +385,10 @@ type InvokeMetrics interface {
 	TriggerInvokeDone() (totalMs time.Duration, runMs *time.Duration, initData InitStaticDataProvider)
 
 	SetReservationUsed(wasReserved bool)
+	SetResponseWaitTime(d time.Duration)
+	SetResponseDeliveryLost()
+	SetResponseDeliverySent()
+	SetInvokeMode(mode string)
 
 	SendInvokeStartEvent(*TracingCtx) error
 	SendInvokeFinishedEvent(tracingCtx *TracingCtx, xrayErrorCause json.RawMessage) error

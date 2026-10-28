@@ -53,11 +53,11 @@ func TestStartNewServer_TCP(t *testing.T) {
 
 	server, err := StartServer(mockShutdownHandler, handler, &TCPAddress{
 		eaAPIAddrPort,
-	}, false)
+	}, true)
 	require.NoError(t, err)
 	assert.Equal(t, eaAPIAddrPort, server.Addr.(*TCPAddress).AddrPort)
 
-	_, err = http.Get("http://" + server.Addr.String())
+	_, err = testutils.NewH2CClient().Get("http://" + server.Addr.String())
 	require.NoError(t, err)
 }
 
@@ -80,7 +80,7 @@ func TestStartNewServe_TCP_ListenError(t *testing.T) {
 	mockShutdownHandler := newMockShutdownHandler(t)
 	handler := mocks.NewNoOpHandler()
 
-	_, err := StartServer(mockShutdownHandler, handler, &TCPAddress{eaAPIAddrPort}, false)
+	_, err := StartServer(mockShutdownHandler, handler, &TCPAddress{eaAPIAddrPort}, true)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "1.1.1.1:49275")
 }
