@@ -22,6 +22,7 @@ const (
 
 	ErrorInvalidConnectionHoldTimeout ErrorType = "ErrInvalidConnectionHoldTimeout"
 	ErrorInvalidResponseHoldTimeout   ErrorType = "ErrInvalidResponseHoldTimeout"
+	ErrorIncompleteLongPollingConfig  ErrorType = "ErrIncompleteLongPollingConfig"
 )
 
 type ClientError struct {

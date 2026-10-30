@@ -74,12 +74,41 @@ func (_m *MockInvokeMetrics) SendMetrics(_a0 model.AppError) error {
 	return r0
 }
 
+func (_m *MockInvokeMetrics) SetInvokeMode(mode string) {
+	_m.Called(mode)
+}
+
 func (_m *MockInvokeMetrics) SetReservationUsed(wasReserved bool) {
 	_m.Called(wasReserved)
 }
 
-func (_m *MockInvokeMetrics) TriggerGetRequest() {
+func (_m *MockInvokeMetrics) SetResponseDeliveryLost() {
 	_m.Called()
+}
+
+func (_m *MockInvokeMetrics) SetResponseDeliverySent() {
+	_m.Called()
+}
+
+func (_m *MockInvokeMetrics) SetResponseWaitTime(d time.Duration) {
+	_m.Called(d)
+}
+
+func (_m *MockInvokeMetrics) TriggerGetRequest() time.Time {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for TriggerGetRequest")
+	}
+
+	var r0 time.Time
+	if rf, ok := ret.Get(0).(func() time.Time); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(time.Time)
+	}
+
+	return r0
 }
 
 func (_m *MockInvokeMetrics) TriggerGetResponse() {

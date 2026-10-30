@@ -33,6 +33,10 @@ func (_m *MockRuntimeResponseRequest) BodyReader() io.Reader {
 	return r0
 }
 
+func (_m *MockRuntimeResponseRequest) Cancel() {
+	_m.Called()
+}
+
 func (_m *MockRuntimeResponseRequest) ContentType() string {
 	ret := _m.Called()
 
@@ -45,6 +49,25 @@ func (_m *MockRuntimeResponseRequest) ContentType() string {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(string)
+	}
+
+	return r0
+}
+
+func (_m *MockRuntimeResponseRequest) InvocationID() *string {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for InvocationID")
+	}
+
+	var r0 *string
+	if rf, ok := ret.Get(0).(func() *string); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*string)
+		}
 	}
 
 	return r0
@@ -117,23 +140,6 @@ func (_m *MockRuntimeResponseRequest) TrailerError() ErrorForInvoker {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(ErrorForInvoker)
 		}
-	}
-
-	return r0
-}
-
-func (_m *MockRuntimeResponseRequest) InvocationID() string {
-	ret := _m.Called()
-
-	if len(ret) == 0 {
-		panic("no return value specified for InvocationID")
-	}
-
-	var r0 string
-	if rf, ok := ret.Get(0).(func() string); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(string)
 	}
 
 	return r0

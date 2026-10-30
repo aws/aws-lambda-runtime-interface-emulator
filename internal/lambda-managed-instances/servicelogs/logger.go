@@ -16,10 +16,12 @@ type Logger interface {
 type Operation string
 
 const (
-	InitOp     Operation = "Init"
-	InvokeOp   Operation = "Invoke"
-	ShutdownOp Operation = "Shutdown"
-	ReserveOp  Operation = "Reserve"
+	InitOp          Operation = "Init"
+	InvokeOp        Operation = "Invoke"
+	ShutdownOp      Operation = "Shutdown"
+	ReserveOp       Operation = "Reserve"
+	ReconnectOp     Operation = "Reconnect"
+	InvokePendingOp Operation = "InvokePending"
 )
 
 type Tuple struct {

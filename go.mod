@@ -5,7 +5,7 @@ go 1.26.6
 require (
 	github.com/aws/aws-lambda-go v1.46.0
 	github.com/go-chi/chi v1.5.5
-	github.com/go-chi/chi/v5 v5.2.2
+	github.com/go-chi/chi/v5 v5.4.0
 	github.com/google/uuid v1.6.0
 	github.com/jessevdk/go-flags v1.5.0
 	github.com/orcaman/concurrent-map v1.0.0

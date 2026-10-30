@@ -25,6 +25,7 @@ Lambda’s orchestrator, or security and authentication configurations. You can 
     * [To test an image without adding RIE to the image](#to-test-an-image-without-adding-rie-to-the-image)
 * [How to configure](#how-to-configure)
 * [Level of support](#level-of-support)
+* [Contributing](#contributing)
 * [Security](#security)
 * [License](#license)
 
@@ -186,6 +187,18 @@ configurations that will not be emulated by this component.
 * This component does _not_ emulate Lambda’s orchestration, or security and authentication configurations.
 * The component does _not_ support X-ray and other Lambda integrations locally.
 * The component supports only Linux, for x86-64 and arm64 architectures.
+
+## Contributing
+
+We welcome feature requests and bug reports through the GitHub issue tracker, and they are the most effective way to
+reach us.
+
+This repository is generated from an internal AWS source of truth, so we are unable to merge pull requests into it
+directly. You are still welcome to open one: we read them, and a working patch is often the clearest way to explain a
+proposal. It is treated as a reference rather than something we merge, and if we adopt your solution we make the change
+in the internal repository and credit you in the release notes for the version that ships it.
+
+See [CONTRIBUTING](CONTRIBUTING.md) for details.
 
 ## Security
 

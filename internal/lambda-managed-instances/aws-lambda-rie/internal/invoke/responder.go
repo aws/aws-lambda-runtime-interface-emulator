@@ -16,15 +16,15 @@ import (
 )
 
 type Responder struct {
-	invokeReq interop.InvokeRequest
-	body      []byte
-	rw        http.ResponseWriter
+	invokeReq      interop.InvokeRequest
+	body           []byte
+	responseWriter http.ResponseWriter
 }
 
-func NewResponder(invokeReq interop.InvokeRequest) *Responder {
+func NewResponder(invokeReq interop.InvokeRequest, responseWriter http.ResponseWriter) *Responder {
 	return &Responder{
-		invokeReq: invokeReq,
-		rw:        invokeReq.ResponseWriter(),
+		invokeReq:      invokeReq,
+		responseWriter: responseWriter,
 	}
 }
 
@@ -60,9 +60,9 @@ func (s *Responder) SendRuntimeResponseTrailers(request invoke.RuntimeResponseRe
 		s.SendErrorTrailers(trailerError, "")
 		return
 	}
-	s.rw.Header().Set(invoke.СontentTypeHeader, request.ContentType())
-	s.rw.Header().Set(invoke.RuntimeResponseModeHeader, request.ResponseMode())
-	if _, err := s.rw.Write(s.body); err != nil {
+	s.responseWriter.Header().Set(invoke.СontentTypeHeader, request.ContentType())
+	s.responseWriter.Header().Set(invoke.RuntimeResponseModeHeader, request.ResponseMode())
+	if _, err := s.responseWriter.Write(s.body); err != nil {
 		slog.Error("could not write invoke response", "err", err)
 	}
 }
@@ -72,10 +72,10 @@ func (s *Responder) SendError(err invoke.ErrorForInvoker, _ interop.InitStaticDa
 }
 
 func (s *Responder) SendErrorTrailers(err invoke.ErrorForInvoker, _ invoke.InvokeBodyResponseStatus) {
-	s.rw.Header().Set("Error-Type", err.ErrorType().String())
+	s.responseWriter.Header().Set("Error-Type", err.ErrorType().String())
 
-	s.rw.WriteHeader(err.ReturnCode())
-	if _, err := s.rw.Write([]byte(err.ErrorDetails())); err != nil {
+	s.responseWriter.WriteHeader(err.ReturnCode())
+	if _, err := s.responseWriter.Write([]byte(err.ErrorDetails())); err != nil {
 		slog.Error("could not write invoke error response", "err", err)
 	}
 }

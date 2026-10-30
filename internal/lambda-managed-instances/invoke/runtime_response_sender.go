@@ -36,11 +36,11 @@ func sendInvokeToRuntime(ctx context.Context, initData interop.InitStaticDataPro
 	if traceId != "" {
 		runtimeReq.Header().Set(RuntimeTraceIdHeader, traceId)
 	}
-	if cc := invokeReq.ClientContext(); cc != "" {
-		runtimeReq.Header().Set(RuntimeClientContextHeader, cc)
+	if clientCtx := invokeReq.ClientContext(); clientCtx != "" {
+		runtimeReq.Header().Set(RuntimeClientContextHeader, clientCtx)
 	}
-	if cogId := buildCognitoIdentifyHeader(invokeReq); cogId != "" {
-		runtimeReq.Header().Set(RuntimeCognitoIdentifyHeader, cogId)
+	if cognitoId := buildCognitoIdentifyHeader(invokeReq); cognitoId != "" {
+		runtimeReq.Header().Set(RuntimeCognitoIdentifyHeader, cognitoId)
 	}
 	if internalInvocationID := invokeReq.InternalInvocationID(); internalInvocationID != "" {
 		runtimeReq.Header().Set(RuntimeInvocationIdHeader, internalInvocationID)
@@ -69,7 +69,7 @@ func sendInvokeToRuntime(ctx context.Context, initData interop.InitStaticDataPro
 	select {
 	case <-ctx.Done():
 
-		return 0, 0, 0, BuildInvokeAppError(context.Cause(ctx), initData.FunctionTimeout())
+		return 0, 0, 0, BuildInvokeAppError(context.Cause(ctx), invokeReq.ResolvedInvokeTimeout())
 	case err := <-resChan:
 		if err != nil {
 			return 0, timedWriter.TotalDuration, timedWriter.TotalDuration, model.NewCustomerError(model.ErrorRuntimeUnknown, model.WithCause(err))
