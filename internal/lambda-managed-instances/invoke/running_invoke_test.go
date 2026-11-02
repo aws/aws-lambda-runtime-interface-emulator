@@ -98,7 +98,7 @@ func mockMetricsBeforeResponse(mocks *runningInvokeMocks) {
 	mocks.metrics.On("TriggerStartRequest")
 	mocks.metrics.On("SendInvokeStartEvent", mock.AnythingOfType("*interop.TracingCtx")).Return(nil)
 	mocks.metrics.On("TriggerSentRequest", mock.AnythingOfType("int64"), mock.AnythingOfType("time.Duration"), mock.AnythingOfType("time.Duration")).Return()
-	mocks.metrics.On("SendInvokeFinishedEvent", mock.AnythingOfType("*interop.TracingCtx"), mock.AnythingOfType("json.RawMessage")).Return(nil)
+	mocks.metrics.On("SendInvokeFinishedEvent", mock.AnythingOfType("*interop.TracingCtx"), mock.IsType(json.RawMessage{})).Return(nil)
 }
 
 func checkRunningInvokeMockExpectations(t *testing.T, mocks *runningInvokeMocks) {
@@ -250,7 +250,7 @@ func TestRuntimeErrorFailure_SendInvokeToRuntime_Error(t *testing.T) {
 	mocks.metrics.On("TriggerStartRequest")
 	mocks.metrics.On("SendInvokeStartEvent", mock.AnythingOfType("*interop.TracingCtx")).Return(nil)
 	mocks.metrics.On("TriggerSentResponse", false, err, mock.Anything, 0).Return()
-	mocks.metrics.On("SendInvokeFinishedEvent", mock.AnythingOfType("*interop.TracingCtx"), mock.AnythingOfType("json.RawMessage")).Return(nil)
+	mocks.metrics.On("SendInvokeFinishedEvent", mock.AnythingOfType("*interop.TracingCtx"), mock.IsType(json.RawMessage{})).Return(nil)
 
 	invokeErr := runInvoke.RunInvokeAndSendResult(mocks.ctx, &mocks.staticData, &mocks.eaInvokeRequest, &mocks.metrics, &mocks.eaInvokeResponder)
 	assert.Error(t, invokeErr)
@@ -282,7 +282,7 @@ func TestRuntimeErrorFailure_SendInvokeToRuntime_Timeout(t *testing.T) {
 	mocks.metrics.On("TriggerStartRequest")
 	mocks.metrics.On("SendInvokeStartEvent", mock.AnythingOfType("*interop.TracingCtx")).Return(nil)
 	mocks.metrics.On("TriggerSentResponse", false, err, mock.Anything, 0).Return()
-	mocks.metrics.On("SendInvokeFinishedEvent", mock.AnythingOfType("*interop.TracingCtx"), mock.AnythingOfType("json.RawMessage")).Return(nil)
+	mocks.metrics.On("SendInvokeFinishedEvent", mock.AnythingOfType("*interop.TracingCtx"), mock.IsType(json.RawMessage{})).Return(nil)
 
 	invokeErr := runInvoke.RunInvokeAndSendResult(mocks.ctx, &mocks.staticData, &mocks.eaInvokeRequest, &mocks.metrics, &mocks.eaInvokeResponder)
 	assert.Error(t, invokeErr)
