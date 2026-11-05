@@ -24,6 +24,8 @@ import (
 	"github.com/google/uuid"
 
 	log "github.com/sirupsen/logrus"
+
+	standalonetelemetry "github.com/aws/aws-lambda-runtime-interface-emulator/internal/lambda/rapidcore/standalone/telemetry"
 )
 
 type Sandbox interface {
@@ -46,6 +48,16 @@ type InteropServer interface {
 
 var initDone bool
 
+// telemetryEvents, when set, receives the end-of-invoke events. The emulator
+// prints END and REPORT but has never reported them as telemetry, so extensions
+// that measure billed duration or memory had nothing to read.
+var telemetryEvents *TelemetrySubscriptionService
+
+// SetTelemetryEvents attaches the service that end-of-invoke events are reported to.
+func SetTelemetryEvents(service *TelemetrySubscriptionService) {
+	telemetryEvents = service
+}
+
 func GetenvWithDefault(key string, defaultValue string) string {
 	envValue := os.Getenv(key)
 
@@ -56,12 +68,54 @@ func GetenvWithDefault(key string, defaultValue string) string {
 	return envValue
 }
 
-func printEndReports(invokeId string, initDuration string, memorySize string, invokeStart time.Time, timeoutDuration time.Duration) {
+// reportRecord builds the platform.report record. The metrics are numbers, as the
+// Telemetry API defines them: a consumer decoding into a typed struct rejects the
+// strings these values arrive as.
+func reportRecord(invokeId string, status string, invokeDuration float64, memorySize string, initDurationMs float64) map[string]interface{} {
+	// The emulator cannot measure memory actually used, so it reports the
+	// configured size for both, as the printed REPORT line does.
+	memorySizeMB, err := strconv.Atoi(memorySize)
+	if err != nil {
+		log.Warnf("AWS_LAMBDA_FUNCTION_MEMORY_SIZE is %q, which is not a number", memorySize)
+	}
+
+	metrics := map[string]interface{}{
+		"durationMs":       invokeDuration,
+		"billedDurationMs": math.Ceil(invokeDuration),
+		"memorySizeMB":     memorySizeMB,
+		"maxMemoryUsedMB":  memorySizeMB,
+	}
+	// Present only on the report for an invocation that initialized the
+	// environment, as it is in telemetry from a real function.
+	if initDurationMs > 0 {
+		metrics["initDurationMs"] = initDurationMs
+	}
+
+	return map[string]interface{}{
+		"requestId": invokeId,
+		"status":    status,
+		"metrics":   metrics,
+	}
+}
+
+// printEndReports reports the end of an invocation. status is what the Telemetry
+// API calls it: "success", or "timeout" when the invocation ran out of time.
+func printEndReports(invokeId string, initDuration string, memorySize string, invokeStart time.Time, timeoutDuration time.Duration, status string, initDurationMs float64) {
 	// Calcuation invoke duration
 	invokeDuration := math.Min(float64(time.Now().Sub(invokeStart).Nanoseconds()),
 		float64(timeoutDuration.Nanoseconds())) / float64(time.Millisecond)
 
 	fmt.Println("END RequestId: " + invokeId)
+
+	if telemetryEvents != nil {
+		// platform.end is deliberately not emitted: it is absent from telemetry
+		// captured off a real function under the current schema version.
+		telemetryEvents.Dispatch(standalonetelemetry.SandboxEvent{
+			Time:          time.Now().Format(time.RFC3339),
+			Type:          "platform.report",
+			PlatformEvent: reportRecord(invokeId, status, invokeDuration, memorySize, initDurationMs),
+		})
+	}
 	// We set the Max Memory Used and Memory Size to be the same (whatever it is set to) since there is
 	// not a clean way to get this information from rapidcore
 	fmt.Printf(
@@ -91,6 +145,7 @@ func InvokeHandler(w http.ResponseWriter, r *http.Request, sandbox Sandbox, bs i
 	}
 
 	initDuration := ""
+	initDurationMs := float64(0)
 	inv := GetenvWithDefault("AWS_LAMBDA_FUNCTION_TIMEOUT", "300")
 	timeoutDuration, _ := time.ParseDuration(inv + "s")
 	// Default
@@ -111,6 +166,7 @@ func InvokeHandler(w http.ResponseWriter, r *http.Request, sandbox Sandbox, bs i
 			float64(timeoutDuration.Nanoseconds())) / float64(time.Millisecond)
 
 		initDuration = fmt.Sprintf("Init Duration: %.2f ms\t", initTimeMS)
+		initDurationMs = initTimeMS
 
 		// Set initDone so next invokes do not try to Init the function again
 		initDone = true
@@ -197,7 +253,7 @@ func InvokeHandler(w http.ResponseWriter, r *http.Request, sandbox Sandbox, bs i
 			w.WriteHeader(http.StatusGatewayTimeout)
 			return
 		case rapidcore.ErrInvokeTimeout:
-			printEndReports(invokePayload.ID, initDuration, memorySize, invokeStart, timeoutDuration)
+			printEndReports(invokePayload.ID, initDuration, memorySize, invokeStart, timeoutDuration, "timeout", initDurationMs)
 
 			w.Write([]byte(fmt.Sprintf("Task timed out after %d.00 seconds", timeout)))
 			time.Sleep(100 * time.Millisecond)
@@ -206,7 +262,7 @@ func InvokeHandler(w http.ResponseWriter, r *http.Request, sandbox Sandbox, bs i
 		}
 	}
 
-	printEndReports(invokePayload.ID, initDuration, memorySize, invokeStart, timeoutDuration)
+	printEndReports(invokePayload.ID, initDuration, memorySize, invokeStart, timeoutDuration, "success", initDurationMs)
 
 	if invokeResp.StatusCode != 0 {
 		w.WriteHeader(invokeResp.StatusCode)
