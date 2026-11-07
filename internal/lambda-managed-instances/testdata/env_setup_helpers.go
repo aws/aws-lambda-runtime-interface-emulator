@@ -6,7 +6,6 @@ package testdata
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	"os/exec"
@@ -30,7 +29,7 @@ func CreateTestSocketPair(t *testing.T) (fd [2]int) {
 }
 
 func CreateTestLogFile(t *testing.T) *os.File {
-	file, err := ioutil.TempFile(os.TempDir(), "rapid-unit-tests")
+	file, err := os.CreateTemp(os.TempDir(), "rapid-unit-tests")
 	assert.NoError(t, err, "error opening tmp log file for test")
 	return file
 }
