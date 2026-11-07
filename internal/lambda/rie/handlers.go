@@ -151,8 +151,12 @@ func InvokeHandler(w http.ResponseWriter, r *http.Request, sandbox Sandbox, bs i
 	}
 	fmt.Println("START RequestId: " + invokePayload.ID + " Version: " + functionVersion)
 
-	// If we write to 'w' directly and waitUntilRelease fails, we won't be able to propagate error anymore
-	invokeResp := &ResponseWriterProxy{}
+	// We forward writes to 'w' through the proxy so that response chunks
+	// produced by the runtime (Lambda response streaming / SSE) are flushed
+	// to the caller as soon as they arrive. The proxy still keeps a copy of
+	// the body it has not committed yet so that error code paths below can
+	// emit a synthetic error response when streaming has not started.
+	invokeResp := &ResponseWriterProxy{Underlying: w}
 	if err := sandbox.Invoke(invokeResp, invokePayload); err != nil {
 		switch err {
 
@@ -165,6 +169,11 @@ func InvokeHandler(w http.ResponseWriter, r *http.Request, sandbox Sandbox, bs i
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		case rapidcore.ErrInitDoneFailed:
+			if invokeResp.Started {
+				// Streaming response was already partially emitted; the
+				// connection is the only signal we can give the caller now.
+				return
+			}
 			w.WriteHeader(http.StatusBadGateway)
 			w.Write(invokeResp.Body)
 			return
@@ -188,6 +197,9 @@ func InvokeHandler(w http.ResponseWriter, r *http.Request, sandbox Sandbox, bs i
 			return
 		// AwaitRelease errors:
 		case rapidcore.ErrInvokeDoneFailed:
+			if invokeResp.Started {
+				return
+			}
 			w.WriteHeader(http.StatusBadGateway)
 			w.Write(invokeResp.Body)
 			return
@@ -207,6 +219,13 @@ func InvokeHandler(w http.ResponseWriter, r *http.Request, sandbox Sandbox, bs i
 	}
 
 	printEndReports(invokePayload.ID, initDuration, memorySize, invokeStart, timeoutDuration)
+
+	// If streaming has already started, the runtime's /response body has
+	// been forwarded chunk-by-chunk to the caller through invokeResp; do
+	// not attempt to (re)write headers/status nor double-emit the body.
+	if invokeResp.Started {
+		return
+	}
 
 	if invokeResp.StatusCode != 0 {
 		w.WriteHeader(invokeResp.StatusCode)
